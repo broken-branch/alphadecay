@@ -1,0 +1,12 @@
+# Public-facing prose included in the sanitized release.
+.env.example
+README.md
+index.html
+backend/app/contracts/v1/openapi_copy.py
+docs/public/*.md
+frontend/src/content/public-copy.json
+fixtures/replay/*.json
+submission/architecture.svg
+submission/cover.svg
+submission/one-page-architecture.svg
+submission/one-page-sponsor-writeup.md

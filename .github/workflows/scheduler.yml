@@ -1,0 +1,36 @@
+name: Scheduler wake
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      approved_rehearsal:
+        description: Run one approved paper scheduler rehearsal
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alphadecay-scheduler
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    if: ${{ (github.event_name == 'schedule' && vars.ALPHADECAY_SCHEDULER_ENABLED == 'true') || (github.event_name == 'workflow_dispatch' && inputs.approved_rehearsal == true) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Wake one selector-free agent tick
+        run: python3 ops/deploy/scheduler_tick.py
+        env:
+          ALPHADECAY_SCHEDULER_URL: ${{ secrets.ALPHADECAY_SCHEDULER_URL }}
+          ALPHADECAY_SCHEDULER_TOKEN: ${{ secrets.ALPHADECAY_SCHEDULER_TOKEN }}

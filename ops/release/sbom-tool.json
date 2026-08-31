@@ -1,0 +1,38 @@
+{
+  "format": "spdx-json",
+  "base_image": "python:3.12.13-slim-bookworm@sha256:6e13e65c55e33adf203d77ee371cf8bf5d81bd4902ef07565721f46bf44917af",
+  "uv_image": "ghcr.io/astral-sh/uv:0.12.3@sha256:dfd1e6972e100ca2fbf1f391effc3dd4aa57f319bf03c3e321e0a3f3341ed5af",
+  "interpreter": {
+    "implementation": "CPython",
+    "version": "3.12.13",
+    "path": "/usr/local/bin/python3.12",
+    "site_packages": "/app/.venv/lib/python3.12/site-packages",
+    "sha256_source": "base-image"
+  },
+  "invocation_template": [
+    "/usr/local/bin/python3.12",
+    "-I",
+    "-S",
+    "artifacts/tools/release-evidence",
+    "scan",
+    "oci-manifest:{manifest_digest}",
+    "--source",
+    ".",
+    "--export",
+    "public-export",
+    "--artifacts",
+    "artifacts",
+    "--layout",
+    "image",
+    "--output",
+    "spdx-json=reports/final-image.sbom.json"
+  ],
+  "name": "alphadecay-release-evidence",
+  "modules": [
+    "ops/release/generate_release_evidence.py",
+    "ops/release/license_provenance.py"
+  ],
+  "path": "tools/release-evidence",
+  "sha256": "b6ca3b97b769ad5e9d27b1a2bc5c896438a2def50be3a8270adbc0ff63788955",
+  "version": "1.0.0"
+}

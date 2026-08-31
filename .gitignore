@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+*.kate-swp
+*.swp
+.artifacts/
+.private/
+__pycache__/
+*.py[cod]
+.venv/
+node_modules/
+dist/
+output/
+.playwright-cli/

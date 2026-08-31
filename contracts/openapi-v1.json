@@ -1,0 +1,3371 @@
+{
+  "components": {
+    "schemas": {
+      "AccountRole": {
+        "enum": [
+          "SUBMISSION",
+          "DEVELOPMENT",
+          "REPLAY"
+        ],
+        "title": "AccountRole",
+        "type": "string"
+      },
+      "Action": {
+        "enum": [
+          "HOLD",
+          "CLOSE",
+          "ROLL",
+          "NO_ACTION"
+        ],
+        "title": "Action",
+        "type": "string"
+      },
+      "Alternative": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/Action"
+          },
+          "eligible": {
+            "title": "Eligible",
+            "type": "boolean"
+          },
+          "expected_exposure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GreekExposure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rationale_code": {
+            "title": "Rationale Code",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "eligible",
+          "rationale_code"
+        ],
+        "title": "Alternative",
+        "type": "object"
+      },
+      "AssessmentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/Action"
+          },
+          "actual_exposure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GreekExposure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "alternatives": {
+            "items": {
+              "$ref": "#/components/schemas/Alternative"
+            },
+            "minItems": 3,
+            "title": "Alternatives",
+            "type": "array"
+          },
+          "assessment_id": {
+            "format": "uuid",
+            "title": "Assessment Id",
+            "type": "string"
+          },
+          "components": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DriftComponents"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "drift_score": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drift Score"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceClassification"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "evidence_state": {
+            "$ref": "#/components/schemas/EvidenceState"
+          },
+          "execution_decision": {
+            "$ref": "#/components/schemas/ExecutionDecision"
+          },
+          "policy_hash": {
+            "title": "Policy Hash",
+            "type": "string"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/DataQuality"
+          },
+          "rationale_code": {
+            "title": "Rationale Code",
+            "type": "string"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "thesis_status": {
+            "$ref": "#/components/schemas/ThesisStatus"
+          }
+        },
+        "required": [
+          "assessment_id",
+          "run_id",
+          "action",
+          "rationale_code",
+          "quality",
+          "thesis_status",
+          "evidence_state",
+          "execution_decision",
+          "actual_exposure",
+          "drift_score",
+          "components",
+          "alternatives",
+          "evidence",
+          "policy_hash"
+        ],
+        "title": "AssessmentResponse",
+        "type": "object"
+      },
+      "AutonomyStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "account_enabled": {
+            "title": "Account Enabled",
+            "type": "boolean"
+          },
+          "effective": {
+            "title": "Effective",
+            "type": "boolean"
+          },
+          "role": {
+            "$ref": "#/components/schemas/AccountRole"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "server_enabled": {
+            "title": "Server Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "role",
+          "server_enabled",
+          "account_enabled",
+          "effective"
+        ],
+        "title": "AutonomyStatusResponse",
+        "type": "object"
+      },
+      "BaselineStatus": {
+        "enum": [
+          "BASELINE_NOT_CAPTURED",
+          "BASELINE_UNKNOWN",
+          "BASELINE_CLEAN",
+          "BASELINE_CONTAMINATED"
+        ],
+        "title": "BaselineStatus",
+        "type": "string"
+      },
+      "CertificateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "account_role": {
+            "$ref": "#/components/schemas/AccountRole"
+          },
+          "actual_after_exposure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GreekExposure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "assessment": {
+            "$ref": "#/components/schemas/AssessmentResponse"
+          },
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/ExecutionAttempt"
+            },
+            "title": "Attempts",
+            "type": "array"
+          },
+          "certificate_id": {
+            "format": "uuid",
+            "title": "Certificate Id",
+            "type": "string"
+          },
+          "execution_state": {
+            "title": "Execution State",
+            "type": "string"
+          },
+          "expected_after_exposure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GreekExposure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lineage_hash": {
+            "title": "Lineage Hash",
+            "type": "string"
+          },
+          "published": {
+            "default": false,
+            "title": "Published",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "thesis": {
+            "$ref": "#/components/schemas/ThesisResponse"
+          }
+        },
+        "required": [
+          "certificate_id",
+          "account_role",
+          "thesis",
+          "assessment",
+          "expected_after_exposure",
+          "actual_after_exposure",
+          "attempts",
+          "execution_state",
+          "lineage_hash"
+        ],
+        "title": "CertificateResponse",
+        "type": "object"
+      },
+      "CompetitionAssessmentEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "HOLD",
+              "CLOSE",
+              "ROLL",
+              "NO_ACTION"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "event_kind": {
+            "const": "ASSESSMENT",
+            "title": "Event Kind",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "reason_category": {
+            "enum": [
+              "POSITION_REVIEWED",
+              "RISK_REDUCTION",
+              "THESIS_CHANGED",
+              "POSITION_ADJUSTMENT",
+              "DATA_INCOMPLETE"
+            ],
+            "title": "Reason Category",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_kind",
+          "action",
+          "occurred_at",
+          "reason_category"
+        ],
+        "title": "CompetitionAssessmentEvent",
+        "type": "object"
+      },
+      "CompetitionExecutionEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "ENTRY",
+              "ROLL",
+              "CLOSE"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "cashflow_usd": {
+            "description": "Signed whole-position cash flow in US dollars; debits are negative and credits are positive.",
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,9})?$",
+            "title": "Cashflow Usd",
+            "type": "string"
+          },
+          "event_kind": {
+            "const": "EXECUTION",
+            "title": "Event Kind",
+            "type": "string"
+          },
+          "execution_status": {
+            "const": "FILLED",
+            "description": "Product-normalized terminal state after broker reconciliation; not a raw Alpaca order status.",
+            "title": "Execution Status",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "reason_category": {
+            "enum": [
+              "POSITION_OPENED",
+              "POSITION_ROLLED",
+              "POSITION_CLOSED"
+            ],
+            "title": "Reason Category",
+            "type": "string"
+          },
+          "resulting_state": {
+            "enum": [
+              "OPEN",
+              "CLOSED"
+            ],
+            "title": "Resulting State",
+            "type": "string"
+          },
+          "spread_after": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompetitionSpreadProjection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event_kind",
+          "action",
+          "occurred_at",
+          "reason_category",
+          "cashflow_usd",
+          "execution_status",
+          "resulting_state",
+          "spread_after"
+        ],
+        "title": "CompetitionExecutionEvent",
+        "type": "object"
+      },
+      "CompetitionExposureProjection": {
+        "additionalProperties": false,
+        "properties": {
+          "delta": {
+            "anyOf": [
+              {
+                "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,9})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Position delta in equivalent shares of the underlying.",
+            "title": "Delta"
+          },
+          "gamma": {
+            "anyOf": [
+              {
+                "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,9})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Change in position delta for a $1 move in the underlying.",
+            "title": "Gamma"
+          },
+          "theta_per_day": {
+            "anyOf": [
+              {
+                "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,9})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Estimated position value change in US dollars for one calendar day.",
+            "title": "Theta Per Day"
+          },
+          "vega_per_iv_point": {
+            "anyOf": [
+              {
+                "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,9})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Estimated position value change in US dollars for a one percentage-point change in implied volatility.",
+            "title": "Vega Per Iv Point"
+          }
+        },
+        "title": "CompetitionExposureProjection",
+        "type": "object"
+      },
+      "CompetitionNoTradeProjection": {
+        "additionalProperties": false,
+        "properties": {
+          "decided_at": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Decided At",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "paper_trading": {
+            "const": true,
+            "title": "Paper Trading",
+            "type": "boolean"
+          },
+          "public_record_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Public Record Id",
+            "type": "string"
+          },
+          "reason_category": {
+            "const": "STRATEGY_NOT_READY",
+            "title": "Reason Category",
+            "type": "string"
+          },
+          "record_kind": {
+            "const": "NO_TRADE",
+            "title": "Record Kind",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "const": "NO_TRADE",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "record_kind",
+          "public_record_id",
+          "status",
+          "reason_category",
+          "decided_at",
+          "observed_at",
+          "paper_trading"
+        ],
+        "title": "CompetitionNoTradeProjection",
+        "type": "object"
+      },
+      "CompetitionPerformanceProofResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BaselineStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "linked_certificate_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Linked Certificate Ids",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "point": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PerformancePoint"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "predecessor_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predecessor Hash"
+          },
+          "publication_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publication Hash"
+          },
+          "publication_status": {
+            "enum": [
+              "NOT_PUBLISHED",
+              "PUBLISHED"
+            ],
+            "title": "Publication Status",
+            "type": "string"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "publication_status",
+          "baseline_status",
+          "published_at",
+          "point",
+          "linked_certificate_ids",
+          "publication_hash",
+          "predecessor_hash"
+        ],
+        "title": "CompetitionPerformanceProofResponse",
+        "type": "object"
+      },
+      "CompetitionPositionProjection": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "As Of",
+            "type": "string"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "current_exposure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompetitionExposureProjection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "current_spread": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompetitionSpreadProjection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "events": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "ASSESSMENT": "#/components/schemas/CompetitionAssessmentEvent",
+                  "EXECUTION": "#/components/schemas/CompetitionExecutionEvent"
+                },
+                "propertyName": "event_kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/CompetitionExecutionEvent"
+                },
+                {
+                  "$ref": "#/components/schemas/CompetitionAssessmentEvent"
+                }
+              ]
+            },
+            "minItems": 1,
+            "title": "Events",
+            "type": "array"
+          },
+          "execution_status": {
+            "const": "FILLED",
+            "description": "Product-normalized terminal state after broker reconciliation; not a raw Alpaca order status.",
+            "title": "Execution Status",
+            "type": "string"
+          },
+          "opened_at": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Opened At",
+            "type": "string"
+          },
+          "opening_spread": {
+            "$ref": "#/components/schemas/CompetitionSpreadProjection"
+          },
+          "paper_trading": {
+            "const": true,
+            "title": "Paper Trading",
+            "type": "boolean"
+          },
+          "public_record_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Public Record Id",
+            "type": "string"
+          },
+          "record_kind": {
+            "const": "POSITION",
+            "title": "Record Kind",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "OPEN",
+              "CLOSED"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "thesis": {
+            "$ref": "#/components/schemas/CompetitionThesisProjection"
+          },
+          "underlying": {
+            "pattern": "^[A-Z]{1,6}$",
+            "title": "Underlying",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "record_kind",
+          "public_record_id",
+          "state",
+          "underlying",
+          "opening_spread",
+          "current_spread",
+          "opened_at",
+          "as_of",
+          "closed_at",
+          "thesis",
+          "events",
+          "current_exposure",
+          "execution_status",
+          "paper_trading"
+        ],
+        "title": "CompetitionPositionProjection",
+        "type": "object"
+      },
+      "CompetitionRecordItem": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "NO_TRADE",
+              "POSITION"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "payload": {
+            "discriminator": {
+              "mapping": {
+                "NO_TRADE": "#/components/schemas/CompetitionNoTradeProjection",
+                "POSITION": "#/components/schemas/CompetitionPositionProjection"
+              },
+              "propertyName": "record_kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CompetitionNoTradeProjection"
+              },
+              {
+                "$ref": "#/components/schemas/CompetitionPositionProjection"
+              }
+            ],
+            "title": "Payload"
+          },
+          "predecessor_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predecessor Hash"
+          },
+          "projection_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Projection Hash",
+            "type": "string"
+          },
+          "public_record_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Public Record Id",
+            "type": "string"
+          },
+          "publication_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Publication Hash",
+            "type": "string"
+          },
+          "published_at": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Published At",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "public_record_id",
+          "occurred_at",
+          "published_at",
+          "payload",
+          "projection_hash",
+          "publication_hash"
+        ],
+        "title": "CompetitionRecordItem",
+        "type": "object"
+      },
+      "CompetitionRecordResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "publication_status": {
+            "enum": [
+              "NOT_PUBLISHED",
+              "PUBLISHED"
+            ],
+            "title": "Publication Status",
+            "type": "string"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/CompetitionRecordItem"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "publication_status",
+          "records"
+        ],
+        "title": "CompetitionRecordResponse",
+        "type": "object"
+      },
+      "CompetitionSpreadProjection": {
+        "additionalProperties": false,
+        "properties": {
+          "expiration": {
+            "description": "Normalized product field corresponding to Alpaca's expiration_date.",
+            "format": "date",
+            "title": "Expiration",
+            "type": "string"
+          },
+          "long_strike": {
+            "description": "Long-leg strike price in US dollars.",
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,9})?$",
+            "title": "Long Strike",
+            "type": "string"
+          },
+          "option_type": {
+            "description": "Normalized product value. Alpaca's corresponding contract type is lowercase call or put.",
+            "enum": [
+              "CALL",
+              "PUT"
+            ],
+            "title": "Option Type",
+            "type": "string"
+          },
+          "quantity": {
+            "description": "Number of vertical-spread strategy units.",
+            "exclusiveMinimum": 0.0,
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "short_strike": {
+            "description": "Short-leg strike price in US dollars.",
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,9})?$",
+            "title": "Short Strike",
+            "type": "string"
+          },
+          "structure": {
+            "const": "VERTICAL",
+            "title": "Structure",
+            "type": "string"
+          },
+          "underlying": {
+            "pattern": "^[A-Z]{1,6}$",
+            "title": "Underlying",
+            "type": "string"
+          }
+        },
+        "required": [
+          "structure",
+          "underlying",
+          "option_type",
+          "expiration",
+          "long_strike",
+          "short_strike",
+          "quantity"
+        ],
+        "title": "CompetitionSpreadProjection",
+        "type": "object"
+      },
+      "CompetitionThesisProjection": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "enum": [
+              "BULLISH",
+              "BEARISH",
+              "NEUTRAL"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "target_at": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Target At",
+            "type": "string"
+          },
+          "volatility_view": {
+            "enum": [
+              "LONG",
+              "SHORT",
+              "NEUTRAL"
+            ],
+            "title": "Volatility View",
+            "type": "string"
+          }
+        },
+        "required": [
+          "direction",
+          "volatility_view",
+          "target_at"
+        ],
+        "title": "CompetitionThesisProjection",
+        "type": "object"
+      },
+      "DataQuality": {
+        "enum": [
+          "COMPLETE",
+          "MISSING",
+          "STALE",
+          "UNKNOWN"
+        ],
+        "title": "DataQuality",
+        "type": "string"
+      },
+      "DriftComponents": {
+        "additionalProperties": false,
+        "properties": {
+          "display_score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Display Score",
+            "type": "integer"
+          },
+          "dominant_non_evidence_component": {
+            "title": "Dominant Non Evidence Component",
+            "type": "string"
+          },
+          "evidence_drift": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Evidence Drift",
+            "type": "string"
+          },
+          "exposure_mismatch": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Exposure Mismatch",
+            "type": "string"
+          },
+          "risk_utilization": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Risk Utilization",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "time_pressure": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Time Pressure",
+            "type": "string"
+          },
+          "unrounded_score": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Unrounded Score",
+            "type": "string"
+          },
+          "volatility_mismatch": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Volatility Mismatch",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_drift",
+          "exposure_mismatch",
+          "time_pressure",
+          "volatility_mismatch",
+          "risk_utilization",
+          "unrounded_score",
+          "display_score",
+          "dominant_non_evidence_component"
+        ],
+        "title": "DriftComponents",
+        "type": "object"
+      },
+      "EvidenceClassification": {
+        "additionalProperties": false,
+        "properties": {
+          "cluster_id": {
+            "title": "Cluster Id",
+            "type": "string"
+          },
+          "confidence": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Confidence",
+            "type": "string"
+          },
+          "event_code": {
+            "title": "Event Code",
+            "type": "string"
+          },
+          "independent_reporting_group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Independent Reporting Group"
+          },
+          "invalidates": {
+            "default": false,
+            "title": "Invalidates",
+            "type": "boolean"
+          },
+          "invalidation_condition_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invalidation Condition Id"
+          },
+          "materiality": {
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Materiality",
+            "type": "integer"
+          },
+          "relation": {
+            "$ref": "#/components/schemas/EvidenceRelation"
+          },
+          "relevance": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Relevance",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_ids": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Source Ids",
+            "type": "array"
+          },
+          "source_tier": {
+            "$ref": "#/components/schemas/EvidenceTier"
+          }
+        },
+        "required": [
+          "cluster_id",
+          "source_ids",
+          "event_code",
+          "relation",
+          "materiality",
+          "relevance",
+          "confidence",
+          "source_tier"
+        ],
+        "title": "EvidenceClassification",
+        "type": "object"
+      },
+      "EvidenceRelation": {
+        "enum": [
+          "SUPPORTS",
+          "CONTRADICTS",
+          "NEUTRAL"
+        ],
+        "title": "EvidenceRelation",
+        "type": "string"
+      },
+      "EvidenceState": {
+        "enum": [
+          "ASSESSED",
+          "NO_CHANGE",
+          "UNKNOWN"
+        ],
+        "title": "EvidenceState",
+        "type": "string"
+      },
+      "EvidenceTier": {
+        "enum": [
+          "PRIMARY",
+          "ORIGINAL_REPORTING",
+          "SECONDARY"
+        ],
+        "title": "EvidenceTier",
+        "type": "string"
+      },
+      "ExecutionAttempt": {
+        "additionalProperties": false,
+        "properties": {
+          "client_order_id_hash": {
+            "title": "Client Order Id Hash",
+            "type": "string"
+          },
+          "ordinal": {
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Ordinal",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ordinal",
+          "client_order_id_hash",
+          "state"
+        ],
+        "title": "ExecutionAttempt",
+        "type": "object"
+      },
+      "ExecutionDecision": {
+        "enum": [
+          "NO_ACTION",
+          "HOLD_CERTIFIED",
+          "CLOSE_APPROVED",
+          "CLOSE_RISK_ONLY",
+          "ROLL_APPROVED"
+        ],
+        "title": "ExecutionDecision",
+        "type": "string"
+      },
+      "GreekExposure": {
+        "additionalProperties": false,
+        "properties": {
+          "delta": {
+            "description": "Position delta in equivalent shares of the underlying.",
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,9})?$",
+            "title": "Delta",
+            "type": "string"
+          },
+          "gamma": {
+            "description": "Change in position delta for a $1 move in the underlying.",
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,9})?$",
+            "title": "Gamma",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "theta_per_day": {
+            "description": "Estimated position value change in US dollars for one calendar day.",
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,9})?$",
+            "title": "Theta Per Day",
+            "type": "string"
+          },
+          "vega_per_iv_point": {
+            "description": "Estimated position value change in US dollars for a one percentage-point change in implied volatility.",
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,9})?$",
+            "title": "Vega Per Iv Point",
+            "type": "string"
+          }
+        },
+        "required": [
+          "delta",
+          "gamma",
+          "theta_per_day",
+          "vega_per_iv_point"
+        ],
+        "title": "GreekExposure",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "build": {
+            "title": "Build",
+            "type": "string"
+          },
+          "runtime_mode": {
+            "enum": [
+              "CONNECTED",
+              "REPLAY_ONLY"
+            ],
+            "title": "Runtime Mode",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "const": "ok",
+            "default": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "build",
+          "runtime_mode"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "MeasurementStatus": {
+        "enum": [
+          "COMPLETE",
+          "MISSING",
+          "UNKNOWN"
+        ],
+        "title": "MeasurementStatus",
+        "type": "string"
+      },
+      "OwnerModelProvider": {
+        "enum": [
+          "GEMINI",
+          "OPENAI_COMPATIBLE"
+        ],
+        "title": "OwnerModelProvider",
+        "type": "string"
+      },
+      "PerformanceFailureCode": {
+        "enum": [
+          "CAPTURE_NOT_STARTED",
+          "PROVIDER_UNAVAILABLE",
+          "ACCOUNT_STATE_INCOMPLETE",
+          "BASELINE_UNAVAILABLE",
+          "SCHEMA_INVALID"
+        ],
+        "title": "PerformanceFailureCode",
+        "type": "string"
+      },
+      "PerformancePoint": {
+        "additionalProperties": false,
+        "properties": {
+          "account_equity_change_usd": {
+            "anyOf": [
+              {
+                "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Equity Change Usd"
+          },
+          "account_equity_return_pct": {
+            "anyOf": [
+              {
+                "pattern": "^[+-]?\\d{1,9}(?:\\.\\d{1,9})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Account equity return in percentage points; 1 means 1%, not 0.01%.",
+            "title": "Account Equity Return Pct"
+          },
+          "attempted_at": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Attempted At",
+            "type": "string"
+          },
+          "current_equity_usd": {
+            "anyOf": [
+              {
+                "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Equity Usd"
+          },
+          "failure_code": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PerformanceFailureCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "measured_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured At"
+          },
+          "open_position_liquidation_pnl_usd": {
+            "anyOf": [
+              {
+                "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Open Position Liquidation Pnl Usd"
+          },
+          "reconciled_lifecycle_cashflow_usd": {
+            "anyOf": [
+              {
+                "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reconciled Lifecycle Cashflow Usd"
+          },
+          "scheduled_for": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Scheduled For",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "simulator_limitations_code": {
+            "const": "ALPACA_PAPER_SIMULATION",
+            "title": "Simulator Limitations Code",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MeasurementStatus"
+          }
+        },
+        "required": [
+          "scheduled_for",
+          "attempted_at",
+          "measured_at",
+          "status",
+          "failure_code",
+          "current_equity_usd",
+          "account_equity_change_usd",
+          "account_equity_return_pct",
+          "reconciled_lifecycle_cashflow_usd",
+          "open_position_liquidation_pnl_usd",
+          "simulator_limitations_code"
+        ],
+        "title": "PerformancePoint",
+        "type": "object"
+      },
+      "ProviderSettingsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "endpoint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Endpoint"
+          },
+          "generation": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generation"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OwnerModelProvider"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configured"
+        ],
+        "title": "ProviderSettingsResponse",
+        "type": "object"
+      },
+      "ProviderSettingsUpdateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "api_key": {
+            "format": "password",
+            "maxLength": 16384,
+            "minLength": 1,
+            "title": "Api Key",
+            "type": "string",
+            "writeOnly": true
+          },
+          "endpoint": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Endpoint"
+          },
+          "model": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/OwnerModelProvider"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "model",
+          "api_key"
+        ],
+        "title": "ProviderSettingsUpdateRequest",
+        "type": "object"
+      },
+      "ReplayClassificationPresentation": {
+        "additionalProperties": false,
+        "properties": {
+          "confidence": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Confidence",
+            "type": "string"
+          },
+          "event_code": {
+            "title": "Event Code",
+            "type": "string"
+          },
+          "headline": {
+            "title": "Headline",
+            "type": "string"
+          },
+          "invalidates": {
+            "default": false,
+            "title": "Invalidates",
+            "type": "boolean"
+          },
+          "materiality": {
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Materiality",
+            "type": "integer"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "relation": {
+            "$ref": "#/components/schemas/EvidenceRelation"
+          },
+          "relevance": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Relevance",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_tier": {
+            "$ref": "#/components/schemas/EvidenceTier"
+          }
+        },
+        "required": [
+          "source_id",
+          "headline",
+          "observed_at",
+          "event_code",
+          "relation",
+          "materiality",
+          "relevance",
+          "confidence",
+          "source_tier"
+        ],
+        "title": "ReplayClassificationPresentation",
+        "type": "object"
+      },
+      "ReplayEvidencePresentation": {
+        "additionalProperties": false,
+        "properties": {
+          "classifications": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayClassificationPresentation"
+            },
+            "title": "Classifications",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "CLASSIFIED",
+              "NOT_RUN"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "classifications"
+        ],
+        "title": "ReplayEvidencePresentation",
+        "type": "object"
+      },
+      "ReplayIntegrationPresentation": {
+        "additionalProperties": false,
+        "properties": {
+          "cli": {
+            "const": "NOT_RUN",
+            "title": "Cli",
+            "type": "string"
+          },
+          "deterministic_policy": {
+            "const": "COMPLETE",
+            "title": "Deterministic Policy",
+            "type": "string"
+          },
+          "fixture_validation": {
+            "const": "COMPLETE",
+            "title": "Fixture Validation",
+            "type": "string"
+          },
+          "mcp": {
+            "const": "NOT_RUN",
+            "title": "Mcp",
+            "type": "string"
+          },
+          "model": {
+            "const": "NOT_RUN",
+            "title": "Model",
+            "type": "string"
+          },
+          "order_entry": {
+            "const": "DISABLED",
+            "title": "Order Entry",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "trading_api": {
+            "const": "NOT_RUN",
+            "title": "Trading Api",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fixture_validation",
+          "deterministic_policy",
+          "trading_api",
+          "mcp",
+          "model",
+          "cli",
+          "order_entry"
+        ],
+        "title": "ReplayIntegrationPresentation",
+        "type": "object"
+      },
+      "ReplayMarketPresentation": {
+        "additionalProperties": false,
+        "properties": {
+          "ask": {
+            "anyOf": [
+              {
+                "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Offer premium in US dollars per share.",
+            "title": "Ask"
+          },
+          "assessed_at": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Assessed At",
+            "type": "string"
+          },
+          "bid": {
+            "anyOf": [
+              {
+                "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Executable liquidation premium in US dollars per share.",
+            "title": "Bid"
+          },
+          "dte": {
+            "minimum": 0.0,
+            "title": "Dte",
+            "type": "integer"
+          },
+          "implied_volatility": {
+            "anyOf": [
+              {
+                "pattern": "^[+-]?\\d{1,9}(?:\\.\\d{1,9})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Implied volatility as a fraction; 0.50 means 50%.",
+            "title": "Implied Volatility"
+          },
+          "iv_change_points": {
+            "anyOf": [
+              {
+                "pattern": "^[+-]?\\d{1,9}(?:\\.\\d{1,9})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Change in implied volatility in percentage points.",
+            "title": "Iv Change Points"
+          },
+          "liquidation_value": {
+            "anyOf": [
+              {
+                "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Estimated liquidation value for the whole position in US dollars.",
+            "title": "Liquidation Value"
+          },
+          "mark": {
+            "anyOf": [
+              {
+                "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Mid-market spread premium in US dollars per share.",
+            "title": "Mark"
+          },
+          "open_pnl": {
+            "anyOf": [
+              {
+                "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Open profit or loss for the whole position in US dollars.",
+            "title": "Open Pnl"
+          },
+          "quote_age_seconds": {
+            "minimum": 0.0,
+            "title": "Quote Age Seconds",
+            "type": "integer"
+          },
+          "quote_status": {
+            "enum": [
+              "FRESH",
+              "STALE"
+            ],
+            "title": "Quote Status",
+            "type": "string"
+          },
+          "review_by": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review By"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "urgency": {
+            "enum": [
+              "ROUTINE",
+              "SOON",
+              "IMMEDIATE",
+              "WAITING"
+            ],
+            "title": "Urgency",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assessed_at",
+          "review_by",
+          "urgency",
+          "quote_status",
+          "quote_age_seconds",
+          "dte",
+          "mark",
+          "bid",
+          "ask",
+          "liquidation_value",
+          "open_pnl",
+          "implied_volatility",
+          "iv_change_points"
+        ],
+        "title": "ReplayMarketPresentation",
+        "type": "object"
+      },
+      "ReplayOpeningPresentation": {
+        "additionalProperties": false,
+        "properties": {
+          "approved_risk_cap": {
+            "description": "Approved whole-position risk cap in US dollars.",
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+            "title": "Approved Risk Cap",
+            "type": "string"
+          },
+          "contract_multiplier": {
+            "const": 100,
+            "description": "Shares represented by each standard US equity option contract.",
+            "title": "Contract Multiplier",
+            "type": "integer"
+          },
+          "delta_high": {
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,9})?$",
+            "title": "Delta High",
+            "type": "string"
+          },
+          "delta_low": {
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,9})?$",
+            "title": "Delta Low",
+            "type": "string"
+          },
+          "entry_net_debit_per_share_usd": {
+            "description": "Net option premium quoted in US dollars per underlying share. Multiply by quantity and contract_multiplier for total debit.",
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+            "title": "Entry Net Debit Per Share Usd",
+            "type": "string"
+          },
+          "expiration_date": {
+            "format": "date",
+            "title": "Expiration Date",
+            "type": "string"
+          },
+          "long_strike": {
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+            "title": "Long Strike",
+            "type": "string"
+          },
+          "maximum_daily_theta": {
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,9})?$",
+            "title": "Maximum Daily Theta",
+            "type": "string"
+          },
+          "maximum_dte": {
+            "minimum": 0.0,
+            "title": "Maximum Dte",
+            "type": "integer"
+          },
+          "maximum_loss": {
+            "description": "Maximum loss for the whole position in US dollars.",
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+            "title": "Maximum Loss",
+            "type": "string"
+          },
+          "minimum_dte": {
+            "minimum": 0.0,
+            "title": "Minimum Dte",
+            "type": "integer"
+          },
+          "quantity": {
+            "description": "Number of vertical-spread strategy units.",
+            "exclusiveMinimum": 0.0,
+            "maximum": 100.0,
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "reference_spot": {
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+            "title": "Reference Spot",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "selection_state": {
+            "const": "PRESELECTED_SAMPLE",
+            "title": "Selection State",
+            "type": "string"
+          },
+          "short_strike": {
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+            "title": "Short Strike",
+            "type": "string"
+          },
+          "spread_kind": {
+            "const": "BULL_CALL_SPREAD",
+            "title": "Spread Kind",
+            "type": "string"
+          },
+          "underlying": {
+            "title": "Underlying",
+            "type": "string"
+          },
+          "vega_high": {
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,9})?$",
+            "title": "Vega High",
+            "type": "string"
+          },
+          "vega_low": {
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,9})?$",
+            "title": "Vega Low",
+            "type": "string"
+          }
+        },
+        "required": [
+          "underlying",
+          "reference_spot",
+          "spread_kind",
+          "long_strike",
+          "short_strike",
+          "expiration_date",
+          "quantity",
+          "contract_multiplier",
+          "entry_net_debit_per_share_usd",
+          "maximum_loss",
+          "approved_risk_cap",
+          "delta_low",
+          "delta_high",
+          "vega_low",
+          "vega_high",
+          "maximum_daily_theta",
+          "minimum_dte",
+          "maximum_dte",
+          "selection_state"
+        ],
+        "title": "ReplayOpeningPresentation",
+        "type": "object"
+      },
+      "ReplayPresentation": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "$ref": "#/components/schemas/ReplayEvidencePresentation"
+          },
+          "integration": {
+            "$ref": "#/components/schemas/ReplayIntegrationPresentation"
+          },
+          "market": {
+            "$ref": "#/components/schemas/ReplayMarketPresentation"
+          },
+          "opening": {
+            "$ref": "#/components/schemas/ReplayOpeningPresentation"
+          },
+          "roll": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReplayRollPresentation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "opening",
+          "market",
+          "evidence",
+          "integration"
+        ],
+        "title": "ReplayPresentation",
+        "type": "object"
+      },
+      "ReplayResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assessment": {
+            "$ref": "#/components/schemas/AssessmentResponse"
+          },
+          "assessment_hash": {
+            "title": "Assessment Hash",
+            "type": "string"
+          },
+          "certificate": {
+            "$ref": "#/components/schemas/CertificateResponse"
+          },
+          "execution_enabled": {
+            "const": false,
+            "default": false,
+            "title": "Execution Enabled",
+            "type": "boolean"
+          },
+          "input_hash": {
+            "title": "Input Hash",
+            "type": "string"
+          },
+          "presentation": {
+            "$ref": "#/components/schemas/ReplayPresentation"
+          },
+          "provenance_label": {
+            "const": "REPLAY / FIXTURE DATA",
+            "default": "REPLAY / FIXTURE DATA",
+            "title": "Provenance Label",
+            "type": "string"
+          },
+          "scenario": {
+            "$ref": "#/components/schemas/ReplayScenario"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scenario",
+          "input_hash",
+          "assessment_hash",
+          "assessment",
+          "certificate",
+          "presentation"
+        ],
+        "title": "ReplayResponse",
+        "type": "object"
+      },
+      "ReplayRollPresentation": {
+        "additionalProperties": false,
+        "properties": {
+          "contract_multiplier": {
+            "const": 100,
+            "description": "Shares represented by each standard US equity option contract.",
+            "title": "Contract Multiplier",
+            "type": "integer"
+          },
+          "estimated_net_debit_per_share_usd": {
+            "description": "Estimated incremental net debit in US dollars per underlying share.",
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+            "title": "Estimated Net Debit Per Share Usd",
+            "type": "string"
+          },
+          "expiration_date": {
+            "format": "date",
+            "title": "Expiration Date",
+            "type": "string"
+          },
+          "long_strike": {
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+            "title": "Long Strike",
+            "type": "string"
+          },
+          "quantity": {
+            "description": "Number of vertical-spread strategy units.",
+            "exclusiveMinimum": 0.0,
+            "maximum": 100.0,
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "resulting_maximum_loss": {
+            "description": "Resulting maximum loss for the whole position in US dollars.",
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+            "title": "Resulting Maximum Loss",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "short_strike": {
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+            "title": "Short Strike",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expiration_date",
+          "long_strike",
+          "short_strike",
+          "quantity",
+          "contract_multiplier",
+          "estimated_net_debit_per_share_usd",
+          "resulting_maximum_loss"
+        ],
+        "title": "ReplayRollPresentation",
+        "type": "object"
+      },
+      "ReplayScenario": {
+        "enum": [
+          "THESIS_INTACT",
+          "THETA_TAKEOVER",
+          "CATALYST_BROKEN",
+          "STALE_QUOTE"
+        ],
+        "title": "ReplayScenario",
+        "type": "string"
+      },
+      "SchedulerTickResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "tick_id": {
+            "format": "uuid",
+            "title": "Tick Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tick_id",
+          "accepted",
+          "code"
+        ],
+        "title": "SchedulerTickResponse",
+        "type": "object"
+      },
+      "SessionCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "access_code": {
+            "maxLength": 256,
+            "minLength": 16,
+            "title": "Access Code",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_code"
+        ],
+        "title": "SessionCreateRequest",
+        "type": "object"
+      },
+      "SessionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "authenticated": {
+            "title": "Authenticated",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "authenticated"
+        ],
+        "title": "SessionResponse",
+        "type": "object"
+      },
+      "ThesisCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "intended_exposure": {
+            "$ref": "#/components/schemas/GreekExposure"
+          },
+          "invalidation_codes": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Invalidation Codes",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_policy_hash": {
+            "title": "Source Policy Hash",
+            "type": "string"
+          },
+          "thesis_code": {
+            "title": "Thesis Code",
+            "type": "string"
+          },
+          "underlying": {
+            "title": "Underlying",
+            "type": "string"
+          }
+        },
+        "required": [
+          "underlying",
+          "thesis_code",
+          "invalidation_codes",
+          "intended_exposure",
+          "source_policy_hash"
+        ],
+        "title": "ThesisCreateRequest",
+        "type": "object"
+      },
+      "ThesisResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "frozen": {
+            "title": "Frozen",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "thesis": {
+            "$ref": "#/components/schemas/ThesisCreateRequest"
+          },
+          "thesis_hash": {
+            "title": "Thesis Hash",
+            "type": "string"
+          },
+          "thesis_id": {
+            "format": "uuid",
+            "title": "Thesis Id",
+            "type": "string"
+          },
+          "version": {
+            "exclusiveMinimum": 0.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "thesis_id",
+          "version",
+          "frozen",
+          "thesis_hash",
+          "thesis"
+        ],
+        "title": "ThesisResponse",
+        "type": "object"
+      },
+      "ThesisStatus": {
+        "enum": [
+          "INTACT",
+          "WEAKENING",
+          "BROKEN",
+          "UNKNOWN"
+        ],
+        "title": "ThesisStatus",
+        "type": "string"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "alphadecay",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/competition-record": {
+      "get": {
+        "description": "Returns published paper trading records with private fields removed. It never calls Alpaca.",
+        "operationId": "anonymous_competition_record",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompetitionRecordResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "description": "COMPETITION_RECORD_UNAVAILABLE"
+          }
+        },
+        "summary": "Read the competition record",
+        "tags": [
+          "Anonymous"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "description": "Public service check. It does not read an account, call a provider, or place an order.",
+        "operationId": "anonymous_health",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Check the public service",
+        "tags": [
+          "Anonymous"
+        ]
+      }
+    },
+    "/api/internal/scheduler/tick": {
+      "post": {
+        "description": "The scheduler authenticates with a bearer token. This route cannot enable autonomy and uses the same saved approvals, risk checks, and execution gates as an owner run.",
+        "operationId": "internal_scheduler_tick",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchedulerTickResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "SCHEDULER_AUTHENTICATION_FAILED"
+          },
+          "422": {
+            "description": "RUN_INPUT_REJECTED"
+          },
+          "503": {
+            "description": "AGENT_RUN_UNAVAILABLE"
+          }
+        },
+        "summary": "Run one scheduled paper account review",
+        "tags": [
+          "Internal"
+        ]
+      }
+    },
+    "/api/owner/autonomy": {
+      "get": {
+        "description": "Reads the server and account gates. It reports effective paper autonomy.",
+        "operationId": "owner_autonomy_status",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "origin",
+            "required": true,
+            "schema": {
+              "title": "Origin",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Csrf-Token",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Signed owner cookie. It expires with the short session.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_session",
+            "required": true,
+            "schema": {
+              "description": "Signed owner cookie. It expires with the short session.",
+              "title": "Owner session",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_csrf",
+            "required": true,
+            "schema": {
+              "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+              "title": "CSRF cookie",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutonomyStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "OWNER_REQUEST_REJECTED"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "OWNER_SESSION_UNAVAILABLE"
+          }
+        },
+        "summary": "Read paper account autonomy status",
+        "tags": [
+          "Owner"
+        ]
+      }
+    },
+    "/api/owner/autonomy/disable": {
+      "post": {
+        "description": "The owner can disarm paper autonomy even when a provider read is unavailable.",
+        "operationId": "owner_autonomy_disable",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "origin",
+            "required": true,
+            "schema": {
+              "title": "Origin",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Csrf-Token",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Signed owner cookie. It expires with the short session.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_session",
+            "required": true,
+            "schema": {
+              "description": "Signed owner cookie. It expires with the short session.",
+              "title": "Owner session",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_csrf",
+            "required": true,
+            "schema": {
+              "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+              "title": "CSRF cookie",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutonomyStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "OWNER_REQUEST_REJECTED"
+          },
+          "409": {
+            "description": "AUTONOMY_SERVER_DISABLED"
+          },
+          "422": {
+            "description": "AUTONOMY_INPUT_REJECTED"
+          },
+          "503": {
+            "description": "AUTONOMY_UNAVAILABLE"
+          }
+        },
+        "summary": "Disable paper account autonomy",
+        "tags": [
+          "Owner"
+        ]
+      }
+    },
+    "/api/owner/autonomy/enable": {
+      "post": {
+        "description": "The owner can arm paper autonomy when the server and provider checks pass. Live trading is not supported.",
+        "operationId": "owner_autonomy_enable",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "origin",
+            "required": true,
+            "schema": {
+              "title": "Origin",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Csrf-Token",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Signed owner cookie. It expires with the short session.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_session",
+            "required": true,
+            "schema": {
+              "description": "Signed owner cookie. It expires with the short session.",
+              "title": "Owner session",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_csrf",
+            "required": true,
+            "schema": {
+              "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+              "title": "CSRF cookie",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutonomyStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "OWNER_REQUEST_REJECTED"
+          },
+          "409": {
+            "description": "AUTONOMY_SERVER_DISABLED"
+          },
+          "422": {
+            "description": "AUTONOMY_INPUT_REJECTED"
+          },
+          "503": {
+            "description": "AUTONOMY_UNAVAILABLE"
+          }
+        },
+        "summary": "Enable paper account autonomy",
+        "tags": [
+          "Owner"
+        ]
+      }
+    },
+    "/api/owner/proof/publications": {
+      "post": {
+        "description": "Only the owner can publish a previously captured competition snapshot. Private fields are removed. It does not contact Alpaca or place an order.",
+        "operationId": "owner_publish_competition_proof",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "origin",
+            "required": true,
+            "schema": {
+              "title": "Origin",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Csrf-Token",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Signed owner cookie. It expires with the short session.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_session",
+            "required": true,
+            "schema": {
+              "description": "Signed owner cookie. It expires with the short session.",
+              "title": "Owner session",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_csrf",
+            "required": true,
+            "schema": {
+              "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+              "title": "CSRF cookie",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompetitionPerformanceProofResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "OWNER_REQUEST_REJECTED"
+          },
+          "409": {
+            "description": "NO_ELIGIBLE_PERFORMANCE_SNAPSHOT"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "PERFORMANCE_PROOF_UNAVAILABLE"
+          }
+        },
+        "summary": "Publish the latest eligible account snapshot",
+        "tags": [
+          "Owner"
+        ]
+      }
+    },
+    "/api/owner/provider-settings": {
+      "delete": {
+        "description": "Removes the stored provider override. The deployment returns to its configured default provider.",
+        "operationId": "owner_provider_settings_clear",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "origin",
+            "required": true,
+            "schema": {
+              "title": "Origin",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Csrf-Token",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Signed owner cookie. It expires with the short session.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_session",
+            "required": true,
+            "schema": {
+              "description": "Signed owner cookie. It expires with the short session.",
+              "title": "Owner session",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_csrf",
+            "required": true,
+            "schema": {
+              "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+              "title": "CSRF cookie",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "OWNER_REQUEST_REJECTED"
+          },
+          "422": {
+            "description": "PROVIDER_SETTINGS_INPUT_REJECTED"
+          },
+          "503": {
+            "description": "OWNER_SESSION_UNAVAILABLE"
+          }
+        },
+        "summary": "Remove AI provider settings",
+        "tags": [
+          "Owner"
+        ]
+      },
+      "get": {
+        "description": "Reads the active provider metadata. Stored API keys are never returned.",
+        "operationId": "owner_provider_settings_status",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Csrf-Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "origin",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Origin"
+            }
+          },
+          {
+            "in": "header",
+            "name": "referer",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Referer"
+            }
+          },
+          {
+            "description": "Signed owner cookie. It expires with the short session.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_session",
+            "required": true,
+            "schema": {
+              "description": "Signed owner cookie. It expires with the short session.",
+              "title": "Owner session",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_csrf",
+            "required": true,
+            "schema": {
+              "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+              "title": "CSRF cookie",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "OWNER_REQUEST_REJECTED"
+          },
+          "422": {
+            "description": "PROVIDER_SETTINGS_INPUT_REJECTED"
+          },
+          "503": {
+            "description": "OWNER_SESSION_UNAVAILABLE"
+          }
+        },
+        "summary": "Read AI provider settings",
+        "tags": [
+          "Owner"
+        ]
+      },
+      "put": {
+        "description": "Replaces the model provider used by the server. The new API key is encrypted.",
+        "operationId": "owner_provider_settings_replace",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "origin",
+            "required": true,
+            "schema": {
+              "title": "Origin",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Csrf-Token",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Signed owner cookie. It expires with the short session.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_session",
+            "required": true,
+            "schema": {
+              "description": "Signed owner cookie. It expires with the short session.",
+              "title": "Owner session",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_csrf",
+            "required": true,
+            "schema": {
+              "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+              "title": "CSRF cookie",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderSettingsUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "OWNER_REQUEST_REJECTED"
+          },
+          "422": {
+            "description": "PROVIDER_SETTINGS_INPUT_REJECTED"
+          },
+          "503": {
+            "description": "OWNER_SESSION_UNAVAILABLE"
+          }
+        },
+        "summary": "Replace AI provider settings",
+        "tags": [
+          "Owner"
+        ]
+      }
+    },
+    "/api/owner/runs": {
+      "post": {
+        "description": "Starts one bounded paper account review. Approval and risk checks still apply.",
+        "operationId": "owner_agent_tick",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "origin",
+            "required": true,
+            "schema": {
+              "title": "Origin",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Csrf-Token",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Signed owner cookie. It expires with the short session.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_session",
+            "required": true,
+            "schema": {
+              "description": "Signed owner cookie. It expires with the short session.",
+              "title": "Owner session",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_csrf",
+            "required": true,
+            "schema": {
+              "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+              "title": "CSRF cookie",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchedulerTickResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "OWNER_REQUEST_REJECTED"
+          },
+          "422": {
+            "description": "RUN_INPUT_REJECTED"
+          },
+          "503": {
+            "description": "AGENT_RUN_UNAVAILABLE"
+          }
+        },
+        "summary": "Run one agent review as the owner",
+        "tags": [
+          "Owner"
+        ]
+      }
+    },
+    "/api/proof": {
+      "get": {
+        "description": "Returns the newest deliberately published account snapshot after private fields are removed. It does not contact Alpaca, choose a snapshot, or expose account identifiers.",
+        "operationId": "anonymous_competition_proof",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompetitionPerformanceProofResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read the published account snapshot",
+        "tags": [
+          "Anonymous"
+        ]
+      }
+    },
+    "/api/replays/{scenario}": {
+      "post": {
+        "description": "Runs deterministic Replay over synthetic fixtures stored in the repository. It does not accept a trade plan, call Alpaca or a model, or place an order.",
+        "operationId": "anonymous_replay",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scenario",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ReplayScenario"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "UNKNOWN_REPLAY_SCENARIO"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run a fixed Replay scenario",
+        "tags": [
+          "Anonymous"
+        ]
+      }
+    },
+    "/api/session": {
+      "delete": {
+        "description": "Revokes the current owner session. It then clears its cookies.",
+        "operationId": "owner_session_delete",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "origin",
+            "required": true,
+            "schema": {
+              "title": "Origin",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Csrf-Token",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Signed owner cookie. It expires with the short session.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_session",
+            "required": true,
+            "schema": {
+              "description": "Signed owner cookie. It expires with the short session.",
+              "title": "Owner session",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_csrf",
+            "required": true,
+            "schema": {
+              "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+              "title": "CSRF cookie",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "OWNER_REQUEST_REJECTED"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "OWNER_SESSION_UNAVAILABLE"
+          }
+        },
+        "summary": "Sign out the deployment owner",
+        "tags": [
+          "Owner"
+        ]
+      },
+      "post": {
+        "description": "Checks the owner access code and request origin, then sets cookies for the short session.",
+        "operationId": "owner_session_create",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "origin",
+            "required": true,
+            "schema": {
+              "title": "Origin",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "AUTHENTICATION_FAILED"
+          },
+          "403": {
+            "description": "ORIGIN_REJECTED"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "429": {
+            "description": "AUTHENTICATION_RATE_LIMITED"
+          },
+          "503": {
+            "description": "OWNER_SESSION_UNAVAILABLE"
+          }
+        },
+        "summary": "Sign in as the deployment owner",
+        "tags": [
+          "Owner"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "description": "Public routes for Replay and published competition records. They cannot place orders.",
+      "name": "Anonymous"
+    },
+    {
+      "description": "Private controls for the owner of this paper trading deployment.",
+      "name": "Owner"
+    },
+    {
+      "description": "Authenticated scheduler route. It is not a public trading interface.",
+      "name": "Internal"
+    }
+  ]
+}

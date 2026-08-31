@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-08-29T18:08:16.406718Z",
+  "account_role": "DEVELOPMENT",
+  "competition_evidence": false,
+  "paper_host_verified": true,
+  "book_unchanged": true,
+  "provider_request_count": 11,
+  "provider_write_calls": 0,
+  "production_factory": "backend.app.runtime.build_production_agent",
+  "service_terminal_code": "PROVIDER_FAILURE_NO_ACTION",
+  "safe_stop_reason": "CONTEXT_ACTIVE_POSITION_NOT_UNIQUE",
+  "cli": {
+    "version": "0.0.13",
+    "archive_verified": true,
+    "binary_verified": true,
+    "dry_run": true,
+    "paper_host_verified": true
+  },
+  "mcp": {
+    "call": "get_clock",
+    "call_count": 1,
+    "tool_surface_count": 22
+  },
+  "operator_source_sha256": "7042bfbae4626cf5c3393ec1a41fd61798e1adf44692dd9c9fef33bc54a65f81",
+  "sealed_summary_sha256": "c1bd447ffc1c8b05cfccf39eafed6120bbd847f59dbdcd3cce4d35160b75effc"
+}

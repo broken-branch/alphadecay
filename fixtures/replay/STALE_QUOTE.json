@@ -1,0 +1,55 @@
+{
+  "schema_version": "v1",
+  "scenario": "STALE_QUOTE",
+  "provenance": "REPLAY / FIXTURE DATA",
+  "input_hash": "5b40c48fec2eb66b710a4ec8b3a90620e405e477656cf574d5a6237e47da1136",
+  "expected_hash": "5550837d2a0ef9e789e4b844164d3eb2071d551458cd7e172128f0cd1bfcea95",
+  "payload": {
+    "policy_hash": "replay-policy-v0.1",
+    "quality": "STALE",
+    "quote_age_seconds": 45,
+    "quote_freshness_limit_seconds": 30,
+    "thesis_status": "INTACT",
+    "evidence_state": "NO_CHANGE",
+    "presentation": {
+      "opening": {
+        "underlying": "ACME", "reference_spot": "132.50", "spread_kind": "BULL_CALL_SPREAD",
+        "long_strike": "130", "short_strike": "135", "expiration_date": "2026-09-18", "quantity": 2,
+        "contract_multiplier": 100, "entry_net_debit_per_share_usd": "2.35", "maximum_loss": "470", "approved_risk_cap": "500",
+        "delta_low": "40", "delta_high": "60", "vega_low": "2", "vega_high": "6",
+        "maximum_daily_theta": "8", "minimum_dte": 14, "maximum_dte": 35,
+        "selection_state": "PRESELECTED_SAMPLE"
+      },
+      "market": {
+        "assessed_at": "2026-08-28T15:15:00Z", "review_by": null,
+        "urgency": "WAITING", "quote_status": "STALE", "quote_age_seconds": 45, "dte": 21,
+        "mark": null, "bid": null, "ask": null, "liquidation_value": null,
+        "open_pnl": null, "implied_volatility": null, "iv_change_points": null
+      },
+      "evidence": {"status": "NOT_RUN", "classifications": []},
+      "integration": {
+        "fixture_validation": "COMPLETE", "deterministic_policy": "COMPLETE",
+        "trading_api": "NOT_RUN", "mcp": "NOT_RUN", "model": "NOT_RUN", "cli": "NOT_RUN",
+        "order_entry": "DISABLED"
+      },
+      "roll": null
+    },
+    "thesis": {
+      "schema_version": "v1",
+      "underlying": "ACME",
+      "thesis_code": "POST_EVENT_CONTINUATION_V1",
+      "invalidation_codes": ["PRIMARY_CONTRADICTION"],
+      "intended_exposure": {"schema_version": "v1", "delta": "50", "gamma": "2", "theta_per_day": "-4", "vega_per_iv_point": "4"},
+      "source_policy_hash": "replay-source-v1"
+    },
+    "actual_exposure": {"schema_version": "v1", "delta": "50", "gamma": "2", "theta_per_day": "-4", "vega_per_iv_point": "4"},
+    "expected_after_exposure": null,
+    "scores": {
+      "evidence_drift": "0", "delta": "50", "delta_low": "40", "delta_high": "60",
+      "vega": "4", "vega_low": "2", "vega_high": "6", "theta_per_day": "-4",
+      "max_daily_theta": "8", "dte": 21, "minimum_dte": 14, "maximum_dte": 35,
+      "horizon_fraction": "0.25", "volatility_view": "LONG", "entry_atm_iv": "0.50",
+      "current_atm_iv": "0.50", "liquidation_pnl": "8", "approved_max_loss": "500"
+    }
+  }
+}

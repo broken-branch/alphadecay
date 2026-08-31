@@ -1,0 +1,13 @@
+{
+  "account_role": "SUBMISSION",
+  "baseline_captured_at": "2026-08-28T15:13:00Z",
+  "baseline_order_count": 0,
+  "baseline_position_count": 0,
+  "checkpoint_at": "2026-08-29T18:55:00Z",
+  "competition_performance_claim": false,
+  "paper_simulated": true,
+  "project_order_dispatch_count_since_baseline": 0,
+  "result_status": "NOT_PUBLISHED",
+  "schema_version": 1,
+  "starting_equity_usd": "100000.00"
+}

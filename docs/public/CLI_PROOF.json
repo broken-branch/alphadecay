@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-08-29T17:01:50Z",
+  "account_role": "DEVELOPMENT",
+  "paper_host_verified": true,
+  "order_submitted": false,
+  "dry_run": {
+    "asset_class": "US_OPTION",
+    "order_class": "mleg",
+    "leg_count": 2,
+    "type": "limit",
+    "time_in_force": "day"
+  },
+  "cli": {
+    "version": "0.0.13",
+    "archive_sha256": "50cd254d81b6bbc541259eeeb4bb1a8f7c319557fa49fc3b2765cddd72a66a82",
+    "binary_sha256": "502bb6a8c87f0b6791669861853168caf41f228767bd89e88f6eabe5f1e8cc1c"
+  }
+}

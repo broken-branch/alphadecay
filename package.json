@@ -1,0 +1,30 @@
+{
+  "name": "alphadecay",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "license": "MIT",
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest run",
+    "test:contracts": "vitest run frontend/src/contracts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.6",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "@vitejs/plugin-react": "6.1.0",
+    "jsdom": "30.0.1",
+    "typescript": "5.9.2",
+    "vite": "8.2.2",
+    "vitest": "3.2.7"
+  }
+}

@@ -1,0 +1,277 @@
+{
+  "packages": [
+    {
+      "artifacts": [
+        {
+          "integrity": "sha512-4xTZr1FUmSoQW4XIWmit3tzQrUTZM+N3P0XV8xROKYF50XfI7xeO90+1bZvNwxIufQ9hDQVRJH5YhgPVF8A/HQ==",
+          "locator": "https://registry.npmjs.org/@esbuild/linux-x64/-/linux-x64-0.28.2.tgz"
+        }
+      ],
+      "coordinate": "node:@esbuild/linux-x64@0.28.2",
+      "disposition": "upstream-license-at-release",
+      "license_expression": "MIT",
+      "lock_path": "node_modules/@esbuild/linux-x64",
+      "sources": [
+        {
+          "path": "third_party/notices/b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681.txt",
+          "revision": "609683d892977362a0f99026cb74b96263d728a9",
+          "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681",
+          "upstream_path": "LICENSE.md",
+          "url": "https://raw.githubusercontent.com/evanw/esbuild/609683d892977362a0f99026cb74b96263d728a9/LICENSE.md"
+        }
+      ]
+    },
+    {
+      "artifacts": [
+        {
+          "integrity": "sha512-oTXEIha4SsuXdTA4Iyskj0kpdx2yVXdhd75c2v3xGrHFfVMsbhTPZU/nMPL4sWKo4pBHm3aucLaqGlF696dTyQ==",
+          "locator": "https://registry.npmjs.org/@napi-rs/lzma-linux-x64-gnu/-/lzma-linux-x64-gnu-1.5.1.tgz"
+        }
+      ],
+      "coordinate": "node:@napi-rs/lzma-linux-x64-gnu@1.5.1",
+      "disposition": "artifact-expression-plus-spdx-terms",
+      "license_expression": "MIT",
+      "lock_path": "node_modules/@napi-rs/lzma-linux-x64-gnu",
+      "sources": [
+        {
+          "path": "third_party/notices/b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5.txt",
+          "revision": "a3cbf2e897d54bccec0c35469c691521d089ef53",
+          "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5",
+          "upstream_path": "text/MIT.txt",
+          "url": "https://raw.githubusercontent.com/spdx/license-list-data/a3cbf2e897d54bccec0c35469c691521d089ef53/text/MIT.txt"
+        }
+      ]
+    },
+    {
+      "artifacts": [
+        {
+          "integrity": "sha512-KekI0gS0wLxe1UBSQSjenBVwou/JkcQPDzBPICGZjxUv9k3RteHDPBQaiOicZUFKRIH2wKEimGwVpnJsbPzu7w==",
+          "locator": "https://registry.npmjs.org/@rolldown/binding-linux-x64-gnu/-/binding-linux-x64-gnu-1.2.6.tgz"
+        }
+      ],
+      "coordinate": "node:@rolldown/binding-linux-x64-gnu@1.2.6",
+      "disposition": "upstream-license-at-release",
+      "license_expression": "MIT",
+      "lock_path": "node_modules/@rolldown/binding-linux-x64-gnu",
+      "sources": [
+        {
+          "path": "third_party/notices/23ecfff35a5a2e80d92142f75228912c3b1abc4b5a8337a821ff4397e2f9f734.txt",
+          "revision": "5375362b36eeeaf514c67052ba65f3e97523dde5",
+          "sha256": "23ecfff35a5a2e80d92142f75228912c3b1abc4b5a8337a821ff4397e2f9f734",
+          "upstream_path": "LICENSE",
+          "url": "https://raw.githubusercontent.com/rolldown/rolldown/5375362b36eeeaf514c67052ba65f3e97523dde5/LICENSE"
+        },
+        {
+          "path": "third_party/notices/a877291d800ed43692f3f9ae09d8e01cc6f7293ad39d43896059c188ffbb8b7c.txt",
+          "revision": "5375362b36eeeaf514c67052ba65f3e97523dde5",
+          "sha256": "a877291d800ed43692f3f9ae09d8e01cc6f7293ad39d43896059c188ffbb8b7c",
+          "upstream_path": "THIRD-PARTY-LICENSE",
+          "url": "https://raw.githubusercontent.com/rolldown/rolldown/5375362b36eeeaf514c67052ba65f3e97523dde5/THIRD-PARTY-LICENSE"
+        }
+      ]
+    },
+    {
+      "artifacts": [
+        {
+          "integrity": "sha512-gfI5T24WLLuFfSKw7Go/zDXjAAV0fny0swTaDv+WjK7vqcw4cRhFfdsyKL1n+ukI+ooBxn3bVQnyrn06WpI50w==",
+          "locator": "https://registry.npmjs.org/@rollup/rollup-linux-x64-gnu/-/rollup-linux-x64-gnu-4.63.1.tgz"
+        }
+      ],
+      "coordinate": "node:@rollup/rollup-linux-x64-gnu@4.63.1",
+      "disposition": "upstream-license-at-release",
+      "license_expression": "MIT",
+      "lock_path": "node_modules/@rollup/rollup-linux-x64-gnu",
+      "sources": [
+        {
+          "path": "third_party/notices/fa1bd040c5bdeefe65b3821cebf474f2733ce65df13089bd151dda1778e62fe8.txt",
+          "revision": "78bfef0cb94479566f81012fafa372c84b90bd34",
+          "sha256": "fa1bd040c5bdeefe65b3821cebf474f2733ce65df13089bd151dda1778e62fe8",
+          "upstream_path": "LICENSE.md",
+          "url": "https://raw.githubusercontent.com/rollup/rollup/78bfef0cb94479566f81012fafa372c84b90bd34/LICENSE.md"
+        },
+        {
+          "path": "third_party/notices/9dff12bb776f199482bc21fb2aba9615032c0403d19cfd1fa0bf101a9379b146.txt",
+          "revision": "78bfef0cb94479566f81012fafa372c84b90bd34",
+          "sha256": "9dff12bb776f199482bc21fb2aba9615032c0403d19cfd1fa0bf101a9379b146",
+          "upstream_path": "LICENSE-CORE.md",
+          "url": "https://raw.githubusercontent.com/rollup/rollup/78bfef0cb94479566f81012fafa372c84b90bd34/LICENSE-CORE.md"
+        }
+      ]
+    },
+    {
+      "artifacts": [
+        {
+          "integrity": "sha512-YpgQiITW3JXGntzdUmyUR1V812Hn8T1YVXhCu+wO3OpS4eU9l4YdD3qjyiKdV6mvV29zapkMeD390UVEf2lkUg==",
+          "locator": "https://registry.npmjs.org/decimal.js/-/decimal.js-10.6.0.tgz"
+        }
+      ],
+      "coordinate": "node:decimal.js@10.6.0",
+      "disposition": "upstream-license-at-release",
+      "license_expression": "MIT",
+      "lock_path": "node_modules/decimal.js",
+      "sources": [
+        {
+          "path": "third_party/notices/a0df2307b32880324fc5f42def582b5c1fa2058a30bbab90731c948241a5c7c2.txt",
+          "revision": "1a6e845004b29a3b7dcef78fe92b8d786634f4e2",
+          "sha256": "a0df2307b32880324fc5f42def582b5c1fa2058a30bbab90731c948241a5c7c2",
+          "upstream_path": "LICENCE.md",
+          "url": "https://raw.githubusercontent.com/MikeMcl/decimal.js/1a6e845004b29a3b7dcef78fe92b8d786634f4e2/LICENCE.md"
+        }
+      ]
+    },
+    {
+      "artifacts": [
+        {
+          "integrity": "sha512-xAg7SOnEhrm5zI3puOOKyy1OMcMlIJZYNJY7xLBwSze0UjhPLnWfj2GF2EpT0jmzaJKIWKHLsaSSajf35bcYnA==",
+          "locator": "https://registry.npmjs.org/saxes/-/saxes-6.0.0.tgz"
+        }
+      ],
+      "coordinate": "node:saxes@6.0.0",
+      "disposition": "upstream-license-at-release",
+      "license_expression": "ISC",
+      "lock_path": "node_modules/saxes",
+      "sources": [
+        {
+          "path": "third_party/notices/0fac2374380621b22e6b50451057721a9c52935b02d16d106a9f04897f061d0e.txt",
+          "revision": "211fa0ebec9b628affc09219199639887174bfc3",
+          "sha256": "0fac2374380621b22e6b50451057721a9c52935b02d16d106a9f04897f061d0e",
+          "upstream_path": "LICENSE",
+          "url": "https://raw.githubusercontent.com/lddubeau/saxes/211fa0ebec9b628affc09219199639887174bfc3/LICENSE"
+        }
+      ]
+    },
+    {
+      "artifacts": [
+        {
+          "integrity": "sha512-1XMJE5fQo1jGH6Y/7ebnwPOBEkIEnT4QF32d5R1+VXdXveM0IBMJt8zfaxX1P3QhVwrYe+576+jkANtSS2mBbw==",
+          "locator": "https://registry.npmjs.org/stackback/-/stackback-0.0.2.tgz"
+        }
+      ],
+      "coordinate": "node:stackback@0.0.2",
+      "disposition": "artifact-expression-plus-spdx-terms",
+      "license_expression": "MIT",
+      "lock_path": "node_modules/stackback",
+      "sources": [
+        {
+          "path": "third_party/notices/b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5.txt",
+          "revision": "a3cbf2e897d54bccec0c35469c691521d089ef53",
+          "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5",
+          "upstream_path": "text/MIT.txt",
+          "url": "https://raw.githubusercontent.com/spdx/license-list-data/a3cbf2e897d54bccec0c35469c691521d089ef53/text/MIT.txt"
+        }
+      ]
+    },
+    {
+      "artifacts": [
+        {
+          "integrity": "sha512-5GS12FdOZNliM5mAOxFRg7Ir0pWz8MdpYm6AY6VPkGpbA7ZzmbzNcBJQ0GPvvyWgcY7QAhCgf9Uy89I03faLkg==",
+          "locator": "https://registry.npmjs.org/std-env/-/std-env-3.10.0.tgz"
+        }
+      ],
+      "coordinate": "node:std-env@3.10.0",
+      "disposition": "upstream-license-at-release",
+      "license_expression": "MIT",
+      "lock_path": "node_modules/std-env",
+      "sources": [
+        {
+          "path": "third_party/notices/a6f36438e46fb911859f3b9c4cad045ba64e1af3d8f4512c60258fa2d7552d28.txt",
+          "revision": "6b691372c3670df1ef6fb826086abba4ef6964e3",
+          "sha256": "a6f36438e46fb911859f3b9c4cad045ba64e1af3d8f4512c60258fa2d7552d28",
+          "upstream_path": "LICENCE",
+          "url": "https://raw.githubusercontent.com/unjs/std-env/6b691372c3670df1ef6fb826086abba4ef6964e3/LICENCE"
+        }
+      ]
+    },
+    {
+      "artifacts": [
+        {
+          "integrity": "sha512-op4nsTR47R6p0vMUUoYl/a+ljLFVtlfaXkLQmqfLR1qHma1h/ysYk4hEXZ880bf2CYgTskvTa/e196Vd5dDQXw==",
+          "locator": "https://registry.npmjs.org/tinyrainbow/-/tinyrainbow-2.0.0.tgz"
+        }
+      ],
+      "coordinate": "node:tinyrainbow@2.0.0",
+      "disposition": "upstream-license-at-release",
+      "license_expression": "MIT",
+      "lock_path": "node_modules/tinyrainbow",
+      "sources": [
+        {
+          "path": "third_party/notices/cebc084d54e6dd99e53292ddb4bc1cdb63d9bfcd9ce438fe3aa6eb106d79e2ea.txt",
+          "revision": "901d574a4dbc5828abbb825bc18a9cc68b19b6d7",
+          "sha256": "cebc084d54e6dd99e53292ddb4bc1cdb63d9bfcd9ce438fe3aa6eb106d79e2ea",
+          "upstream_path": "LICENCE",
+          "url": "https://raw.githubusercontent.com/tinylibs/tinyrainbow/901d574a4dbc5828abbb825bc18a9cc68b19b6d7/LICENCE"
+        }
+      ]
+    },
+    {
+      "artifacts": [
+        {
+          "integrity": "sha512-azl+t0z7pw/z958Gy9svOTuzqIk6xq+NSheJzn5MMWtWTFywIacg2wUlzKFGtt3cthx0r2SxMK0yzJOR0IES7Q==",
+          "locator": "https://registry.npmjs.org/tinyspy/-/tinyspy-4.0.4.tgz"
+        }
+      ],
+      "coordinate": "node:tinyspy@4.0.4",
+      "disposition": "upstream-license-at-release",
+      "license_expression": "MIT",
+      "lock_path": "node_modules/tinyspy",
+      "sources": [
+        {
+          "path": "third_party/notices/cebc084d54e6dd99e53292ddb4bc1cdb63d9bfcd9ce438fe3aa6eb106d79e2ea.txt",
+          "revision": "1068d5beeb8e6c28590bda343bc0662da98d740e",
+          "sha256": "cebc084d54e6dd99e53292ddb4bc1cdb63d9bfcd9ce438fe3aa6eb106d79e2ea",
+          "upstream_path": "LICENCE",
+          "url": "https://raw.githubusercontent.com/tinylibs/tinyspy/1068d5beeb8e6c28590bda343bc0662da98d740e/LICENCE"
+        }
+      ]
+    },
+    {
+      "artifacts": [
+        {
+          "integrity": "sha256:caa6aa746b5e47e2165f7abd741b6415e49cf4d44fddc0f61844612cc3924d41",
+          "locator": "https://files.pythonhosted.org/packages/14/31/edb06aabd8f8f0b56d659f30800795f40b93cba96be946ce179f6931e3a5/aiofile-3.12.3.tar.gz"
+        },
+        {
+          "integrity": "sha256:5c1bcc9e929c50834608e8cc1a4cc1d7503eb60c15a535b779fd39e2f372c017",
+          "locator": "https://files.pythonhosted.org/packages/4e/79/6e45e778c4c3cab39e0937b007b720c15f76c50c6453d153282d0fcc3588/aiofile-3.12.3-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:aiofile==3.12.3",
+      "disposition": "upstream-license-at-release",
+      "license_expression": "Apache-2.0",
+      "sources": [
+        {
+          "path": "third_party/notices/ec640150e03774d1b5264fb268f3829dc36745551109131ebf6dd0a59d5ec3eb.txt",
+          "revision": "f1de9014ad7b7954e6417fc3c4d178d6ff540973",
+          "sha256": "ec640150e03774d1b5264fb268f3829dc36745551109131ebf6dd0a59d5ec3eb",
+          "upstream_path": "LICENCE.md",
+          "url": "https://raw.githubusercontent.com/mosquito/aiofile/f1de9014ad7b7954e6417fc3c4d178d6ff540973/LICENCE.md"
+        }
+      ]
+    },
+    {
+      "artifacts": [
+        {
+          "integrity": "sha256:17cd0a1535972d3748d8c2416f0826dfc86c18df7a6cbc38602373277d44baa6",
+          "locator": "https://files.pythonhosted.org/packages/58/66/cc283d4efd3faf325c26f51cfb43a118270ea732e70dda509f49d80ea625/fastmcp_slim-3.4.0-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:faa0ccf16e85ec4b9f79c006fed3546b866d7e6dba3f60cd32cd98e84753a496",
+          "locator": "https://files.pythonhosted.org/packages/e7/b0/4da6078c2d6aa0a38a8b1ae0271e1ed400f9e2cd1b3b46e6453fb1fe2b75/fastmcp_slim-3.4.0.tar.gz"
+        }
+      ],
+      "coordinate": "python:fastmcp-slim==3.4.0",
+      "disposition": "upstream-license-at-release",
+      "license_expression": "Apache-2.0",
+      "sources": [
+        {
+          "path": "third_party/notices/43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1.txt",
+          "revision": "e124bde34eeea66f5472e239c70cda247508da34",
+          "sha256": "43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1",
+          "upstream_path": "LICENSE",
+          "url": "https://raw.githubusercontent.com/PrefectHQ/fastmcp/e124bde34eeea66f5472e239c70cda247508da34/LICENSE"
+        }
+      ]
+    }
+  ],
+  "schema_version": 1
+}

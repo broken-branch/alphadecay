@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="420" viewBox="0 0 1600 420" role="img" aria-labelledby="title description">
+  <title id="title">alphadecay paper trading decision flow</title>
+  <desc id="description">Alpaca MCP research passes through a structured model classification and fixed rules before the Trading API can send and reconcile a paper order. The Alpaca CLI remains outside the application.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="9" markerHeight="9" orient="auto">
+      <path d="M1 1L11 6L1 11" fill="none" stroke="#684FC6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="420" rx="18" fill="#F6F6F6"/>
+  <g fill="#FFFFFF" stroke="#B9B5AE" stroke-width="3">
+    <rect x="40" y="48" width="310" height="196" rx="14"/>
+    <rect x="435" y="48" width="310" height="196" rx="14"/>
+    <rect x="830" y="48" width="310" height="196" rx="14"/>
+    <rect x="1225" y="48" width="335" height="196" rx="14"/>
+  </g>
+  <g fill="none" stroke="#684FC6" stroke-width="5" marker-end="url(#arrow)">
+    <path d="M362 146H410"/>
+    <path d="M757 146H805"/>
+    <path d="M1152 146H1200"/>
+  </g>
+  <g font-family="'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif">
+    <g fill="#684FC6" font-size="23" font-weight="700" letter-spacing="1.8">
+      <text x="70" y="91">ALPACA MCP</text>
+      <text x="465" y="91">SELECTED MODEL</text>
+      <text x="860" y="91">FIXED POLICY</text>
+      <text x="1255" y="91">TRADING API</text>
+    </g>
+    <g fill="#242326" font-size="34" font-weight="600">
+      <text x="70" y="137">Option and news</text>
+      <text x="70" y="176">research</text>
+      <text x="465" y="143">Classify evidence</text>
+      <text x="860" y="143">Hold, close, or roll</text>
+      <text x="1255" y="143">Paper order</text>
+    </g>
+    <g fill="#4F4D52" font-size="24">
+      <text x="70" y="218">The app chooses each call.</text>
+      <text x="465" y="190">Structured fields only.</text>
+      <text x="860" y="190">Rules choose the action.</text>
+      <text x="1255" y="190">Then reconcile the account.</text>
+    </g>
+    <rect x="40" y="292" width="1520" height="82" rx="12" fill="#EEEAFB" stroke="#A991FF" stroke-width="2"/>
+    <text x="70" y="327" fill="#684FC6" font-size="21" font-weight="700" letter-spacing="1.8">ALPACA CLI</text>
+    <text x="70" y="357" fill="#3E2F85" font-size="25">Operator paper dry run. It stays outside the application and model boundary.</text>
+  </g>
+</svg>

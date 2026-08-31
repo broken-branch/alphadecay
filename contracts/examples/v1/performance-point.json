@@ -1,0 +1,14 @@
+{
+  "schema_version": "v1",
+  "scheduled_for": "2026-08-28T15:00:00Z",
+  "attempted_at": "2026-08-28T15:00:05Z",
+  "measured_at": null,
+  "status": "MISSING",
+  "failure_code": "CAPTURE_NOT_STARTED",
+  "current_equity_usd": null,
+  "account_equity_change_usd": null,
+  "account_equity_return_pct": null,
+  "reconciled_lifecycle_cashflow_usd": null,
+  "open_position_liquidation_pnl_usd": null,
+  "simulator_limitations_code": "ALPACA_PAPER_SIMULATION"
+}

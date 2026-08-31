@@ -1,0 +1,3749 @@
+{
+  "inventories": {
+    "build-only": [
+      "node:@adobe/css-tools@4.5.0#node_modules/@adobe/css-tools",
+      "node:@asamuzakjp/css-color@6.0.7#node_modules/@asamuzakjp/css-color",
+      "node:@asamuzakjp/dom-selector@8.3.2#node_modules/@asamuzakjp/dom-selector",
+      "node:@babel/code-frame@7.29.7#node_modules/@babel/code-frame",
+      "node:@babel/helper-validator-identifier@7.29.7#node_modules/@babel/helper-validator-identifier",
+      "node:@babel/runtime@7.29.7#node_modules/@babel/runtime",
+      "node:@bramus/specificity@2.4.2#node_modules/@bramus/specificity",
+      "node:@csstools/color-helpers@6.1.1#node_modules/@csstools/color-helpers",
+      "node:@csstools/css-calc@3.3.0#node_modules/@csstools/css-calc",
+      "node:@csstools/css-color-parser@4.2.1#node_modules/@csstools/css-color-parser",
+      "node:@csstools/css-parser-algorithms@4.0.0#node_modules/@csstools/css-parser-algorithms",
+      "node:@csstools/css-syntax-patches-for-csstree@1.1.9#node_modules/@csstools/css-syntax-patches-for-csstree",
+      "node:@csstools/css-tokenizer@4.0.0#node_modules/@csstools/css-tokenizer",
+      "node:@esbuild/linux-x64@0.28.2#node_modules/@esbuild/linux-x64",
+      "node:@exodus/bytes@1.15.1#node_modules/@exodus/bytes",
+      "node:@jridgewell/sourcemap-codec@1.6.0#node_modules/@jridgewell/sourcemap-codec",
+      "node:@napi-rs/lzma-linux-x64-gnu@1.5.1#node_modules/@napi-rs/lzma-linux-x64-gnu",
+      "node:@oxc-project/types@0.147.0#node_modules/@oxc-project/types",
+      "node:@rolldown/binding-linux-x64-gnu@1.2.6#node_modules/@rolldown/binding-linux-x64-gnu",
+      "node:@rolldown/pluginutils@1.0.1#node_modules/@rolldown/pluginutils",
+      "node:@rollup/rollup-linux-x64-gnu@4.63.1#node_modules/@rollup/rollup-linux-x64-gnu",
+      "node:@testing-library/dom@10.4.1#node_modules/@testing-library/dom",
+      "node:@testing-library/jest-dom@7.0.1#node_modules/@testing-library/jest-dom",
+      "node:@testing-library/react@16.3.3#node_modules/@testing-library/react",
+      "node:@testing-library/user-event@14.6.6#node_modules/@testing-library/user-event",
+      "node:@types/aria-query@5.0.4#node_modules/@types/aria-query",
+      "node:@types/chai@5.2.3#node_modules/@types/chai",
+      "node:@types/deep-eql@4.0.2#node_modules/@types/deep-eql",
+      "node:@types/estree@1.0.9#node_modules/@types/estree",
+      "node:@types/react-dom@19.2.5#node_modules/@types/react-dom",
+      "node:@types/react@19.2.18#node_modules/@types/react",
+      "node:@vitejs/plugin-react@6.1.0#node_modules/@vitejs/plugin-react",
+      "node:@vitest/expect@3.2.7#node_modules/@vitest/expect",
+      "node:@vitest/mocker@3.2.7#node_modules/vitest/node_modules/@vitest/mocker",
+      "node:@vitest/pretty-format@3.2.7#node_modules/@vitest/pretty-format",
+      "node:@vitest/runner@3.2.7#node_modules/@vitest/runner",
+      "node:@vitest/snapshot@3.2.7#node_modules/@vitest/snapshot",
+      "node:@vitest/spy@3.2.7#node_modules/@vitest/spy",
+      "node:@vitest/utils@3.2.7#node_modules/@vitest/utils",
+      "node:ansi-regex@5.0.1#node_modules/ansi-regex",
+      "node:ansi-styles@5.2.0#node_modules/ansi-styles",
+      "node:aria-query@5.3.0#node_modules/aria-query",
+      "node:assertion-error@2.0.1#node_modules/assertion-error",
+      "node:bidi-js@1.0.3#node_modules/bidi-js",
+      "node:cac@6.7.14#node_modules/cac",
+      "node:chai@5.3.3#node_modules/chai",
+      "node:check-error@2.1.3#node_modules/check-error",
+      "node:css-tree@3.2.1#node_modules/css-tree",
+      "node:css.escape@1.5.1#node_modules/css.escape",
+      "node:csstype@3.2.3#node_modules/csstype",
+      "node:data-urls@7.0.0#node_modules/data-urls",
+      "node:debug@4.4.3#node_modules/debug",
+      "node:decimal.js@10.6.0#node_modules/decimal.js",
+      "node:deep-eql@5.0.2#node_modules/deep-eql",
+      "node:dequal@2.0.3#node_modules/dequal",
+      "node:detect-libc@2.1.2#node_modules/detect-libc",
+      "node:dom-accessibility-api@0.5.16#node_modules/dom-accessibility-api",
+      "node:dom-accessibility-api@0.6.3#node_modules/@testing-library/jest-dom/node_modules/dom-accessibility-api",
+      "node:entities@8.0.0#node_modules/entities",
+      "node:es-module-lexer@1.7.0#node_modules/es-module-lexer",
+      "node:esbuild@0.28.2#node_modules/esbuild",
+      "node:estree-walker@3.0.3#node_modules/estree-walker",
+      "node:expect-type@1.4.0#node_modules/expect-type",
+      "node:fdir@6.5.0#node_modules/fdir",
+      "node:html-encoding-sniffer@6.0.0#node_modules/html-encoding-sniffer",
+      "node:indent-string@4.0.0#node_modules/indent-string",
+      "node:is-potential-custom-element-name@1.0.1#node_modules/is-potential-custom-element-name",
+      "node:js-tokens@4.0.0#node_modules/@babel/code-frame/node_modules/js-tokens",
+      "node:js-tokens@9.0.1#node_modules/js-tokens",
+      "node:jsdom@30.0.1#node_modules/jsdom",
+      "node:lightningcss-linux-x64-gnu@1.33.0#node_modules/lightningcss-linux-x64-gnu",
+      "node:lightningcss@1.33.0#node_modules/lightningcss",
+      "node:loupe@3.2.1#node_modules/loupe",
+      "node:lru-cache@11.5.2#node_modules/lru-cache",
+      "node:lz-string@1.5.0#node_modules/lz-string",
+      "node:magic-string@0.30.21#node_modules/magic-string",
+      "node:mdn-data@2.27.1#node_modules/mdn-data",
+      "node:min-indent@1.0.1#node_modules/min-indent",
+      "node:ms@2.1.3#node_modules/ms",
+      "node:nanoid@3.3.18#node_modules/nanoid",
+      "node:parse5@8.0.1#node_modules/parse5",
+      "node:pathe@2.0.3#node_modules/pathe",
+      "node:pathval@2.0.1#node_modules/pathval",
+      "node:picocolors@1.1.1#node_modules/picocolors",
+      "node:picomatch@4.0.7#node_modules/picomatch",
+      "node:postcss@8.5.26#node_modules/postcss",
+      "node:pretty-format@27.5.1#node_modules/pretty-format",
+      "node:punycode@2.3.1#node_modules/punycode",
+      "node:react-is@17.0.2#node_modules/react-is",
+      "node:redent@3.0.0#node_modules/redent",
+      "node:require-from-string@2.0.2#node_modules/require-from-string",
+      "node:rolldown@1.2.6#node_modules/rolldown",
+      "node:rollup@4.63.1#node_modules/rollup",
+      "node:saxes@6.0.0#node_modules/saxes",
+      "node:siginfo@2.0.0#node_modules/siginfo",
+      "node:source-map-js@1.2.1#node_modules/source-map-js",
+      "node:stackback@0.0.2#node_modules/stackback",
+      "node:std-env@3.10.0#node_modules/std-env",
+      "node:strip-indent@3.0.0#node_modules/strip-indent",
+      "node:strip-literal@3.1.0#node_modules/strip-literal",
+      "node:symbol-tree@3.2.4#node_modules/symbol-tree",
+      "node:tinybench@2.9.0#node_modules/tinybench",
+      "node:tinyexec@0.3.2#node_modules/tinyexec",
+      "node:tinyglobby@0.2.17#node_modules/tinyglobby",
+      "node:tinypool@1.1.1#node_modules/tinypool",
+      "node:tinyrainbow@2.0.0#node_modules/tinyrainbow",
+      "node:tinyspy@4.0.4#node_modules/tinyspy",
+      "node:tldts-core@7.4.11#node_modules/tldts-core",
+      "node:tldts@7.4.11#node_modules/tldts",
+      "node:tough-cookie@6.0.2#node_modules/tough-cookie",
+      "node:tr46@6.0.0#node_modules/tr46",
+      "node:typescript@5.9.2#node_modules/typescript",
+      "node:undici@8.10.0#node_modules/undici",
+      "node:vite-node@3.2.4#node_modules/vite-node",
+      "node:vite@7.3.6#node_modules/vite-node/node_modules/vite",
+      "node:vite@7.3.6#node_modules/vitest/node_modules/vite",
+      "node:vite@8.2.2#node_modules/vite",
+      "node:vitest@3.2.7#node_modules/vitest",
+      "node:w3c-xmlserializer@5.0.0#node_modules/w3c-xmlserializer",
+      "node:webidl-conversions@8.0.1#node_modules/webidl-conversions",
+      "node:whatwg-mimetype@5.0.0#node_modules/whatwg-mimetype",
+      "node:whatwg-url@16.0.1#node_modules/data-urls/node_modules/whatwg-url",
+      "node:whatwg-url@17.1.0#node_modules/whatwg-url",
+      "node:why-is-node-running@2.3.0#node_modules/why-is-node-running",
+      "node:xml-name-validator@5.0.0#node_modules/xml-name-validator",
+      "node:xmlchars@2.2.0#node_modules/xmlchars",
+      "python:coverage==7.15.4",
+      "python:iniconfig==2.3.0",
+      "python:pluggy==1.6.0",
+      "python:pytest-cov==6.2.1",
+      "python:pytest==8.4.1",
+      "python:ruff==0.12.10"
+    ],
+    "frontend-runtime": [
+      "node:react-dom@19.2.8#node_modules/react-dom",
+      "node:react@19.2.8#node_modules/react",
+      "node:scheduler@0.27.0#node_modules/scheduler",
+      "node:zod@3.25.76#node_modules/zod"
+    ],
+    "mcp-runtime": [
+      "python:aiofile==3.12.3",
+      "python:alpaca-mcp-server==2.3.0",
+      "python:annotated-types==0.8.0",
+      "python:anyio==4.14.2",
+      "python:attrs==26.1.0",
+      "python:authlib==1.7.2",
+      "python:beartype==0.22.9",
+      "python:cachetools==7.1.7",
+      "python:caio==0.12.2",
+      "python:certifi==2026.7.22",
+      "python:cffi==2.1.1",
+      "python:click==8.5.0",
+      "python:cryptography==50.0.1",
+      "python:cyclopts==4.23.3",
+      "python:dnspython==2.8.0",
+      "python:docstring-parser==0.18.0",
+      "python:email-validator==2.3.0",
+      "python:exceptiongroup==1.3.1",
+      "python:fastmcp-slim==3.4.0",
+      "python:fastmcp==3.4.0",
+      "python:griffelib==2.2.0",
+      "python:h11==0.16.0",
+      "python:httpcore==1.0.9",
+      "python:httpx-sse==0.4.3",
+      "python:httpx==0.28.1",
+      "python:idna==3.19",
+      "python:jaraco-classes==3.4.0",
+      "python:jaraco-context==6.1.2",
+      "python:jaraco-functools==4.6.0",
+      "python:jeepney==0.9.0",
+      "python:joserfc==1.7.4",
+      "python:jsonref==1.1.0",
+      "python:jsonschema-path==0.5.0",
+      "python:jsonschema-specifications==2025.9.1",
+      "python:jsonschema==4.26.0",
+      "python:keyring==25.7.0",
+      "python:markdown-it-py==4.2.0",
+      "python:mcp==1.29.1",
+      "python:mdurl==0.1.2",
+      "python:more-itertools==11.1.0",
+      "python:openapi-pydantic==0.5.1",
+      "python:opentelemetry-api==1.44.0",
+      "python:packaging==26.3",
+      "python:pathable==0.6.0",
+      "python:platformdirs==4.11.5",
+      "python:py-key-value-aio==0.4.5",
+      "python:pycparser==3.0",
+      "python:pydantic-core==2.41.5",
+      "python:pydantic-settings==2.10.1",
+      "python:pydantic==2.12.5",
+      "python:pygments==2.21.0",
+      "python:pyjwt==2.13.0",
+      "python:pyperclip==1.11.0",
+      "python:python-dotenv==1.2.3",
+      "python:python-multipart==0.0.32",
+      "python:pyyaml==6.0.3",
+      "python:referencing==0.37.0",
+      "python:rich-rst==2.1.0",
+      "python:rich==15.0.0",
+      "python:rpds-py==2026.6.3",
+      "python:secretstorage==3.5.0",
+      "python:sse-starlette==3.0.3",
+      "python:starlette==0.47.3",
+      "python:typing-extensions==4.16.0",
+      "python:typing-inspection==0.4.4",
+      "python:uncalled-for==0.4.0",
+      "python:uvicorn==0.35.0",
+      "python:watchfiles==1.2.0",
+      "python:websockets==15.0.1"
+    ],
+    "python-runtime": [
+      "python:aiofile==3.12.3",
+      "python:alpaca-mcp-server==2.3.0",
+      "python:alpaca-py==0.44.0",
+      "python:annotated-types==0.8.0",
+      "python:anyio==4.14.2",
+      "python:asn1crypto==1.5.1",
+      "python:attrs==26.1.0",
+      "python:authlib==1.7.2",
+      "python:beartype==0.22.9",
+      "python:cachetools==7.1.7",
+      "python:caio==0.12.2",
+      "python:certifi==2026.7.22",
+      "python:cffi==2.1.1",
+      "python:charset-normalizer==3.5.1",
+      "python:click==8.5.0",
+      "python:cryptography==50.0.1",
+      "python:cyclopts==4.23.3",
+      "python:distro==1.9.0",
+      "python:dnspython==2.8.0",
+      "python:docstring-parser==0.18.0",
+      "python:email-validator==2.3.0",
+      "python:exceptiongroup==1.3.1",
+      "python:fastapi==0.116.1",
+      "python:fastmcp-slim==3.4.0",
+      "python:fastmcp==3.4.0",
+      "python:google-auth==2.57.0",
+      "python:google-genai==2.20.0",
+      "python:greenlet==3.5.5",
+      "python:griffelib==2.2.0",
+      "python:h11==0.16.0",
+      "python:httpcore==1.0.9",
+      "python:httptools==0.8.0",
+      "python:httpx-sse==0.4.3",
+      "python:httpx==0.28.1",
+      "python:idna==3.19",
+      "python:jaraco-classes==3.4.0",
+      "python:jaraco-context==6.1.2",
+      "python:jaraco-functools==4.6.0",
+      "python:jeepney==0.9.0",
+      "python:joserfc==1.7.4",
+      "python:jsonref==1.1.0",
+      "python:jsonschema-path==0.5.0",
+      "python:jsonschema-specifications==2025.9.1",
+      "python:jsonschema==4.26.0",
+      "python:keyring==25.7.0",
+      "python:markdown-it-py==4.2.0",
+      "python:mcp==1.29.1",
+      "python:mdurl==0.1.2",
+      "python:more-itertools==11.1.0",
+      "python:msgpack==1.2.2",
+      "python:numpy==2.5.2",
+      "python:openapi-pydantic==0.5.1",
+      "python:opentelemetry-api==1.44.0",
+      "python:packaging==26.3",
+      "python:pandas==3.0.5",
+      "python:pathable==0.6.0",
+      "python:pg8000==1.31.5",
+      "python:platformdirs==4.11.5",
+      "python:py-key-value-aio==0.4.5",
+      "python:pyasn1-modules==0.4.2",
+      "python:pyasn1==0.6.4",
+      "python:pycparser==3.0",
+      "python:pydantic-core==2.41.5",
+      "python:pydantic-settings==2.10.1",
+      "python:pydantic==2.12.5",
+      "python:pygments==2.21.0",
+      "python:pyjwt==2.13.0",
+      "python:pyperclip==1.11.0",
+      "python:python-dateutil==2.9.0.post0",
+      "python:python-dotenv==1.2.3",
+      "python:python-multipart==0.0.32",
+      "python:pytz==2026.3.post1",
+      "python:pyyaml==6.0.3",
+      "python:referencing==0.37.0",
+      "python:requests==2.34.2",
+      "python:rich-rst==2.1.0",
+      "python:rich==15.0.0",
+      "python:rpds-py==2026.6.3",
+      "python:scramp==1.4.17",
+      "python:secretstorage==3.5.0",
+      "python:six==1.17.0",
+      "python:sniffio==1.3.1",
+      "python:sqlalchemy==2.0.43",
+      "python:sse-starlette==3.0.3",
+      "python:sseclient-py==1.9.0",
+      "python:starlette==0.47.3",
+      "python:tenacity==9.1.4",
+      "python:typing-extensions==4.16.0",
+      "python:typing-inspection==0.4.4",
+      "python:uncalled-for==0.4.0",
+      "python:urllib3==2.7.0",
+      "python:uvicorn==0.35.0",
+      "python:uvloop==0.22.1",
+      "python:watchfiles==1.2.0",
+      "python:websockets==15.0.1"
+    ]
+  },
+  "license_evidence_status": "No SPDX conclusion is asserted here. The release verifier must derive each conclusion from the exact locked archive and retained license material.",
+  "lockfiles": {
+    "package-lock.json": "51940336c597c5e3c7c3bfc7cc96076ffe6c370feca270e6c67866bf79146c65",
+    "uv.lock": "8f20822f35e7b6bff8f351305c853d0f6a4deb32c9d9b452ceb53dc29ce313cf"
+  },
+  "packages": [
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-6OzddxPio9UiWTCemp4N8cYLV2ZN1ncRnV1cVGtve7dhPOtRkleRyx32GQCYSwDYgaHU3USMm84tNsvKzRCa1Q==",
+          "locator": "https://registry.npmjs.org/@adobe/css-tools/-/css-tools-4.5.0.tgz"
+        }
+      ],
+      "coordinate": "node:@adobe/css-tools@4.5.0",
+      "lock_path": "node_modules/@adobe/css-tools",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-vC/bk1Lz7Tn/EfU9/apOTBk80/8dyGyWMowPoV1tJ52muDGsDqt2HPT2klrFUiY60MQmQv9q8yIht15JnBgDGw==",
+          "locator": "https://registry.npmjs.org/@asamuzakjp/css-color/-/css-color-6.0.7.tgz"
+        }
+      ],
+      "coordinate": "node:@asamuzakjp/css-color@6.0.7",
+      "lock_path": "node_modules/@asamuzakjp/css-color",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-93Z1N+BQNXysodoicpOIyNh2drHfz/CTf9nnT0FEx72GJcIiwgydD7tGAr78j41LsYn3hlRn+LdGPuBLn1Bl8Q==",
+          "locator": "https://registry.npmjs.org/@asamuzakjp/dom-selector/-/dom-selector-8.3.2.tgz"
+        }
+      ],
+      "coordinate": "node:@asamuzakjp/dom-selector@8.3.2",
+      "lock_path": "node_modules/@asamuzakjp/dom-selector",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==",
+          "locator": "https://registry.npmjs.org/@babel/code-frame/-/code-frame-7.29.7.tgz"
+        }
+      ],
+      "coordinate": "node:@babel/code-frame@7.29.7",
+      "lock_path": "node_modules/@babel/code-frame",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-qehxGkRj55h/ff8EMaJ+cYhyaKlHIxqYDn682wQD7RNp9UujOQsHog2uS0r2vzr4pW+sXf90NeeayjcNaX3fFg==",
+          "locator": "https://registry.npmjs.org/@babel/helper-validator-identifier/-/helper-validator-identifier-7.29.7.tgz"
+        }
+      ],
+      "coordinate": "node:@babel/helper-validator-identifier@7.29.7",
+      "lock_path": "node_modules/@babel/helper-validator-identifier",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw==",
+          "locator": "https://registry.npmjs.org/@babel/runtime/-/runtime-7.29.7.tgz"
+        }
+      ],
+      "coordinate": "node:@babel/runtime@7.29.7",
+      "lock_path": "node_modules/@babel/runtime",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-ctxtJ/eA+t+6q2++vj5j7FYX3nRu311q1wfYH3xjlLOsczhlhxAg2FWNUXhpGvAw3BWo1xBcvOV6/YLc2r5FJw==",
+          "locator": "https://registry.npmjs.org/@bramus/specificity/-/specificity-2.4.2.tgz"
+        }
+      ],
+      "coordinate": "node:@bramus/specificity@2.4.2",
+      "lock_path": "node_modules/@bramus/specificity",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-gLNsunvwf3mCi5u5o46/Z/JcJMnhbHSaZ69rkgPzNM3J4s8hWwpPUQB6/tt0EDFyCiWzxANlx+2LJwpYj4zS1w==",
+          "locator": "https://registry.npmjs.org/@csstools/color-helpers/-/color-helpers-6.1.1.tgz"
+        }
+      ],
+      "coordinate": "node:@csstools/color-helpers@6.1.1",
+      "lock_path": "node_modules/@csstools/color-helpers",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-c5ihYsPkdG6JCkU2zTMm4+k6r7RXuGxtWYhu5DHMIiF1FHzrfmHL5so11AoFpUv/tu61xfcmT4AmKoFfMPoqdQ==",
+          "locator": "https://registry.npmjs.org/@csstools/css-calc/-/css-calc-3.3.0.tgz"
+        }
+      ],
+      "coordinate": "node:@csstools/css-calc@3.3.0",
+      "lock_path": "node_modules/@csstools/css-calc",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-YpAJZhaHplYQkG8ib+/Fx5Y0eF2lVWi3tIvMJA6i39TLyUNp2439cifzW8VMjhlqrBjHzK5hVGugRRm2zTKI/A==",
+          "locator": "https://registry.npmjs.org/@csstools/css-color-parser/-/css-color-parser-4.2.1.tgz"
+        }
+      ],
+      "coordinate": "node:@csstools/css-color-parser@4.2.1",
+      "lock_path": "node_modules/@csstools/css-color-parser",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-+B87qS7fIG3L5h3qwJ/IFbjoVoOe/bpOdh9hAjXbvx0o8ImEmUsGXN0inFOnk2ChCFgqkkGFQ+TpM5rbhkKe4w==",
+          "locator": "https://registry.npmjs.org/@csstools/css-parser-algorithms/-/css-parser-algorithms-4.0.0.tgz"
+        }
+      ],
+      "coordinate": "node:@csstools/css-parser-algorithms@4.0.0",
+      "lock_path": "node_modules/@csstools/css-parser-algorithms",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-iGGw4OsAYsS6pD29MdJ2bX/nJx65a04ZZiw6x+VwWlP2DdXf6f++Zmuv/OzALpdyfVhjbduIIF2cXM7HWBIe9A==",
+          "locator": "https://registry.npmjs.org/@csstools/css-syntax-patches-for-csstree/-/css-syntax-patches-for-csstree-1.1.9.tgz"
+        }
+      ],
+      "coordinate": "node:@csstools/css-syntax-patches-for-csstree@1.1.9",
+      "lock_path": "node_modules/@csstools/css-syntax-patches-for-csstree",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-QxULHAm7cNu72w97JUNCBFODFaXpbDg+dP8b/oWFAZ2MTRppA3U00Y2L1HqaS4J6yBqxwa/Y3nMBaxVKbB/NsA==",
+          "locator": "https://registry.npmjs.org/@csstools/css-tokenizer/-/css-tokenizer-4.0.0.tgz"
+        }
+      ],
+      "coordinate": "node:@csstools/css-tokenizer@4.0.0",
+      "lock_path": "node_modules/@csstools/css-tokenizer",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-4xTZr1FUmSoQW4XIWmit3tzQrUTZM+N3P0XV8xROKYF50XfI7xeO90+1bZvNwxIufQ9hDQVRJH5YhgPVF8A/HQ==",
+          "locator": "https://registry.npmjs.org/@esbuild/linux-x64/-/linux-x64-0.28.2.tgz"
+        }
+      ],
+      "coordinate": "node:@esbuild/linux-x64@0.28.2",
+      "lock_path": "node_modules/@esbuild/linux-x64",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-S6mL0yNB/Abt9Ei4tq8gDhcczc4S3+vQ4ra7vxnAf+YHC02srtqxKKZghx2Dq6p0e66THKwR6r8N6P95wEty7Q==",
+          "locator": "https://registry.npmjs.org/@exodus/bytes/-/bytes-1.15.1.tgz"
+        }
+      ],
+      "coordinate": "node:@exodus/bytes@1.15.1",
+      "lock_path": "node_modules/@exodus/bytes",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw==",
+          "locator": "https://registry.npmjs.org/@jridgewell/sourcemap-codec/-/sourcemap-codec-1.6.0.tgz"
+        }
+      ],
+      "coordinate": "node:@jridgewell/sourcemap-codec@1.6.0",
+      "lock_path": "node_modules/@jridgewell/sourcemap-codec",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-oTXEIha4SsuXdTA4Iyskj0kpdx2yVXdhd75c2v3xGrHFfVMsbhTPZU/nMPL4sWKo4pBHm3aucLaqGlF696dTyQ==",
+          "locator": "https://registry.npmjs.org/@napi-rs/lzma-linux-x64-gnu/-/lzma-linux-x64-gnu-1.5.1.tgz"
+        }
+      ],
+      "coordinate": "node:@napi-rs/lzma-linux-x64-gnu@1.5.1",
+      "lock_path": "node_modules/@napi-rs/lzma-linux-x64-gnu",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-IJ3s6ltHLp45S0bh7phkX+gJO7A1Wuz2EaqpAhb8WjqDwbzMiWKHhyyT42tskaWjEYXtHtVCPpnBJVT9+dcRLg==",
+          "locator": "https://registry.npmjs.org/@oxc-project/types/-/types-0.147.0.tgz"
+        }
+      ],
+      "coordinate": "node:@oxc-project/types@0.147.0",
+      "lock_path": "node_modules/@oxc-project/types",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-KekI0gS0wLxe1UBSQSjenBVwou/JkcQPDzBPICGZjxUv9k3RteHDPBQaiOicZUFKRIH2wKEimGwVpnJsbPzu7w==",
+          "locator": "https://registry.npmjs.org/@rolldown/binding-linux-x64-gnu/-/binding-linux-x64-gnu-1.2.6.tgz"
+        }
+      ],
+      "coordinate": "node:@rolldown/binding-linux-x64-gnu@1.2.6",
+      "lock_path": "node_modules/@rolldown/binding-linux-x64-gnu",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==",
+          "locator": "https://registry.npmjs.org/@rolldown/pluginutils/-/pluginutils-1.0.1.tgz"
+        }
+      ],
+      "coordinate": "node:@rolldown/pluginutils@1.0.1",
+      "lock_path": "node_modules/@rolldown/pluginutils",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-gfI5T24WLLuFfSKw7Go/zDXjAAV0fny0swTaDv+WjK7vqcw4cRhFfdsyKL1n+ukI+ooBxn3bVQnyrn06WpI50w==",
+          "locator": "https://registry.npmjs.org/@rollup/rollup-linux-x64-gnu/-/rollup-linux-x64-gnu-4.63.1.tgz"
+        }
+      ],
+      "coordinate": "node:@rollup/rollup-linux-x64-gnu@4.63.1",
+      "lock_path": "node_modules/@rollup/rollup-linux-x64-gnu",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-o4PXJQidqJl82ckFaXUeoAW+XysPLauYI43Abki5hABd853iMhitooc6znOnczgbTYmEP6U6/y1ZyKAIsvMKGg==",
+          "locator": "https://registry.npmjs.org/@testing-library/dom/-/dom-10.4.1.tgz"
+        }
+      ],
+      "coordinate": "node:@testing-library/dom@10.4.1",
+      "lock_path": "node_modules/@testing-library/dom",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-oMDTC3oA+6CXSO2JZnvOI7CA6oVub6kij5ggk9ohwye5slmkwxYDXcPOVxgMw/RQlticjtO0C1RZkR97HgrWMw==",
+          "locator": "https://registry.npmjs.org/@testing-library/jest-dom/-/jest-dom-7.0.1.tgz"
+        }
+      ],
+      "coordinate": "node:@testing-library/jest-dom@7.0.1",
+      "lock_path": "node_modules/@testing-library/jest-dom",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-Uo193NgQbPMz6lrrhtRQQFcMC6Re/ELLFbbuVL30WDlZxlpZf9/lMHTAVxPRLw1q1iu9OJmR1c2BLiENRstdBg==",
+          "locator": "https://registry.npmjs.org/@testing-library/react/-/react-16.3.3.tgz"
+        }
+      ],
+      "coordinate": "node:@testing-library/react@16.3.3",
+      "lock_path": "node_modules/@testing-library/react",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-Jbs9FpkkIDw8FgSc6kOVsOv8JuuqGAL7J4X1oot77JxAoDlkNn2GRkd0aYRVuQ+pVQAiHWVkE4rX/dkF5fBiCw==",
+          "locator": "https://registry.npmjs.org/@testing-library/user-event/-/user-event-14.6.6.tgz"
+        }
+      ],
+      "coordinate": "node:@testing-library/user-event@14.6.6",
+      "lock_path": "node_modules/@testing-library/user-event",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-rfT93uj5s0PRL7EzccGMs3brplhcrghnDoV26NqKhCAS1hVo+WdNsPvE/yb6ilfr5hi2MEk6d5EWJTKdxg8jVw==",
+          "locator": "https://registry.npmjs.org/@types/aria-query/-/aria-query-5.0.4.tgz"
+        }
+      ],
+      "coordinate": "node:@types/aria-query@5.0.4",
+      "lock_path": "node_modules/@types/aria-query",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==",
+          "locator": "https://registry.npmjs.org/@types/chai/-/chai-5.2.3.tgz"
+        }
+      ],
+      "coordinate": "node:@types/chai@5.2.3",
+      "lock_path": "node_modules/@types/chai",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==",
+          "locator": "https://registry.npmjs.org/@types/deep-eql/-/deep-eql-4.0.2.tgz"
+        }
+      ],
+      "coordinate": "node:@types/deep-eql@4.0.2",
+      "lock_path": "node_modules/@types/deep-eql",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg==",
+          "locator": "https://registry.npmjs.org/@types/estree/-/estree-1.0.9.tgz"
+        }
+      ],
+      "coordinate": "node:@types/estree@1.0.9",
+      "lock_path": "node_modules/@types/estree",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-fMPwH9v7r/pp43yUd2/Mbiex5KouJwwR3dzHkhLREUC6764VyDsqxhAxv6OFEYR1RhjOyD1naqba8ECDBe7ZQg==",
+          "locator": "https://registry.npmjs.org/@types/react-dom/-/react-dom-19.2.5.tgz"
+        }
+      ],
+      "coordinate": "node:@types/react-dom@19.2.5",
+      "lock_path": "node_modules/@types/react-dom",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-AnzbBERsrLKtk2XSfTbYRLjQPdy116Sty4q+T+Bp3IC4l6jNBvreVPAHmpq9qhXQM7CXZPjLVmGMw9sy+hxQ3w==",
+          "locator": "https://registry.npmjs.org/@types/react/-/react-19.2.18.tgz"
+        }
+      ],
+      "coordinate": "node:@types/react@19.2.18",
+      "lock_path": "node_modules/@types/react",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-qd2BzUBehkov86WFhg0JkEFEYyCLG9uPCe6qWTY/kRlss9OvJrOF2UbIWT7p+8IzZHkEu0DNGHc4HSv+JdDLsw==",
+          "locator": "https://registry.npmjs.org/@vitejs/plugin-react/-/plugin-react-6.1.0.tgz"
+        }
+      ],
+      "coordinate": "node:@vitejs/plugin-react@6.1.0",
+      "lock_path": "node_modules/@vitejs/plugin-react",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-E8eBXaKibuvH2pSZErOjdVb5vF4PbKYcrnluBTYxEk1l/VhhwZg1kZQsdtjq+CsF5CFydf2Rdkz7jDHKSisi3w==",
+          "locator": "https://registry.npmjs.org/@vitest/expect/-/expect-3.2.7.tgz"
+        }
+      ],
+      "coordinate": "node:@vitest/expect@3.2.7",
+      "lock_path": "node_modules/@vitest/expect",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-Trr0hYO9CM3Wj6ksWHRhK9IZpIY6wTMO5u/MqXurMxT57sWBaOPEtP3Oq60ihZuh5JsiagKfz95OcxdEP6dBrA==",
+          "locator": "https://registry.npmjs.org/@vitest/mocker/-/mocker-3.2.7.tgz"
+        }
+      ],
+      "coordinate": "node:@vitest/mocker@3.2.7",
+      "lock_path": "node_modules/vitest/node_modules/@vitest/mocker",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-KUHlwqVu0sRlhCdyPdQ/wBoTfRahjUky1MubOmYw9fWfIZy1gNoHpuaaQBPAaMaVYdQYHJLurzj8ECCj5OwTqA==",
+          "locator": "https://registry.npmjs.org/@vitest/pretty-format/-/pretty-format-3.2.7.tgz"
+        }
+      ],
+      "coordinate": "node:@vitest/pretty-format@3.2.7",
+      "lock_path": "node_modules/@vitest/pretty-format",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-sB9y4ovltoQP+WaUPwmSxO9WIg9Ig694Di5PalVPsYHklAdE027mehpWF2SQSVq+k6sFgaivbTjTJwZLSHbedA==",
+          "locator": "https://registry.npmjs.org/@vitest/runner/-/runner-3.2.7.tgz"
+        }
+      ],
+      "coordinate": "node:@vitest/runner@3.2.7",
+      "lock_path": "node_modules/@vitest/runner",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-7C+MwShwtBSI5Buwoyg3s/iY1eHL9PKAf+O1wVh/TdnjXUtkoL/9YQtre90i4MtNXM6edP1wJ2zOBpfCyhIS7g==",
+          "locator": "https://registry.npmjs.org/@vitest/snapshot/-/snapshot-3.2.7.tgz"
+        }
+      ],
+      "coordinate": "node:@vitest/snapshot@3.2.7",
+      "lock_path": "node_modules/@vitest/snapshot",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-Q2eQGI6d2L/hBtZ0qNuKcAGid68XK6cv1xsoaIma6PaJhHPoqcEJhYpXZ/5myCMqkNgtP6UKuBhbc0nHKnrkuQ==",
+          "locator": "https://registry.npmjs.org/@vitest/spy/-/spy-3.2.7.tgz"
+        }
+      ],
+      "coordinate": "node:@vitest/spy@3.2.7",
+      "lock_path": "node_modules/@vitest/spy",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-x6BDOd7dyo3PFLY3I9/HJ25X/6OurhGXk2/B9gOZNPF7XDVjeBK4k01lQE5uvDpbuheErh91qYuE1E2OEjK3Rw==",
+          "locator": "https://registry.npmjs.org/@vitest/utils/-/utils-3.2.7.tgz"
+        }
+      ],
+      "coordinate": "node:@vitest/utils@3.2.7",
+      "lock_path": "node_modules/@vitest/utils",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==",
+          "locator": "https://registry.npmjs.org/ansi-regex/-/ansi-regex-5.0.1.tgz"
+        }
+      ],
+      "coordinate": "node:ansi-regex@5.0.1",
+      "lock_path": "node_modules/ansi-regex",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-Cxwpt2SfTzTtXcfOlzGEee8O+c+MmUgGrNiBcXnuWxuFJHe6a5Hz7qwhwe5OgaSYI0IJvkLqWX1ASG+cJOkEiA==",
+          "locator": "https://registry.npmjs.org/ansi-styles/-/ansi-styles-5.2.0.tgz"
+        }
+      ],
+      "coordinate": "node:ansi-styles@5.2.0",
+      "lock_path": "node_modules/ansi-styles",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-b0P0sZPKtyu8HkeRAfCq0IfURZK+SuwMjY1UXGBU27wpAiTwQAIlq56IbIO+ytk/JjS1fMR14ee5WBBfKi5J6A==",
+          "locator": "https://registry.npmjs.org/aria-query/-/aria-query-5.3.0.tgz"
+        }
+      ],
+      "coordinate": "node:aria-query@5.3.0",
+      "lock_path": "node_modules/aria-query",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-Izi8RQcffqCeNVgFigKli1ssklIbpHnCYc6AknXGYoB6grJqyeby7jv12JUQgmTAnIDnbck1uxksT4dzN3PWBA==",
+          "locator": "https://registry.npmjs.org/assertion-error/-/assertion-error-2.0.1.tgz"
+        }
+      ],
+      "coordinate": "node:assertion-error@2.0.1",
+      "lock_path": "node_modules/assertion-error",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-RKshQI1R3YQ+n9YJz2QQ147P66ELpa1FQEg20Dk8oW9t2KgLbpDLLp9aGZ7y8WHSshDknG0bknqGw5/tyCs5tw==",
+          "locator": "https://registry.npmjs.org/bidi-js/-/bidi-js-1.0.3.tgz"
+        }
+      ],
+      "coordinate": "node:bidi-js@1.0.3",
+      "lock_path": "node_modules/bidi-js",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-b6Ilus+c3RrdDk+JhLKUAQfzzgLEPy6wcXqS7f/xe1EETvsDP6GORG7SFuOs6cID5YkqchW/LXZbX5bc8j7ZcQ==",
+          "locator": "https://registry.npmjs.org/cac/-/cac-6.7.14.tgz"
+        }
+      ],
+      "coordinate": "node:cac@6.7.14",
+      "lock_path": "node_modules/cac",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-4zNhdJD/iOjSH0A05ea+Ke6MU5mmpQcbQsSOkgdaUMJ9zTlDTD/GYlwohmIE2u0gaxHYiVHEn1Fw9mZ/ktJWgw==",
+          "locator": "https://registry.npmjs.org/chai/-/chai-5.3.3.tgz"
+        }
+      ],
+      "coordinate": "node:chai@5.3.3",
+      "lock_path": "node_modules/chai",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-PAJdDJusoxnwm1VwW07VWwUN1sl7smmC3OKggvndJFadxxDRyFJBX/ggnu/KE4kQAB7a3Dp8f/YXC1FlUprWmA==",
+          "locator": "https://registry.npmjs.org/check-error/-/check-error-2.1.3.tgz"
+        }
+      ],
+      "coordinate": "node:check-error@2.1.3",
+      "lock_path": "node_modules/check-error",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-X7sjQzceUhu1u7Y/ylrRZFU2FS6LRiFVp6rKLPg23y3x3c3DOKAwuXGDp+PAGjh6CSnCjYeAul8pcT8bAl+lSA==",
+          "locator": "https://registry.npmjs.org/css-tree/-/css-tree-3.2.1.tgz"
+        }
+      ],
+      "coordinate": "node:css-tree@3.2.1",
+      "lock_path": "node_modules/css-tree",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-YUifsXXuknHlUsmlgyY0PKzgPOr7/FjCePfHNt0jxm83wHZi44VDMQ7/fGNkjY3/jV1MC+1CmZbaHzugyeRtpg==",
+          "locator": "https://registry.npmjs.org/css.escape/-/css.escape-1.5.1.tgz"
+        }
+      ],
+      "coordinate": "node:css.escape@1.5.1",
+      "lock_path": "node_modules/css.escape",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==",
+          "locator": "https://registry.npmjs.org/csstype/-/csstype-3.2.3.tgz"
+        }
+      ],
+      "coordinate": "node:csstype@3.2.3",
+      "lock_path": "node_modules/csstype",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-23XHcCF+coGYevirZceTVD7NdJOqVn+49IHyxgszm+JIiHLoB2TkmPtsYkNWT1pvRSGkc35L6NHs0yHkN2SumA==",
+          "locator": "https://registry.npmjs.org/data-urls/-/data-urls-7.0.0.tgz"
+        }
+      ],
+      "coordinate": "node:data-urls@7.0.0",
+      "lock_path": "node_modules/data-urls",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==",
+          "locator": "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz"
+        }
+      ],
+      "coordinate": "node:debug@4.4.3",
+      "lock_path": "node_modules/debug",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-YpgQiITW3JXGntzdUmyUR1V812Hn8T1YVXhCu+wO3OpS4eU9l4YdD3qjyiKdV6mvV29zapkMeD390UVEf2lkUg==",
+          "locator": "https://registry.npmjs.org/decimal.js/-/decimal.js-10.6.0.tgz"
+        }
+      ],
+      "coordinate": "node:decimal.js@10.6.0",
+      "lock_path": "node_modules/decimal.js",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-h5k/5U50IJJFpzfL6nO9jaaumfjO/f2NjK/oYB2Djzm4p9L+3T9qWpZqZ2hAbLPuuYq9wrU08WQyBTL5GbPk5Q==",
+          "locator": "https://registry.npmjs.org/deep-eql/-/deep-eql-5.0.2.tgz"
+        }
+      ],
+      "coordinate": "node:deep-eql@5.0.2",
+      "lock_path": "node_modules/deep-eql",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-0je+qPKHEMohvfRTCEo3CrPG6cAzAYgmzKyxRiYSSDkS6eGJdyVJm7WaYA5ECaAD9wLB2T4EEeymA5aFVcYXCA==",
+          "locator": "https://registry.npmjs.org/dequal/-/dequal-2.0.3.tgz"
+        }
+      ],
+      "coordinate": "node:dequal@2.0.3",
+      "lock_path": "node_modules/dequal",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==",
+          "locator": "https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz"
+        }
+      ],
+      "coordinate": "node:detect-libc@2.1.2",
+      "lock_path": "node_modules/detect-libc",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg==",
+          "locator": "https://registry.npmjs.org/dom-accessibility-api/-/dom-accessibility-api-0.5.16.tgz"
+        }
+      ],
+      "coordinate": "node:dom-accessibility-api@0.5.16",
+      "lock_path": "node_modules/dom-accessibility-api",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-7ZgogeTnjuHbo+ct10G9Ffp0mif17idi0IyWNVA/wcwcm7NPOD/WEHVP3n7n3MhXqxoIYm8d6MuZohYWIZ4T3w==",
+          "locator": "https://registry.npmjs.org/dom-accessibility-api/-/dom-accessibility-api-0.6.3.tgz"
+        }
+      ],
+      "coordinate": "node:dom-accessibility-api@0.6.3",
+      "lock_path": "node_modules/@testing-library/jest-dom/node_modules/dom-accessibility-api",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-zwfzJecQ/Uej6tusMqwAqU/6KL2XaB2VZ2Jg54Je6ahNBGNH6Ek6g3jjNCF0fG9EWQKGZNddNjU5F1ZQn/sBnA==",
+          "locator": "https://registry.npmjs.org/entities/-/entities-8.0.0.tgz"
+        }
+      ],
+      "coordinate": "node:entities@8.0.0",
+      "lock_path": "node_modules/entities",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-jEQoCwk8hyb2AZziIOLhDqpm5+2ww5uIE6lkO/6jcOCusfk6LhMHpXXfBLXTZ7Ydyt0j4VoUQv6uGNYbdW+kBA==",
+          "locator": "https://registry.npmjs.org/es-module-lexer/-/es-module-lexer-1.7.0.tgz"
+        }
+      ],
+      "coordinate": "node:es-module-lexer@1.7.0",
+      "lock_path": "node_modules/es-module-lexer",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-HKVLS8dvII+xoKW9kmqxbRKrnWEXfJJr/FZhhJmiqIB0e053QNYFqOBouTMO/k5sID4MvCiUCvv8b9M4h32wIA==",
+          "locator": "https://registry.npmjs.org/esbuild/-/esbuild-0.28.2.tgz"
+        }
+      ],
+      "coordinate": "node:esbuild@0.28.2",
+      "lock_path": "node_modules/esbuild",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-7RUKfXgSMMkzt6ZuXmqapOurLGPPfgj6l9uRZ7lRGolvk0y2yocc35LdcxKC5PQZdn2DMqioAQ2NoWcrTKmm6g==",
+          "locator": "https://registry.npmjs.org/estree-walker/-/estree-walker-3.0.3.tgz"
+        }
+      ],
+      "coordinate": "node:estree-walker@3.0.3",
+      "lock_path": "node_modules/estree-walker",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-KfYbmpRm0VbLjEvVa9yGwCi9GI34xvi7A/HXYWQO65CSD2u3MczUJSuwXKFIxlGsgBQizV9q5J9NHj4VG0n+pA==",
+          "locator": "https://registry.npmjs.org/expect-type/-/expect-type-1.4.0.tgz"
+        }
+      ],
+      "coordinate": "node:expect-type@1.4.0",
+      "lock_path": "node_modules/expect-type",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg==",
+          "locator": "https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz"
+        }
+      ],
+      "coordinate": "node:fdir@6.5.0",
+      "lock_path": "node_modules/fdir",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-CV9TW3Y3f8/wT0BRFc1/KAVQ3TUHiXmaAb6VW9vtiMFf7SLoMd1PdAc4W3KFOFETBJUb90KatHqlsZMWV+R9Gg==",
+          "locator": "https://registry.npmjs.org/html-encoding-sniffer/-/html-encoding-sniffer-6.0.0.tgz"
+        }
+      ],
+      "coordinate": "node:html-encoding-sniffer@6.0.0",
+      "lock_path": "node_modules/html-encoding-sniffer",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-EdDDZu4A2OyIK7Lr/2zG+w5jmbuk1DVBnEwREQvBzspBJkCEbRa8GxU1lghYcaGJCnRWibjDXlq779X1/y5xwg==",
+          "locator": "https://registry.npmjs.org/indent-string/-/indent-string-4.0.0.tgz"
+        }
+      ],
+      "coordinate": "node:indent-string@4.0.0",
+      "lock_path": "node_modules/indent-string",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-bCYeRA2rVibKZd+s2625gGnGF/t7DSqDs4dP7CrLA1m7jKWz6pps0LpYLJN8Q64HtmPKJ1hrN3nzPNKFEKOUiQ==",
+          "locator": "https://registry.npmjs.org/is-potential-custom-element-name/-/is-potential-custom-element-name-1.0.1.tgz"
+        }
+      ],
+      "coordinate": "node:is-potential-custom-element-name@1.0.1",
+      "lock_path": "node_modules/is-potential-custom-element-name",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==",
+          "locator": "https://registry.npmjs.org/js-tokens/-/js-tokens-4.0.0.tgz"
+        }
+      ],
+      "coordinate": "node:js-tokens@4.0.0",
+      "lock_path": "node_modules/@babel/code-frame/node_modules/js-tokens",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-mxa9E9ITFOt0ban3j6L5MpjwegGz6lBQmM1IJkWeBZGcMxto50+eWdjC/52xDbS2vy0k7vIMK0Fe2wfL9OQSpQ==",
+          "locator": "https://registry.npmjs.org/js-tokens/-/js-tokens-9.0.1.tgz"
+        }
+      ],
+      "coordinate": "node:js-tokens@9.0.1",
+      "lock_path": "node_modules/js-tokens",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-52v7mUVUfNQVYYqE1lcdaymWL0njO7lTLUog6ZvW2U5KsbiLk/GnZlVJ+qx0xfNJZ6Gn+KSpPNE52vurbxZwrA==",
+          "locator": "https://registry.npmjs.org/jsdom/-/jsdom-30.0.1.tgz"
+        }
+      ],
+      "coordinate": "node:jsdom@30.0.1",
+      "lock_path": "node_modules/jsdom",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-ar+Ju7LmcN0Jo4FpL4hpFybwNG9/3A/Br5KW2n2jyODg3MEZXaDYADdemoNS+BDNfMgKvylJLj4S5tyRActuAg==",
+          "locator": "https://registry.npmjs.org/lightningcss-linux-x64-gnu/-/lightningcss-linux-x64-gnu-1.33.0.tgz"
+        }
+      ],
+      "coordinate": "node:lightningcss-linux-x64-gnu@1.33.0",
+      "lock_path": "node_modules/lightningcss-linux-x64-gnu",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-WkUDrojuJs0xkgGf2udWxa3yGBRxPtxUkB79i6aCZLRgc7PM8fZe9TosfPDcvEpQZbuFASnHYmRLBLUbmLOIIA==",
+          "locator": "https://registry.npmjs.org/lightningcss/-/lightningcss-1.33.0.tgz"
+        }
+      ],
+      "coordinate": "node:lightningcss@1.33.0",
+      "lock_path": "node_modules/lightningcss",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-CdzqowRJCeLU72bHvWqwRBBlLcMEtIvGrlvef74kMnV2AolS9Y8xUv1I0U/MNAWMhBlKIoyuEgoJ0t/bbwHbLQ==",
+          "locator": "https://registry.npmjs.org/loupe/-/loupe-3.2.1.tgz"
+        }
+      ],
+      "coordinate": "node:loupe@3.2.1",
+      "lock_path": "node_modules/loupe",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-4pfM1Ff0x50o0tQwb5ucw/RzNyD0/YJME6IVcStalZuMWxdt3sR3huStTtxz4PUmvZfRguvDejasvQ2kifR11g==",
+          "locator": "https://registry.npmjs.org/lru-cache/-/lru-cache-11.5.2.tgz"
+        }
+      ],
+      "coordinate": "node:lru-cache@11.5.2",
+      "lock_path": "node_modules/lru-cache",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==",
+          "locator": "https://registry.npmjs.org/lz-string/-/lz-string-1.5.0.tgz"
+        }
+      ],
+      "coordinate": "node:lz-string@1.5.0",
+      "lock_path": "node_modules/lz-string",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==",
+          "locator": "https://registry.npmjs.org/magic-string/-/magic-string-0.30.21.tgz"
+        }
+      ],
+      "coordinate": "node:magic-string@0.30.21",
+      "lock_path": "node_modules/magic-string",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-9Yubnt3e8A0OKwxYSXyhLymGW4sCufcLG6VdiDdUGVkPhpqLxlvP5vl1983gQjJl3tqbrM731mjaZaP68AgosQ==",
+          "locator": "https://registry.npmjs.org/mdn-data/-/mdn-data-2.27.1.tgz"
+        }
+      ],
+      "coordinate": "node:mdn-data@2.27.1",
+      "lock_path": "node_modules/mdn-data",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-I9jwMn07Sy/IwOj3zVkVik2JTvgpaykDZEigL6Rx6N9LbMywwUSMtxET+7lVoDLLd3O3IXwJwvuuns8UB/HeAg==",
+          "locator": "https://registry.npmjs.org/min-indent/-/min-indent-1.0.1.tgz"
+        }
+      ],
+      "coordinate": "node:min-indent@1.0.1",
+      "lock_path": "node_modules/min-indent",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==",
+          "locator": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz"
+        }
+      ],
+      "coordinate": "node:ms@2.1.3",
+      "lock_path": "node_modules/ms",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-DTg4MJbGMWkfi6VZFdNt2/caMbQy4Ou+Op/hJQvGEWcnVfoA1QA+xzRKAzw9jD6+GVOOeYr/mIcuDSdug6F6+w==",
+          "locator": "https://registry.npmjs.org/nanoid/-/nanoid-3.3.18.tgz"
+        }
+      ],
+      "coordinate": "node:nanoid@3.3.18",
+      "lock_path": "node_modules/nanoid",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-z1e/HMG90obSGeidlli3hj7cbocou0/wa5HacvI3ASx34PecNjNQeaHNo5WIZpWofN9kgkqV1q5YvXe3F0FoPw==",
+          "locator": "https://registry.npmjs.org/parse5/-/parse5-8.0.1.tgz"
+        }
+      ],
+      "coordinate": "node:parse5@8.0.1",
+      "lock_path": "node_modules/parse5",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w==",
+          "locator": "https://registry.npmjs.org/pathe/-/pathe-2.0.3.tgz"
+        }
+      ],
+      "coordinate": "node:pathe@2.0.3",
+      "lock_path": "node_modules/pathe",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-//nshmD55c46FuFw26xV/xFAaB5HF9Xdap7HJBBnrKdAd6/GxDBaNA1870O79+9ueg61cZLSVc+OaFlfmObYVQ==",
+          "locator": "https://registry.npmjs.org/pathval/-/pathval-2.0.1.tgz"
+        }
+      ],
+      "coordinate": "node:pathval@2.0.1",
+      "lock_path": "node_modules/pathval",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==",
+          "locator": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz"
+        }
+      ],
+      "coordinate": "node:picocolors@1.1.1",
+      "lock_path": "node_modules/picocolors",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==",
+          "locator": "https://registry.npmjs.org/picomatch/-/picomatch-4.0.7.tgz"
+        }
+      ],
+      "coordinate": "node:picomatch@4.0.7",
+      "lock_path": "node_modules/picomatch",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-u82N74LFzG8ca+dD8puPnplTXoGH4fTPpVGuIbt36G3qvNlkvfD0lEAZSxaly3KX8TS/L1A1gsCEmvKmBcVbkQ==",
+          "locator": "https://registry.npmjs.org/postcss/-/postcss-8.5.26.tgz"
+        }
+      ],
+      "coordinate": "node:postcss@8.5.26",
+      "lock_path": "node_modules/postcss",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-Qb1gy5OrP5+zDf2Bvnzdl3jsTf1qXVMazbvCoKhtKqVs4/YK4ozX4gKQJJVyNe+cajNPn0KoC0MC3FUmaHWEmQ==",
+          "locator": "https://registry.npmjs.org/pretty-format/-/pretty-format-27.5.1.tgz"
+        }
+      ],
+      "coordinate": "node:pretty-format@27.5.1",
+      "lock_path": "node_modules/pretty-format",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==",
+          "locator": "https://registry.npmjs.org/punycode/-/punycode-2.3.1.tgz"
+        }
+      ],
+      "coordinate": "node:punycode@2.3.1",
+      "lock_path": "node_modules/punycode",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-rVprimfGBG3DR+Tq0IQG2DT5PxKth1WIGDmj5yPmlzr4YBe7uyE+Du4oVqTDXZSHGGGXRtTJEGSSePyQCMBglQ==",
+          "locator": "https://registry.npmjs.org/react-dom/-/react-dom-19.2.8.tgz"
+        }
+      ],
+      "coordinate": "node:react-dom@19.2.8",
+      "lock_path": "node_modules/react-dom",
+      "roles": [
+        "frontend-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-w2GsyukL62IJnlaff/nRegPQR94C/XXamvMWmSHRJ4y7Ts/4ocGRmTHvOs8PSE6pB3dWOrD/nueuU5sduBsQ4w==",
+          "locator": "https://registry.npmjs.org/react-is/-/react-is-17.0.2.tgz"
+        }
+      ],
+      "coordinate": "node:react-is@17.0.2",
+      "lock_path": "node_modules/react-is",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-PWaYA1L/q9u2u7xYQi+Y3L3Yfnie7XyLeaJICV1MGD6LprsBxcAqGjYyr0eY3p+QdsA+x/Irkt4Qif8D63+Sbw==",
+          "locator": "https://registry.npmjs.org/react/-/react-19.2.8.tgz"
+        }
+      ],
+      "coordinate": "node:react@19.2.8",
+      "lock_path": "node_modules/react",
+      "roles": [
+        "frontend-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-6tDA8g98We0zd0GvVeMT9arEOnTw9qM03L9cJXaCjrip1OO764RDBLBfrB4cwzNGDj5OA5ioymC9GkizgWJDUg==",
+          "locator": "https://registry.npmjs.org/redent/-/redent-3.0.0.tgz"
+        }
+      ],
+      "coordinate": "node:redent@3.0.0",
+      "lock_path": "node_modules/redent",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==",
+          "locator": "https://registry.npmjs.org/require-from-string/-/require-from-string-2.0.2.tgz"
+        }
+      ],
+      "coordinate": "node:require-from-string@2.0.2",
+      "lock_path": "node_modules/require-from-string",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-vMM4q3aixf46GiF1Kok8jDPFsEpXgFWGjUHXNkNHNm+Y2adXAG2dbX91jkti3i0ZRsOlcmbuzAz1poObSHCmUA==",
+          "locator": "https://registry.npmjs.org/rolldown/-/rolldown-1.2.6.tgz"
+        }
+      ],
+      "coordinate": "node:rolldown@1.2.6",
+      "lock_path": "node_modules/rolldown",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-3Df9jsstwhccuEfmAMi9l8XUh/GOkVObmFTU7CCVBysEbcOZLl84jCtaAZMcPiMz2EGKsATzQcU+Xr3n/wU6cg==",
+          "locator": "https://registry.npmjs.org/rollup/-/rollup-4.63.1.tgz"
+        }
+      ],
+      "coordinate": "node:rollup@4.63.1",
+      "lock_path": "node_modules/rollup",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-xAg7SOnEhrm5zI3puOOKyy1OMcMlIJZYNJY7xLBwSze0UjhPLnWfj2GF2EpT0jmzaJKIWKHLsaSSajf35bcYnA==",
+          "locator": "https://registry.npmjs.org/saxes/-/saxes-6.0.0.tgz"
+        }
+      ],
+      "coordinate": "node:saxes@6.0.0",
+      "lock_path": "node_modules/saxes",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==",
+          "locator": "https://registry.npmjs.org/scheduler/-/scheduler-0.27.0.tgz"
+        }
+      ],
+      "coordinate": "node:scheduler@0.27.0",
+      "lock_path": "node_modules/scheduler",
+      "roles": [
+        "frontend-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==",
+          "locator": "https://registry.npmjs.org/siginfo/-/siginfo-2.0.0.tgz"
+        }
+      ],
+      "coordinate": "node:siginfo@2.0.0",
+      "lock_path": "node_modules/siginfo",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==",
+          "locator": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz"
+        }
+      ],
+      "coordinate": "node:source-map-js@1.2.1",
+      "lock_path": "node_modules/source-map-js",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-1XMJE5fQo1jGH6Y/7ebnwPOBEkIEnT4QF32d5R1+VXdXveM0IBMJt8zfaxX1P3QhVwrYe+576+jkANtSS2mBbw==",
+          "locator": "https://registry.npmjs.org/stackback/-/stackback-0.0.2.tgz"
+        }
+      ],
+      "coordinate": "node:stackback@0.0.2",
+      "lock_path": "node_modules/stackback",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-5GS12FdOZNliM5mAOxFRg7Ir0pWz8MdpYm6AY6VPkGpbA7ZzmbzNcBJQ0GPvvyWgcY7QAhCgf9Uy89I03faLkg==",
+          "locator": "https://registry.npmjs.org/std-env/-/std-env-3.10.0.tgz"
+        }
+      ],
+      "coordinate": "node:std-env@3.10.0",
+      "lock_path": "node_modules/std-env",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-laJTa3Jb+VQpaC6DseHhF7dXVqHTfJPCRDaEbid/drOhgitgYku/letMUqOXFoWV0zIIUbjpdH2t+tYj4bQMRQ==",
+          "locator": "https://registry.npmjs.org/strip-indent/-/strip-indent-3.0.0.tgz"
+        }
+      ],
+      "coordinate": "node:strip-indent@3.0.0",
+      "lock_path": "node_modules/strip-indent",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-8r3mkIM/2+PpjHoOtiAW8Rg3jJLHaV7xPwG+YRGrv6FP0wwk/toTpATxWYOW0BKdWwl82VT2tFYi5DlROa0Mxg==",
+          "locator": "https://registry.npmjs.org/strip-literal/-/strip-literal-3.1.0.tgz"
+        }
+      ],
+      "coordinate": "node:strip-literal@3.1.0",
+      "lock_path": "node_modules/strip-literal",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-9QNk5KwDF+Bvz+PyObkmSYjI5ksVUYtjW7AU22r2NKcfLJcXp96hkDWU3+XndOsUb+AQ9QhfzfCT2O+CNWT5Tw==",
+          "locator": "https://registry.npmjs.org/symbol-tree/-/symbol-tree-3.2.4.tgz"
+        }
+      ],
+      "coordinate": "node:symbol-tree@3.2.4",
+      "lock_path": "node_modules/symbol-tree",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==",
+          "locator": "https://registry.npmjs.org/tinybench/-/tinybench-2.9.0.tgz"
+        }
+      ],
+      "coordinate": "node:tinybench@2.9.0",
+      "lock_path": "node_modules/tinybench",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-KQQR9yN7R5+OSwaK0XQoj22pwHoTlgYqmUscPYoknOoWCWfj/5/ABTMRi69FrKU5ffPVh5QcFikpWJI/P1ocHA==",
+          "locator": "https://registry.npmjs.org/tinyexec/-/tinyexec-0.3.2.tgz"
+        }
+      ],
+      "coordinate": "node:tinyexec@0.3.2",
+      "lock_path": "node_modules/tinyexec",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==",
+          "locator": "https://registry.npmjs.org/tinyglobby/-/tinyglobby-0.2.17.tgz"
+        }
+      ],
+      "coordinate": "node:tinyglobby@0.2.17",
+      "lock_path": "node_modules/tinyglobby",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-Zba82s87IFq9A9XmjiX5uZA/ARWDrB03OHlq+Vw1fSdt0I+4/Kutwy8BP4Y/y/aORMo61FQ0vIb5j44vSo5Pkg==",
+          "locator": "https://registry.npmjs.org/tinypool/-/tinypool-1.1.1.tgz"
+        }
+      ],
+      "coordinate": "node:tinypool@1.1.1",
+      "lock_path": "node_modules/tinypool",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-op4nsTR47R6p0vMUUoYl/a+ljLFVtlfaXkLQmqfLR1qHma1h/ysYk4hEXZ880bf2CYgTskvTa/e196Vd5dDQXw==",
+          "locator": "https://registry.npmjs.org/tinyrainbow/-/tinyrainbow-2.0.0.tgz"
+        }
+      ],
+      "coordinate": "node:tinyrainbow@2.0.0",
+      "lock_path": "node_modules/tinyrainbow",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-azl+t0z7pw/z958Gy9svOTuzqIk6xq+NSheJzn5MMWtWTFywIacg2wUlzKFGtt3cthx0r2SxMK0yzJOR0IES7Q==",
+          "locator": "https://registry.npmjs.org/tinyspy/-/tinyspy-4.0.4.tgz"
+        }
+      ],
+      "coordinate": "node:tinyspy@4.0.4",
+      "lock_path": "node_modules/tinyspy",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-CW3WN2rIIE/Of21mulhgnGOwoDyEFNygyIBOONSdyAuSATgMMUCpLeUlB+E8sAwA5xRV9hYPl+kyZ9citHCaKg==",
+          "locator": "https://registry.npmjs.org/tldts-core/-/tldts-core-7.4.11.tgz"
+        }
+      ],
+      "coordinate": "node:tldts-core@7.4.11",
+      "lock_path": "node_modules/tldts-core",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-aBiNayCfTQxuIJBm06M+xR14cYaYlDlSXZbgsnKzKNxDKUVq7KFwTjwBSsb7m9Y5xO8WfPnBc63WaYFMTGlvqw==",
+          "locator": "https://registry.npmjs.org/tldts/-/tldts-7.4.11.tgz"
+        }
+      ],
+      "coordinate": "node:tldts@7.4.11",
+      "lock_path": "node_modules/tldts",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-exgYmnmL/sJpR3upZfXG5PoatXQii55xAiXGXzY+sROLZ/Y+SLcp9PgJNI9Vz37HpQ74WvDcLT8eqm+kV3FzrA==",
+          "locator": "https://registry.npmjs.org/tough-cookie/-/tough-cookie-6.0.2.tgz"
+        }
+      ],
+      "coordinate": "node:tough-cookie@6.0.2",
+      "lock_path": "node_modules/tough-cookie",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-bLVMLPtstlZ4iMQHpFHTR7GAGj2jxi8Dg0s2h2MafAE4uSWF98FC/3MomU51iQAMf8/qDUbKWf5GxuvvVcXEhw==",
+          "locator": "https://registry.npmjs.org/tr46/-/tr46-6.0.0.tgz"
+        }
+      ],
+      "coordinate": "node:tr46@6.0.0",
+      "lock_path": "node_modules/tr46",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-CWBzXQrc/qOkhidw1OzBTQuYRbfyxDXJMVJ1XNwUHGROVmuaeiEm3OslpZ1RV96d7SKKjZKrSJu3+t/xlw3R9A==",
+          "locator": "https://registry.npmjs.org/typescript/-/typescript-5.9.2.tgz"
+        }
+      ],
+      "coordinate": "node:typescript@5.9.2",
+      "lock_path": "node_modules/typescript",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-HvltHd7avK13QIw/oLe4qoOLyoVSoafqJ2jYOrtMRBkbYT31eiBQ8O0ehRKZiEZCMEyLFQNIADpgCWC5fALvYQ==",
+          "locator": "https://registry.npmjs.org/undici/-/undici-8.10.0.tgz"
+        }
+      ],
+      "coordinate": "node:undici@8.10.0",
+      "lock_path": "node_modules/undici",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-EbKSKh+bh1E1IFxeO0pg1n4dvoOTt0UDiXMd/qn++r98+jPO1xtJilvXldeuQ8giIB5IkpjCgMleHMNEsGH6pg==",
+          "locator": "https://registry.npmjs.org/vite-node/-/vite-node-3.2.4.tgz"
+        }
+      ],
+      "coordinate": "node:vite-node@3.2.4",
+      "lock_path": "node_modules/vite-node",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-4XP60spRGjSZFf1qYH+dJIkK2znL3zQfl9KkOV9MkkRR/3Dls0dxaBsQPTloEc5BLXWPL9vsOxopxyKoMmDueg==",
+          "locator": "https://registry.npmjs.org/vite/-/vite-7.3.6.tgz"
+        }
+      ],
+      "coordinate": "node:vite@7.3.6",
+      "lock_path": "node_modules/vite-node/node_modules/vite",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-4XP60spRGjSZFf1qYH+dJIkK2znL3zQfl9KkOV9MkkRR/3Dls0dxaBsQPTloEc5BLXWPL9vsOxopxyKoMmDueg==",
+          "locator": "https://registry.npmjs.org/vite/-/vite-7.3.6.tgz"
+        }
+      ],
+      "coordinate": "node:vite@7.3.6",
+      "lock_path": "node_modules/vitest/node_modules/vite",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-cFKLV/PRgAUlIRm5WjMjJ86jrftzpqcgH+Us+DS8mI3CDNiH30Whrz8uHL3+MOLPAgqbMBAqWdAHAphOAM+z/Q==",
+          "locator": "https://registry.npmjs.org/vite/-/vite-8.2.2.tgz"
+        }
+      ],
+      "coordinate": "node:vite@8.2.2",
+      "lock_path": "node_modules/vite",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-KrxIJ62Fd89gfysR4WotlgZABiz2dqFPgqGzX7s+CwsqLFomRH7777ZcrOD6+WVAh7khPQP41A+BKbpcJFrdEg==",
+          "locator": "https://registry.npmjs.org/vitest/-/vitest-3.2.7.tgz"
+        }
+      ],
+      "coordinate": "node:vitest@3.2.7",
+      "lock_path": "node_modules/vitest",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-o8qghlI8NZHU1lLPrpi2+Uq7abh4GGPpYANlalzWxyWteJOCsr/P+oPBA49TOLu5FTZO4d3F9MnWJfiMo4BkmA==",
+          "locator": "https://registry.npmjs.org/w3c-xmlserializer/-/w3c-xmlserializer-5.0.0.tgz"
+        }
+      ],
+      "coordinate": "node:w3c-xmlserializer@5.0.0",
+      "lock_path": "node_modules/w3c-xmlserializer",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-BMhLD/Sw+GbJC21C/UgyaZX41nPt8bUTg+jWyDeg7e7YN4xOM05YPSIXceACnXVtqyEw/LMClUQMtMZ+PGGpqQ==",
+          "locator": "https://registry.npmjs.org/webidl-conversions/-/webidl-conversions-8.0.1.tgz"
+        }
+      ],
+      "coordinate": "node:webidl-conversions@8.0.1",
+      "lock_path": "node_modules/webidl-conversions",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-sXcNcHOC51uPGF0P/D4NVtrkjSU2fNsm9iog4ZvZJsL3rjoDAzXZhkm2MWt1y+PUdggKAYVoMAIYcs78wJ51Cw==",
+          "locator": "https://registry.npmjs.org/whatwg-mimetype/-/whatwg-mimetype-5.0.0.tgz"
+        }
+      ],
+      "coordinate": "node:whatwg-mimetype@5.0.0",
+      "lock_path": "node_modules/whatwg-mimetype",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-1to4zXBxmXHV3IiSSEInrreIlu02vUOvrhxJJH5vcxYTBDAx51cqZiKdyTxlecdKNSjj8EcxGBxNf6Vg+945gw==",
+          "locator": "https://registry.npmjs.org/whatwg-url/-/whatwg-url-16.0.1.tgz"
+        }
+      ],
+      "coordinate": "node:whatwg-url@16.0.1",
+      "lock_path": "node_modules/data-urls/node_modules/whatwg-url",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-3GeworPmc2ZfEEHP7lEbUfBX/L75wdEsi0rLNhXcXxnoN5jyq0SL5gCy06SGW2cyTIZdTvWIDQNQoza++vKeaw==",
+          "locator": "https://registry.npmjs.org/whatwg-url/-/whatwg-url-17.1.0.tgz"
+        }
+      ],
+      "coordinate": "node:whatwg-url@17.1.0",
+      "lock_path": "node_modules/whatwg-url",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-hUrmaWBdVDcxvYqnyh09zunKzROWjbZTiNy8dBEjkS7ehEDQibXJ7XvlmtbwuTclUiIyN+CyXQD4Vmko8fNm8w==",
+          "locator": "https://registry.npmjs.org/why-is-node-running/-/why-is-node-running-2.3.0.tgz"
+        }
+      ],
+      "coordinate": "node:why-is-node-running@2.3.0",
+      "lock_path": "node_modules/why-is-node-running",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-EvGK8EJ3DhaHfbRlETOWAS5pO9MZITeauHKJyb8wyajUfQUenkIg2MvLDTZ4T/TgIcm3HU0TFBgWWboAZ30UHg==",
+          "locator": "https://registry.npmjs.org/xml-name-validator/-/xml-name-validator-5.0.0.tgz"
+        }
+      ],
+      "coordinate": "node:xml-name-validator@5.0.0",
+      "lock_path": "node_modules/xml-name-validator",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==",
+          "locator": "https://registry.npmjs.org/xmlchars/-/xmlchars-2.2.0.tgz"
+        }
+      ],
+      "coordinate": "node:xmlchars@2.2.0",
+      "lock_path": "node_modules/xmlchars",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==",
+          "locator": "https://registry.npmjs.org/zod/-/zod-3.25.76.tgz"
+        }
+      ],
+      "coordinate": "node:zod@3.25.76",
+      "lock_path": "node_modules/zod",
+      "roles": [
+        "frontend-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:caa6aa746b5e47e2165f7abd741b6415e49cf4d44fddc0f61844612cc3924d41",
+          "locator": "https://files.pythonhosted.org/packages/14/31/edb06aabd8f8f0b56d659f30800795f40b93cba96be946ce179f6931e3a5/aiofile-3.12.3.tar.gz"
+        },
+        {
+          "integrity": "sha256:5c1bcc9e929c50834608e8cc1a4cc1d7503eb60c15a535b779fd39e2f372c017",
+          "locator": "https://files.pythonhosted.org/packages/4e/79/6e45e778c4c3cab39e0937b007b720c15f76c50c6453d153282d0fcc3588/aiofile-3.12.3-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:aiofile==3.12.3",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:326fb3a0425e2fed97f4642171388dd801c48531de5d877c78d8df767ced65eb",
+          "locator": "https://files.pythonhosted.org/packages/8a/76/683f400b3a18b904ca75d6513c303b6088e1fc8c9c59f6203c19215af224/alpaca_mcp_server-2.3.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:6d94764ff32b30558599f27db9139b0a160ebc20b53dacd11e2826059fcfee87",
+          "locator": "https://files.pythonhosted.org/packages/d1/28/926353484d138bb5c099185402918ffadafe61e3653834689f1435c9051f/alpaca_mcp_server-2.3.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:alpaca-mcp-server==2.3.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:5388715b67b51ad30fa07308e89299d48b19bed65b81013b8a1158fa5837337b",
+          "locator": "https://files.pythonhosted.org/packages/2d/b7/99f09835590f2a3fbdb82abf72d81a199a7aca6d0335a6bc6ec057fc2792/alpaca_py-0.44.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:b54673f967c0c814a5e0223cbb0211a5d9d75a8d107e792872b14e5bae957c03",
+          "locator": "https://files.pythonhosted.org/packages/8e/9e/69a2d867988578d6f9e52e35d435d8a43296257cf590fb881a3752de7651/alpaca_py-0.44.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:alpaca-py==0.44.0",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:13b2beaad985e05e2d6407ee4c4f35590b11f8d693a258a561055cac8f64cab7",
+          "locator": "https://files.pythonhosted.org/packages/5f/56/a8120250d128bed162cd73c76d45f6ef9991f3e068f62a8ee060afa3104a/annotated_types-0.8.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0",
+          "locator": "https://files.pythonhosted.org/packages/99/91/8acff4f5e50511b911bbccb72b8628a49c68ce14148cd9f6431094859a90/annotated_types-0.8.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:annotated-types==0.8.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:cfa139f3ed1a23ee8f88a145ddb5ac7605b8bbfd8592baacd7ce3d8bb4313c7f",
+          "locator": "https://files.pythonhosted.org/packages/61/cc/a381afa6efea9f496eff839d4a6a1aed3bfafc7b3ab4b0d1b243a12573dd/anyio-4.14.2.tar.gz"
+        },
+        {
+          "integrity": "sha256:9f505dda5ac9f0c8309b5e8bd445a8c2bf7246f3ce950121e45ea15bc41d1494",
+          "locator": "https://files.pythonhosted.org/packages/da/35/f2287558c17e29fafc8ef3daf819bb9834061cfa43bff8014f7df7f63bdc/anyio-4.14.2-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:anyio==4.14.2",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:db4e40728b728508912cbb3d44f19ce188f218e9eba635821bb4b68564f8fd67",
+          "locator": "https://files.pythonhosted.org/packages/c9/7f/09065fd9e27da0eda08b4d6897f1c13535066174cc023af248fc2a8d5e5a/asn1crypto-1.5.1-py2.py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:13ae38502be632115abf8a24cbe5f4da52e3b5231990aff31123c805306ccb9c",
+          "locator": "https://files.pythonhosted.org/packages/de/cf/d547feed25b5244fcb9392e288ff9fdc3280b10260362fc45d37a798a6ee/asn1crypto-1.5.1.tar.gz"
+        }
+      ],
+      "coordinate": "python:asn1crypto==1.5.1",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309",
+          "locator": "https://files.pythonhosted.org/packages/64/b4/17d4b0b2a2dc85a6df63d1157e028ed19f90d4cd97c36717afef2bc2f395/attrs-26.1.0-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:d03ceb89cb322a8fd706d4fb91940737b6642aa36998fe130a9bc96c985eff32",
+          "locator": "https://files.pythonhosted.org/packages/9a/8e/82a0fe20a541c03148528be8cac2408564a6c9a0cc7e9171802bc1d26985/attrs-26.1.0.tar.gz"
+        }
+      ],
+      "coordinate": "python:attrs==26.1.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:2cea25fefcd4e7173bdf1372c0afc265c8034b23a8cd5dcb6a9164b826c64231",
+          "locator": "https://files.pythonhosted.org/packages/36/98/7d93f30d029643c0275dbc0bd6d5a6f670661ee6c9a94d93af7ab4887600/authlib-1.7.2.tar.gz"
+        },
+        {
+          "integrity": "sha256:3e1faedc9d87e7d56a164eca3ccb6ace0d61b94abe83e92242f8dc8bba9b4a9f",
+          "locator": "https://files.pythonhosted.org/packages/fb/95/adcb68e20c34162e9135f370d6e31737719c2b6f94bc953fe7ed1f10fe21/authlib-1.7.2-py2.py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:authlib==1.7.2",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:d16c9bbc61ea14637596c5f6fbff2ee99cbe3573e46a716401734ef50c3060c2",
+          "locator": "https://files.pythonhosted.org/packages/71/cc/18245721fa7747065ab478316c7fea7c74777d07f37ae60db2e84f8172e8/beartype-0.22.9-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:8f82b54aa723a2848a56008d18875f91c1db02c32ef6a62319a002e3e25a975f",
+          "locator": "https://files.pythonhosted.org/packages/c7/94/1009e248bbfbab11397abca7193bea6626806be9a327d399810d523a07cb/beartype-0.22.9.tar.gz"
+        }
+      ],
+      "coordinate": "python:beartype==0.22.9",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:a3e2a00b14d8f8a6b70c1dae7b4685e7ad3bc965c5b42124a2d6ce895da6cf50",
+          "locator": "https://files.pythonhosted.org/packages/70/d2/47e8bc06fe2a06d3f5bdf20f1126ab66c4e99dc48d940e7ba873f7ac7131/cachetools-7.1.7.tar.gz"
+        },
+        {
+          "integrity": "sha256:ef98ef375ad188819ef2f9b3645e3987f4b8c5b7550e436ad998c2de78296df0",
+          "locator": "https://files.pythonhosted.org/packages/e4/d8/767faeda872075724b95dd675466a645f1b92aadcdcf2d1429dcfd76c176/cachetools-7.1.7-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:cachetools==7.1.7",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:5233e797c9fe2b541914b1bc2e2df82677e2206b537e44e252188f3c2cbb0ea9",
+          "locator": "https://files.pythonhosted.org/packages/61/8a/71b0144f783468ba9f1bbf8a2f8e45c7d85ae31ec192f10650aa46f31702/caio-0.12.2-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:87a67c0dccc60e432888bd532ec504b66e124a5d8b391aab894583b55abd39ea",
+          "locator": "https://files.pythonhosted.org/packages/75/c8/82b3c760141a1076408164b03e8789b51809add6aecd48aa9d7651cf6b59/caio-0.12.2.tar.gz"
+        },
+        {
+          "integrity": "sha256:107e56554c179749de9440e1b5e5a19813572eebf3166e9dc3e5228b16966beb",
+          "locator": "https://files.pythonhosted.org/packages/f8/02/9bd2bca72bfa478337618eae88942c43c891ae225e11baeae275e5e5c6ab/caio-0.12.2-cp312-cp312-manylinux_2_34_x86_64.whl"
+        }
+      ],
+      "coordinate": "python:caio==0.12.2",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775",
+          "locator": "https://files.pythonhosted.org/packages/0b/a7/71ac2cff56fec219ed242bb11b8efb69fcc4bec75db06fb7bfe35de520e6/certifi-2026.7.22-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:741e2c3b351ddf169a738da9f2c048608ff7f2c5cc02f1ebc6b118bb090d5d55",
+          "locator": "https://files.pythonhosted.org/packages/a3/c2/24167ea9858356b47a87a50d39908bfdb72ceeefe0041586e704e5376b3a/certifi-2026.7.22.tar.gz"
+        }
+      ],
+      "coordinate": "python:certifi==2026.7.22",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:dd31f52ea1086513bb9df30f8fcee9b8918323ae067a3d5b78bc826a000712be",
+          "locator": "https://files.pythonhosted.org/packages/9e/ef/008a1939e372c06329a3fce4279c02f328488f3526744906eeec3da7ad5f/cffi-2.1.1.tar.gz"
+        },
+        {
+          "integrity": "sha256:c1453022f490d2459a11819d83ad1d586e9ff65a12ac3e705ffebd46d3685dcf",
+          "locator": "https://files.pythonhosted.org/packages/b1/db/dceb9dd5b231e1da801793f8acc9f3c52a7e1afe40bb1aae37e02b0faad5/cffi-2.1.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl"
+        }
+      ],
+      "coordinate": "python:cffi==2.1.1",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:b9af956078716df40d985fb0dfeb2c2120c5ca92ba4ff4b388acfd01cdc14d08",
+          "locator": "https://files.pythonhosted.org/packages/6f/89/bb5108dc6c3651dca963f2b0a3ba19bbcb370c94e1b6d3e0e844a58e6dca/charset_normalizer-3.5.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
+        },
+        {
+          "integrity": "sha256:a6dac12ff6b846103483683f60c5f8fee205121adc58ffd87e90a90a3af69e99",
+          "locator": "https://files.pythonhosted.org/packages/9f/2f/fe3f187327aac18e2d54e9d2b08e15d27bf9b642d9e51c219f130fc34d1a/charset_normalizer-3.5.1-cp37-abi3-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl"
+        },
+        {
+          "integrity": "sha256:6df0ec430f9a831772c23ca5a224cba36517a58a84bb32c32bb59a9fa67c47f6",
+          "locator": "https://files.pythonhosted.org/packages/cc/61/d01fc49b8dea277640b55a9e15960dbca9fdc8c9fde18e572d39c59f4019/charset_normalizer-3.5.1-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:6117b84ea48435e5356dc737f5121485c30920ba43375fa7b434fd753df0eac3",
+          "locator": "https://files.pythonhosted.org/packages/e5/3f/143b048436775b0f76ac3eec145c019e8173ccc2885c8f20319b996d5e83/charset_normalizer-3.5.1.tar.gz"
+        }
+      ],
+      "coordinate": "python:charset-normalizer==3.5.1",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360",
+          "locator": "https://files.pythonhosted.org/packages/58/50/6c0d534c5f134586a8e1ba4e330569e32f057e33372ae556463212fb4cd3/click-8.5.0-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:ba0d2089de75ea0310e2dde03160e6ca10009947fb95a182f9b54021bb272e34",
+          "locator": "https://files.pythonhosted.org/packages/c7/0e/7fa0ef50764b67090eca4114772a2abf8b6148198475e54c660b97caeee6/click-8.5.0.tar.gz"
+        }
+      ],
+      "coordinate": "python:click==8.5.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:899b9da30f3c6c336566e3707495bb23e8302d39d862f01fa78c48b99b9437e2",
+          "locator": "https://files.pythonhosted.org/packages/8c/3f/f0642a372f494bd0d7dad3b497083b910194a5f1c88be2c94fef707c3b59/coverage-7.15.4-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl"
+        },
+        {
+          "integrity": "sha256:964730a1e9de9c0cf11be6a1a3c79ce419c34882842abd256086ba4698705e84",
+          "locator": "https://files.pythonhosted.org/packages/b4/d9/e70c286c979378f061d8266e279b686ab0b0b688e1fe0af864684f23a77d/coverage-7.15.4-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:0548198fff07ccf4faf469520bce1c2eceb1ce3e62891921138dec10907f9d00",
+          "locator": "https://files.pythonhosted.org/packages/be/c3/4f2195f512fb172aa425a8803a874b2baa9ba7f80ff7b6080998761fc701/coverage-7.15.4.tar.gz"
+        }
+      ],
+      "coordinate": "python:coverage==7.15.4",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:ff838d62ec1bfce4f9ba7fa16f4a7b554cd8d0c299e6be37502161a660c84eef",
+          "locator": "https://files.pythonhosted.org/packages/57/26/e6d4fc8512a51a5f9ee7bfdbfb853bce1197087df40c9ad993ad370b846f/cryptography-50.0.1-cp311-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl"
+        },
+        {
+          "integrity": "sha256:e22dfed744bd4002e909464cb23d2f0b05c6f3113a79ef2e9864a53db737c733",
+          "locator": "https://files.pythonhosted.org/packages/7e/3c/0e77bd5ffcf078e9dd27d3074aad6c030d9b10d0bf69329d573c927a188c/cryptography-50.0.1-cp39-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl"
+        },
+        {
+          "integrity": "sha256:51afcfceb15597cf2635068e4ac9a56b2abde622edde17f37d85fd7b5306497a",
+          "locator": "https://files.pythonhosted.org/packages/85/66/6ccca4722987ddedaa7fc9c3f4708af7431f5535666c174350830888c6b7/cryptography-50.0.1-cp311-abi3-manylinux_2_34_x86_64.whl"
+        },
+        {
+          "integrity": "sha256:9dde0a357190eb3b1da1bb9ab750e9c85cba82ca5977aa0836cbb94e92611239",
+          "locator": "https://files.pythonhosted.org/packages/8c/eb/5d7124083e8d8cda8f5b348f544b71ad6f707ad63193758ef4d8e569da02/cryptography-50.0.1-cp39-abi3-manylinux_2_34_x86_64.whl"
+        },
+        {
+          "integrity": "sha256:5dd9bda1c12b4162f6ff568eeb5e0ff956c28d14406e875cfe8a63a2d414ff20",
+          "locator": "https://files.pythonhosted.org/packages/bb/ad/5d6702db60b1e40b41ef513b6967ff5848f307d50f8449baf1634f5908f1/cryptography-50.0.1.tar.gz"
+        },
+        {
+          "integrity": "sha256:407fe2b6db00939c05c0e945e9914238f2f0a430974839429dafc82b1ee6bee5",
+          "locator": "https://files.pythonhosted.org/packages/d6/51/3f9701867a46b6c1740c9b52fc4d3bed6cbdcfedcc9b6e64305c07f39cff/cryptography-50.0.1-cp39-abi3-manylinux_2_28_x86_64.whl"
+        },
+        {
+          "integrity": "sha256:51593d180cf6d179bde5c5d065bed81386b1f381656ae7d042b7ffc87a9895ad",
+          "locator": "https://files.pythonhosted.org/packages/e1/1b/82f0f0d8858d4432be1af790477edf62aef90324041aa07c57e57bef1af7/cryptography-50.0.1-cp311-abi3-manylinux_2_28_x86_64.whl"
+        }
+      ],
+      "coordinate": "python:cryptography==50.0.1",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:b3a65872942afb08f3ab5ca3d65b0b3ecfc872c9ccbea9d6a74ec11aa8a0215e",
+          "locator": "https://files.pythonhosted.org/packages/00/d0/247938ef46dd81ab293efcac06ac2fee922db5bede9039d059912081db51/cyclopts-4.23.3-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:4299ec47f5be853f9a114fcc534c84d42bbf19fefa303994597ecb7e5fd3082b",
+          "locator": "https://files.pythonhosted.org/packages/ca/4e/4afd08d7dd836c436bbc5999f2743eda0ad4eac8946a8eb4b72241e3c555/cyclopts-4.23.3.tar.gz"
+        }
+      ],
+      "coordinate": "python:cyclopts==4.23.3",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2",
+          "locator": "https://files.pythonhosted.org/packages/12/b3/231ffd4ab1fc9d679809f356cebee130ac7daa00d6d6f3206dd4fd137e9e/distro-1.9.0-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:2fa77c6fd8940f116ee1d6b94a2f90b13b5ea8d019b98bc8bafdcabcdd9bdbed",
+          "locator": "https://files.pythonhosted.org/packages/fc/f8/98eea607f65de6527f8a2e8885fc8015d3e6f5775df186e443e0964a11c3/distro-1.9.0.tar.gz"
+        }
+      ],
+      "coordinate": "python:distro==1.9.0",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:181d3c6996452cb1189c4046c61599b84a5a86e099562ffde77d26984ff26d0f",
+          "locator": "https://files.pythonhosted.org/packages/8c/8b/57666417c0f90f08bcafa776861060426765fdb422eb10212086fb811d26/dnspython-2.8.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:01d9bbc4a2d76bf0db7c1f729812ded6d912bd318d3b1cf81d30c0f845dbf3af",
+          "locator": "https://files.pythonhosted.org/packages/ba/5a/18ad964b0086c6e62e2e7500f7edc89e3faa45033c71c1893d34eed2b2de/dnspython-2.8.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:dnspython==2.8.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:b3fcbed555c47d8479be0796ef7e19c2670d428d72e96da63f3a40122860374b",
+          "locator": "https://files.pythonhosted.org/packages/a7/5f/ed01f9a3cdffbd5a008556fc7b2a08ddb1cc6ace7effa7340604b1d16699/docstring_parser-0.18.0-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:292510982205c12b1248696f44959db3cdd1740237a968ea1e2e7a900eeb2015",
+          "locator": "https://files.pythonhosted.org/packages/e0/4d/f332313098c1de1b2d2ff91cf2674415cc7cddab2ca1b01ae29774bd5fdf/docstring_parser-0.18.0.tar.gz"
+        }
+      ],
+      "coordinate": "python:docstring-parser==0.18.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:80f13f623413e6b197ae73bb10bf4eb0908faf509ad8362c5edeb0be7fd450b4",
+          "locator": "https://files.pythonhosted.org/packages/de/15/545e2b6cf2e3be84bc1ed85613edd75b8aea69807a71c26f4ca6a9258e82/email_validator-2.3.0-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:9fc05c37f2f6cf439ff414f8fc46d917929974a82244c20eb10231ba60c54426",
+          "locator": "https://files.pythonhosted.org/packages/f5/22/900cb125c76b7aaa450ce02fd727f452243f2e91a61af068b40adba60ea9/email_validator-2.3.0.tar.gz"
+        }
+      ],
+      "coordinate": "python:email-validator==2.3.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219",
+          "locator": "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz"
+        },
+        {
+          "integrity": "sha256:a7a39a3bd276781e98394987d3a5701d0c4edffb633bb7a5144577f82c773598",
+          "locator": "https://files.pythonhosted.org/packages/8a/0e/97c33bf5009bdbac74fd2beace167cab3f978feb69cc36f1ef79360d6c4e/exceptiongroup-1.3.1-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:exceptiongroup==1.3.1",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:ed52cbf946abfd70c5a0dccb24673f0670deeb517a88b3544d03c2a6bf283143",
+          "locator": "https://files.pythonhosted.org/packages/78/d7/6c8b3bfe33eeffa208183ec037fee0cce9f7f024089ab1c5d12ef04bd27c/fastapi-0.116.1.tar.gz"
+        },
+        {
+          "integrity": "sha256:c46ac7c312df840f0c9e220f7964bada936781bc4e2e6eb71f1c4d7553786565",
+          "locator": "https://files.pythonhosted.org/packages/e5/47/d63c60f59a59467fda0f93f46335c9d18526d7071f025cb5b89d5353ea42/fastapi-0.116.1-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:fastapi==0.116.1",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:17cd0a1535972d3748d8c2416f0826dfc86c18df7a6cbc38602373277d44baa6",
+          "locator": "https://files.pythonhosted.org/packages/58/66/cc283d4efd3faf325c26f51cfb43a118270ea732e70dda509f49d80ea625/fastmcp_slim-3.4.0-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:faa0ccf16e85ec4b9f79c006fed3546b866d7e6dba3f60cd32cd98e84753a496",
+          "locator": "https://files.pythonhosted.org/packages/e7/b0/4da6078c2d6aa0a38a8b1ae0271e1ed400f9e2cd1b3b46e6453fb1fe2b75/fastmcp_slim-3.4.0.tar.gz"
+        }
+      ],
+      "coordinate": "python:fastmcp-slim==3.4.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:29055fb6816f4862c615aabaf0112ae8feb8b469740db13403a0ce5b799ec1dc",
+          "locator": "https://files.pythonhosted.org/packages/64/24/519739e98daf92ebc64580e9d3320649bf9a1612c029a913dd88c3474d73/fastmcp-3.4.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:34523083d6149400a0655a8aa769eb34f85b1ce6dac6d66efb07503ebbe5f44b",
+          "locator": "https://files.pythonhosted.org/packages/e9/72/9f9bbfc3a8d26870dbdbbd633cd1c6f42b8d3bec379426c760676d936e86/fastmcp-3.4.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:fastmcp==3.4.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:180dafe015cfb62193bea26b677500fab5b9fd51a1e825ebf3ad9b182047ae59",
+          "locator": "https://files.pythonhosted.org/packages/00/f3/8508a702c094af5f6e89773f4dfdeee74913df0f41a02c21b5e7dc3d75cd/google_auth-2.57.0-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:9b4f96d6a1feb5f7201231f47cfb3de08d8f176f8a61f9e461555116e95a8789",
+          "locator": "https://files.pythonhosted.org/packages/41/64/55f316b729f92a552d26e00aa3b1542b2e149d0a5efe2842afff0cac7af7/google_auth-2.57.0.tar.gz"
+        }
+      ],
+      "coordinate": "python:google-auth==2.57.0",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:d382186f024e9050a7a4b25af6eacba9aa16c6e09594f5d1b530f22ff7f9d76f",
+          "locator": "https://files.pythonhosted.org/packages/87/dd/eacd43097318ea6b3e648862713a964d5de261a2eabcc7826db9b9de9758/google_genai-2.20.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:49bddeccd29a4e6bf1706c5de67735f7115f537f08b6c36a70b8023c99399095",
+          "locator": "https://files.pythonhosted.org/packages/ae/a7/a979230234c9df019e008085c923726dc4d92c14a5701ad698e369c9ab2a/google_genai-2.20.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:google-genai==2.20.0",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:adb4bae02e91a8e863e48b177e4014bdcac8a6b5e047ea1df687a61534b85e6c",
+          "locator": "https://files.pythonhosted.org/packages/0b/d8/7cc97c142388aef03f622e001c572c4f84e9252a439549d483f555771970/greenlet-3.5.5.tar.gz"
+        },
+        {
+          "integrity": "sha256:147b25a42e5ca5be3d42356e8f608b37af715a1c196e9bf9d1627f3341adfe1d",
+          "locator": "https://files.pythonhosted.org/packages/78/ac/5c5b959999b6f09c3026b5dfe171575bc3121c5236ce74f495096f25b203/greenlet-3.5.5-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl"
+        }
+      ],
+      "coordinate": "python:greenlet==3.5.5",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:e1bc36fe9cd21d4b6b659b456346755e4cfdc5676c0a5214083126ee12612b3c",
+          "locator": "https://files.pythonhosted.org/packages/f0/b4/a767e91c606deefc447a96eaf59edd77397960b1d677dffd833ee8449831/griffelib-2.2.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:d71c3bc2bbed9f958488634fe788b843a9f705d6d2838ca32cd6c25eeb64dfc4",
+          "locator": "https://files.pythonhosted.org/packages/f6/b6/f65ac785d4ac90dcf7c831ac6256f5dd4a19780f4e1575b2c0d6eeebe319/griffelib-2.2.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:griffelib==2.2.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1",
+          "locator": "https://files.pythonhosted.org/packages/01/ee/02a2c011bdab74c6fb3c75474d40b3052059d95df7e73351460c8588d963/h11-0.16.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86",
+          "locator": "https://files.pythonhosted.org/packages/04/4b/29cac41a4d98d144bf5f6d33995617b185d14b22401f75ca86f384e87ff1/h11-0.16.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:h11==0.16.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:6e34463af53fd2ab5d807f399a9b45ea31c3dfa2276f15a2c3f00afff6e176e8",
+          "locator": "https://files.pythonhosted.org/packages/06/94/82699a10bca87a5556c9c59b5963f2d039dbd239f25bc2a63907a05a14cb/httpcore-1.0.9.tar.gz"
+        },
+        {
+          "integrity": "sha256:2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55",
+          "locator": "https://files.pythonhosted.org/packages/7e/f5/f66802a942d491edb555dd61e3a9961140fd64c90bce1eafd741609d334d/httpcore-1.0.9-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:httpcore==1.0.9",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:6b2a32f18d97e16e90827d7a819ffa8dbd8cc245fc4e1fa9d1095b54ef4bd999",
+          "locator": "https://files.pythonhosted.org/packages/43/e5/d471fcb0e14523fe1c3f4ba58ca52480e7bd70ad7109a3846bc75892f7fb/httptools-0.8.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:b15fc622b0f869d19207c4089a501d9bcc63ca5e071ffdd2f03f922df882dcb2",
+          "locator": "https://files.pythonhosted.org/packages/e3/a6/febbb8b8db0f58b38e44ad6cb946e6a255ae49b55f2e8543408fb7501ccd/httptools-0.8.0-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl"
+        }
+      ],
+      "coordinate": "python:httptools==0.8.0",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:9b1ed0127459a66014aec3c56bebd93da3c1bc8bb6618c8082039a44889a755d",
+          "locator": "https://files.pythonhosted.org/packages/0f/4c/751061ffa58615a32c31b2d82e8482be8dd4a89154f003147acee90f2be9/httpx_sse-0.4.3.tar.gz"
+        },
+        {
+          "integrity": "sha256:0ac1c9fe3c0afad2e0ebb25a934a59f4c7823b60792691f779fad2c5568830fc",
+          "locator": "https://files.pythonhosted.org/packages/d2/fd/6668e5aec43ab844de6fc74927e155a3b37bf40d7c3790e49fc0406b6578/httpx_sse-0.4.3-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:httpx-sse==0.4.3",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad",
+          "locator": "https://files.pythonhosted.org/packages/2a/39/e50c7c3a983047577ee07d2a9e53faf5a69493943ec3f6a384bdc792deb2/httpx-0.28.1-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc",
+          "locator": "https://files.pythonhosted.org/packages/b1/df/48c586a5fe32a0f01324ee087459e112ebb7224f646c0b5023f5e79e9956/httpx-0.28.1.tar.gz"
+        }
+      ],
+      "coordinate": "python:httpx==0.28.1",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:815e7be7a7806d54abb586dc943addc79e8b2ee16915059658cbeff4b1b43bf4",
+          "locator": "https://files.pythonhosted.org/packages/57/b0/0e52c878c53f245edd3a11020f20979b3f490f245af532c7cae3027754b5/idna-3.19-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:5e0811a4383b21dc5838069f801c4fb62113b7447663d2530d2bd6e77b49bf15",
+          "locator": "https://files.pythonhosted.org/packages/5f/f7/abb373e5757eaec4b922b92f97ec8d6d7e057cf06778247604fbc4e7c3f3/idna-3.19.tar.gz"
+        }
+      ],
+      "coordinate": "python:idna==3.19",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:c76315c77db068650d49c5b56314774a7804df16fee4402c1f19d6d15d8c4730",
+          "locator": "https://files.pythonhosted.org/packages/72/34/14ca021ce8e5dfedc35312d08ba8bf51fdd999c576889fc2c24cb97f4f10/iniconfig-2.3.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12",
+          "locator": "https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:iniconfig==2.3.0",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:47a024b51d0239c0dd8c8540c6c7f484be3b8fcf0b2d85c13825780d3b3f3acd",
+          "locator": "https://files.pythonhosted.org/packages/06/c0/ed4a27bc5571b99e3cff68f8a9fa5b56ff7df1c2251cc715a652ddd26402/jaraco.classes-3.4.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:f662826b6bed8cace05e7ff873ce0f9283b5c924470fe664fff1c2f00f581790",
+          "locator": "https://files.pythonhosted.org/packages/7f/66/b15ce62552d84bbfcec9a4873ab79d993a1dd4edb922cbfccae192bd5b5f/jaraco.classes-3.4.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:jaraco-classes==3.4.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:f1a6c9d391e661cc5b8d39861ff077a7dc24dc23833ccee564b234b81c82dfe3",
+          "locator": "https://files.pythonhosted.org/packages/af/50/4763cd07e722bb6285316d390a164bc7e479db9d90daa769f22578f698b4/jaraco_context-6.1.2.tar.gz"
+        },
+        {
+          "integrity": "sha256:bf8150b79a2d5d91ae48629d8b427a8f7ba0e1097dd6202a9059f29a36379535",
+          "locator": "https://files.pythonhosted.org/packages/f2/58/bc8954bda5fcda97bd7c19be11b85f91973d67a706ed4a3aec33e7de22db/jaraco_context-6.1.2-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:jaraco-context==6.1.2",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:99e3dc0060c5cbe8fcd1cdb36258e2a65ca40f1566b2033b12abb1bb44dd3c30",
+          "locator": "https://files.pythonhosted.org/packages/02/36/ecc85bc96c273dc8a11273ed4782272975e6338d4a3e9228621175edf0e3/jaraco_functools-4.6.0-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:880c577ec9720b3a052d5bc611fb9f2269b3d87902ef42440df443b88e443280",
+          "locator": "https://files.pythonhosted.org/packages/6c/1f/c23395957d41ccf27c4e535c3d334c4051e5395b3752057ba4cbaec35c56/jaraco_functools-4.6.0.tar.gz"
+        }
+      ],
+      "coordinate": "python:jaraco-functools==4.6.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:cf0e9e845622b81e4a28df94c40345400256ec608d0e55bb8a3feaa9163f5732",
+          "locator": "https://files.pythonhosted.org/packages/7b/6f/357efd7602486741aa73ffc0617fb310a29b588ed0fd69c2399acbb85b0c/jeepney-0.9.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:97e5714520c16fc0a45695e5365a2e11b81ea79bba796e26f9f1d178cb182683",
+          "locator": "https://files.pythonhosted.org/packages/b2/a3/e137168c9c44d18eff0376253da9f1e9234d0239e0ee230d2fee6cea8e55/jeepney-0.9.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:jeepney==0.9.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:b3bc561672ae541b17a9237053b48a03dacddd92d68047b3ecdfb4b5714a88ed",
+          "locator": "https://files.pythonhosted.org/packages/c7/e0/27a6a081ae25420eda6768ceae05d7022a7f2447f420588843f2a44e4298/joserfc-1.7.4.tar.gz"
+        },
+        {
+          "integrity": "sha256:32d46c2cd5e3203c13e87a6c61333cab310b1ba80cd54b4c4f386a848a122463",
+          "locator": "https://files.pythonhosted.org/packages/f9/bf/249dcd99b3376375910b7fa922383b57792975c8758f50d44612e749226c/joserfc-1.7.4-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:joserfc==1.7.4",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:590dc7773df6c21cbf948b5dac07a72a251db28b0238ceecce0a2abfa8ec30a9",
+          "locator": "https://files.pythonhosted.org/packages/0c/ec/e1db9922bceb168197a558a2b8c03a7963f1afe93517ddd3cf99f202f996/jsonref-1.1.0-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:32fe8e1d85af0fdefbebce950af85590b22b60f9e95443176adbde4e1ecea552",
+          "locator": "https://files.pythonhosted.org/packages/aa/0d/c1f3277e90ccdb50d33ed5ba1ec5b3f0a242ed8c1b1a85d3afeb68464dca/jsonref-1.1.0.tar.gz"
+        }
+      ],
+      "coordinate": "python:jsonref==1.1.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:2790a070bc7abb08ea3dbe4d340ece4efadf639223001f020c7503229ba068e2",
+          "locator": "https://files.pythonhosted.org/packages/04/2c/9e69d73c4297508be9e3b64a970ea3971b3eb8db64ffc5802d40bd25981f/jsonschema_path-0.5.0-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:493b156ba895c97602655b620a8456caa2ce08c1aa389f5a7addec065e6e855c",
+          "locator": "https://files.pythonhosted.org/packages/39/79/cd02a4df6d9270efdc7d3feefe6edd730b0820c39eeaa107a2faee8322d5/jsonschema_path-0.5.0.tar.gz"
+        }
+      ],
+      "coordinate": "python:jsonschema-path==0.5.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:b540987f239e745613c7a9176f3edb72b832a4ac465cf02712288397832b5e8d",
+          "locator": "https://files.pythonhosted.org/packages/19/74/a633ee74eb36c44aa6d1095e7cc5569bebf04342ee146178e2d36600708b/jsonschema_specifications-2025.9.1.tar.gz"
+        },
+        {
+          "integrity": "sha256:98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe",
+          "locator": "https://files.pythonhosted.org/packages/41/45/1a4ed80516f02155c51f51e8cedb3c1902296743db0bbc66608a0db2814f/jsonschema_specifications-2025.9.1-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:jsonschema-specifications==2025.9.1",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce",
+          "locator": "https://files.pythonhosted.org/packages/69/90/f63fb5873511e014207a475e2bb4e8b2e570d655b00ac19a9a0ca0a385ee/jsonschema-4.26.0-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:0c26707e2efad8aa1bfc5b7ce170f3fccc2e4918ff85989ba9ffa9facb2be326",
+          "locator": "https://files.pythonhosted.org/packages/b3/fc/e067678238fa451312d4c62bf6e6cf5ec56375422aee02f9cb5f909b3047/jsonschema-4.26.0.tar.gz"
+        }
+      ],
+      "coordinate": "python:jsonschema==4.26.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:fe01bd85eb3f8fb3dd0405defdeac9a5b4f6f0439edbb3149577f244a2e8245b",
+          "locator": "https://files.pythonhosted.org/packages/43/4b/674af6ef2f97d56f0ab5153bf0bfa28ccb6c3ed4d1babf4305449668807b/keyring-25.7.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:be4a0b195f149690c166e850609a477c532ddbfbaed96a404d4e43f8d5e2689f",
+          "locator": "https://files.pythonhosted.org/packages/81/db/e655086b7f3a705df045bf0933bdd9c2f79bb3c97bfef1384598bb79a217/keyring-25.7.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:keyring==25.7.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:04a21681d6fbb623de53f6f364d352309d4094dd4194040a10fd51833e418d49",
+          "locator": "https://files.pythonhosted.org/packages/06/ff/7841249c247aa650a76b9ee4bbaeae59370dc8bfd2f6c01f3630c35eb134/markdown_it_py-4.2.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:9f7ebbcd14fe59494226453aed97c1070d83f8d24b6fc3a3bcf9a38092641c4a",
+          "locator": "https://files.pythonhosted.org/packages/b3/81/4da04ced5a082363ecfa159c010d200ecbd959ae410c10c0264a38cac0f5/markdown_it_py-4.2.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:markdown-it-py==4.2.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:b6310eeb59153300c4ab8b9aec4c52f4819a2d6a8e429eb43d908bed7c783648",
+          "locator": "https://files.pythonhosted.org/packages/0b/04/d6b4fb82eefe9e81807aabca1ac98f460ae0883974b83a997aaa20c52545/mcp-1.29.1-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:1967ba4c315f7a375146209949f45950d18b0efd2f913d7cf3400bc723ee5f04",
+          "locator": "https://files.pythonhosted.org/packages/b5/48/0bb26fdfe7ac16875f534a101ce2405eae192bdef37e7451f2f4507c13ec/mcp-1.29.1.tar.gz"
+        }
+      ],
+      "coordinate": "python:mcp==1.29.1",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8",
+          "locator": "https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba",
+          "locator": "https://files.pythonhosted.org/packages/d6/54/cfe61301667036ec958cb99bd3efefba235e65cdeb9c84d24a8293ba1d90/mdurl-0.1.2.tar.gz"
+        }
+      ],
+      "coordinate": "python:mdurl==0.1.2",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:48e8f4d9e7e5878571ecf6f2b4e57634f93cd474cc8cfbd2376f2d11b396e30d",
+          "locator": "https://files.pythonhosted.org/packages/de/1d/f4da6f02cdffe04d6362210b807146a26044c88d839208aec273bb0d9184/more_itertools-11.1.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:4b65538ae22f6fed0ce4874efd317463a7489796a0939fa66824dd542125a192",
+          "locator": "https://files.pythonhosted.org/packages/e8/3d/1087453384dbde46a8c7f9356eead2c58be8a7bf156bca40243377c85715/more_itertools-11.1.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:more-itertools==11.1.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:77c2e018417dc1d66f235e383877ee885b60ade9d29e494dd581e08af2cb1923",
+          "locator": "https://files.pythonhosted.org/packages/41/f0/29f591bea185616cf417645ac03bd3ad9b317483ad8572160e325f7fe777/msgpack-1.2.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
+        },
+        {
+          "integrity": "sha256:9eb0b0e602064527a045ea28c4f174ed69383587e29cebe28947e3b84106eb2a",
+          "locator": "https://files.pythonhosted.org/packages/6d/44/ea2100ec54d30c46ee9dba10a3bfb79b655e96c6df237238a3234c75869b/msgpack-1.2.2.tar.gz"
+        }
+      ],
+      "coordinate": "python:msgpack==1.2.2",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:3cdec01fa790a186d430433fdd4d4ffb70eed6f0eeb4bf05c8dbe2dce0a9bcb8",
+          "locator": "https://files.pythonhosted.org/packages/3a/5f/62d28cf019460c7f1394105b4d49d9911a9c444cb77ab0bd95a204c5a6de/numpy-2.5.2-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl"
+        },
+        {
+          "integrity": "sha256:d482d171c406ae88c5b19cad3b6a1c4c5209f886ab74bc44c2c865c23f52d860",
+          "locator": "https://files.pythonhosted.org/packages/9a/80/db0b4559e57ec36362bedbb05530a87fafbcb6067708c946967a41d449e7/numpy-2.5.2.tar.gz"
+        }
+      ],
+      "coordinate": "python:numpy==2.5.2",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:ff6835af6bde7a459fb93eb93bb92b8749b754fc6e51b2f1590a19dc3005ee0d",
+          "locator": "https://files.pythonhosted.org/packages/02/2e/58d83848dd1a79cb92ed8e63f6ba901ca282c5f09d04af9423ec26c56fd7/openapi_pydantic-0.5.1.tar.gz"
+        },
+        {
+          "integrity": "sha256:a3a09ef4586f5bd760a8df7f43028b60cafb6d9f61de2acba9574766255ab146",
+          "locator": "https://files.pythonhosted.org/packages/12/cf/03675d8bd8ecbf4445504d8071adab19f5f993676795708e36402ab38263/openapi_pydantic-0.5.1-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:openapi-pydantic==0.5.1",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:94b98c893a91b88657eaac1e3ba89618cdb85be6918196705354f34728b2cdef",
+          "locator": "https://files.pythonhosted.org/packages/ca/6f/a04e900f465ff3221ccc395522503e2d10e79fa21f2723c8e177aae1e0d1/opentelemetry_api-1.44.0-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:67647e5e9566edcf421166fdf022b3537f818635daa852b289e34604dc6fb33a",
+          "locator": "https://files.pythonhosted.org/packages/ee/8b/aa9e2d8b8dfa7c946f7dec5d1f8f6ba8eca062f43509a06bdb5ce93d26c0/opentelemetry_api-1.44.0.tar.gz"
+        }
+      ],
+      "coordinate": "python:opentelemetry-api==1.44.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+          "locator": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79",
+          "locator": "https://files.pythonhosted.org/packages/7d/fa/3944b40b07da9ce895c0e6303a5ab7d53da063554f534556b134a54d6093/packaging-26.3.tar.gz"
+        }
+      ],
+      "coordinate": "python:packaging==26.3",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:d373ce03ffd84010ed9839fa73672a9c8256990532e158440c0085db7d914b34",
+          "locator": "https://files.pythonhosted.org/packages/12/98/e976540c1addf70442be7842a18cf70884a964abbf69442504f4d2939989/pandas-3.0.5-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl"
+        },
+        {
+          "integrity": "sha256:dca3734d6ab7c906e6730f0788b0a1dbb9f2467731f9711f77995c8e9d62d712",
+          "locator": "https://files.pythonhosted.org/packages/be/4f/5f3422a2afec5ffc46308b79e53291365a93748b498ac2e58bead0197916/pandas-3.0.5.tar.gz"
+        }
+      ],
+      "coordinate": "python:pandas==3.0.5",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:6404b8b82aef5ff0fd478934137128b99b12212ba35afdde5525ca4f8388ea58",
+          "locator": "https://files.pythonhosted.org/packages/66/f3/5a20387de9bcd0607871bfc2198ee0e15836da7baa4592ccd7f24c27c986/pathable-0.6.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:82c4ca6c98c502ad12e0d4e9779b6210afee93c38990988c8c5d1b49bdcdf566",
+          "locator": "https://files.pythonhosted.org/packages/a2/e8/6d75ffd9784bce2e93d1ae4415649427e39a53bb172d4672b2b59c6f0a7b/pathable-0.6.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:pathable==0.6.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:0af2c1926b153307639868d2ee5cef6cd3a7d07448e12736989b10e1d491e201",
+          "locator": "https://files.pythonhosted.org/packages/45/07/5fd183858dff4d24840f07fc845f213cd371a19958558607ba22035dadd7/pg8000-1.31.5-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:46ebb03be52b7a77c03c725c79da2ca281d6e8f59577ca66b17c9009618cae78",
+          "locator": "https://files.pythonhosted.org/packages/c8/9a/077ab21e700051e03d8c5232b6bcb9a1a4d4b6242c9a0226df2cfa306414/pg8000-1.31.5.tar.gz"
+        }
+      ],
+      "coordinate": "python:pg8000==1.31.5",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:89f8d42695853b89c7170bd49bc3dc593f98a71e695ede88e06a3b247bc4563b",
+          "locator": "https://files.pythonhosted.org/packages/c7/12/6f3fcd5067a9cbf4f8664b32957973498da8b083455203c8d9cab83a725c/platformdirs-4.11.5-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:e8b31f4f8bcbbedef91a6b57a706255e4f148d2a4e01648382a0a47342539173",
+          "locator": "https://files.pythonhosted.org/packages/ea/06/cf1564dcc2e2261c8c8c6c05628dc8b418943bdae2a4e58640ceb2f770fa/platformdirs-4.11.5.tar.gz"
+        }
+      ],
+      "coordinate": "python:platformdirs==4.11.5",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746",
+          "locator": "https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3",
+          "locator": "https://files.pythonhosted.org/packages/f9/e2/3e91f31a7d2b083fe6ef3fa267035b518369d9511ffab804f839851d2779/pluggy-1.6.0.tar.gz"
+        }
+      ],
+      "coordinate": "python:pluggy==1.6.0",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:ab862adbcb8c72547d1c57821f22cbbb71ab86509039c96f36e914e0336c8dd7",
+          "locator": "https://files.pythonhosted.org/packages/f6/95/b8ba862968712caa12a19666175334fa979e1f198b896a430adb3bacfe87/py_key_value_aio-0.4.5-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:c6563a2c6abe5da5e20f4f9e875c2a9b425a2244a54fadbf46cf140a9eea45d7",
+          "locator": "https://files.pythonhosted.org/packages/fb/e2/d689d922894a7ecde73b6daeaf9b13dab5aae06fe6aaaf7514722644d382/py_key_value_aio-0.4.5.tar.gz"
+        }
+      ],
+      "coordinate": "python:py-key-value-aio==0.4.5",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:29253a9207ce32b64c3ac6600edc75368f98473906e8fd1043bd6b5b1de2c14a",
+          "locator": "https://files.pythonhosted.org/packages/47/8d/d529b5d697919ba8c11ad626e835d4039be708a35b0d22de83a269a6682c/pyasn1_modules-0.4.2-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:677091de870a80aae844b1ca6134f54652fa2c8c5a52aa396440ac3106e941e6",
+          "locator": "https://files.pythonhosted.org/packages/e9/e6/78ebbb10a8c8e4b61a59249394a4a594c1a7af95593dc933a349c8d00964/pyasn1_modules-0.4.2.tar.gz"
+        }
+      ],
+      "coordinate": "python:pyasn1-modules==0.4.2",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:deda9277cfd454080ec40b207fb6df82206a3a2688735233cdcd8d3d565f088b",
+          "locator": "https://files.pythonhosted.org/packages/9a/3b/6163796d69c3977d1e4287bea4a6979161cbbdd170ebb430511e8e1999ce/pyasn1-0.6.4-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:9c447d8431c947fe4c8febc4ed9e760bc29011a5b01e5c74b67025bd9fb8ce81",
+          "locator": "https://files.pythonhosted.org/packages/a4/9a/23310166d960def5897e91fe20e5b724601b02a22e84ba1f94232c0b7f67/pyasn1-0.6.4.tar.gz"
+        }
+      ],
+      "coordinate": "python:pyasn1==0.6.4",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992",
+          "locator": "https://files.pythonhosted.org/packages/0c/c3/44f3fbbfa403ea2a7c779186dc20772604442dde72947e7d01069cbe98e3/pycparser-3.0-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:600f49d217304a5902ac3c37e1281c9fe94e4d0489de643a9504c5cdfdfc6b29",
+          "locator": "https://files.pythonhosted.org/packages/1b/7d/92392ff7815c21062bea51aa7b87d45576f649f16458d78b7cf94b9ab2e6/pycparser-3.0.tar.gz"
+        }
+      ],
+      "coordinate": "python:pycparser==3.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:eceb81a8d74f9267ef4081e246ffd6d129da5d87e37a77c9bde550cb04870c1c",
+          "locator": "https://files.pythonhosted.org/packages/0d/76/941cc9f73529988688a665a5c0ecff1112b3d95ab48f81db5f7606f522d3/pydantic_core-2.41.5-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+        },
+        {
+          "integrity": "sha256:08daa51ea16ad373ffd5e7606252cc32f07bc72b28284b6bc9c6df804816476e",
+          "locator": "https://files.pythonhosted.org/packages/71/70/23b021c950c2addd24ec408e9ab05d59b035b39d97cdc1130e1bce647bb6/pydantic_core-2.41.5.tar.gz"
+        }
+      ],
+      "coordinate": "python:pydantic-core==2.41.5",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:a60952460b99cf661dc25c29c0ef171721f98bfcb52ef8d9ea4c943d7c8cc796",
+          "locator": "https://files.pythonhosted.org/packages/58/f0/427018098906416f580e3cf1366d3b1abfb408a0652e9f31600c24a1903c/pydantic_settings-2.10.1-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:06f0062169818d0f5524420a360d632d5857b83cffd4d42fe29597807a1614ee",
+          "locator": "https://files.pythonhosted.org/packages/68/85/1ea668bbab3c50071ca613c6ab30047fb36ab0da1b92fa8f17bbc38fd36c/pydantic_settings-2.10.1.tar.gz"
+        }
+      ],
+      "coordinate": "python:pydantic-settings==2.10.1",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:e561593fccf61e8a20fc46dfc2dfe075b8be7d0188df33f221ad1f0139180f9d",
+          "locator": "https://files.pythonhosted.org/packages/5a/87/b70ad306ebb6f9b585f114d0ac2137d792b48be34d732d60e597c2f8465a/pydantic-2.12.5-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:4d351024c75c0f085a9febbb665ce8c0c6ec5d30e903bdb6394b7ede26aebb49",
+          "locator": "https://files.pythonhosted.org/packages/69/44/36f1a6e523abc58ae5f928898e4aca2e0ea509b5aa6f6f392a5d882be928/pydantic-2.12.5.tar.gz"
+        }
+      ],
+      "coordinate": "python:pydantic==2.12.5",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:610ca751c9bc2492b38eb9a38a7fbc93edbbb2d7182edaf34e66ae493dee5c8c",
+          "locator": "https://files.pythonhosted.org/packages/49/2e/ced460408999b33da6b31b0021b0f37d329e202d4169aeb164493778f25b/pygments-2.21.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9",
+          "locator": "https://files.pythonhosted.org/packages/71/46/17f022dd3e953bf20a04a028a21ec746d942f8d2af30fa0f124fa0e6a684/pygments-2.21.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:pygments==2.21.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:41571c89ca91598c79e8ef18a2d07367d4810fbbd6f637794879baf1b7703423",
+          "locator": "https://files.pythonhosted.org/packages/3b/81/58d0ac84e1ef3a3843791d6954d94c0b33d526c75eeb1efbce9d0a4c4077/pyjwt-2.13.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:66adcc2aff09b3f1bbd95fc1e1577df8ac8723c978552fd43304c8a290ac5728",
+          "locator": "https://files.pythonhosted.org/packages/a3/5e/ecf12fdb62546d64385c158514e9b2b671f7832108ef2ecd2020ce0af2d1/pyjwt-2.13.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:pyjwt==2.13.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:299403e9ff44581cb9ba2ffeed69c7aa96a008622ad0c46cb575ca75b5b84273",
+          "locator": "https://files.pythonhosted.org/packages/df/80/fc9d01d5ed37ba4c42ca2b55b4339ae6e200b456be3a1aaddf4a9fa99b8c/pyperclip-1.11.0-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:244035963e4428530d9e3a6101a1ef97209c6825edab1567beac148ccc1db1b6",
+          "locator": "https://files.pythonhosted.org/packages/e8/52/d87eba7cb129b81563019d1679026e7a112ef76855d6159d24754dbd2a51/pyperclip-1.11.0.tar.gz"
+        }
+      ],
+      "coordinate": "python:pyperclip==1.11.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:25cc6cc0a5358204b8108ecedc51a9b57b34cc6b8c967cc2c01a4e00d8a67da2",
+          "locator": "https://files.pythonhosted.org/packages/18/99/668cade231f434aaa59bbfbf49469068d2ddd945000621d3d165d2e7dd7b/pytest_cov-6.2.1.tar.gz"
+        },
+        {
+          "integrity": "sha256:f5bc4c23f42f1cdd23c70b1dab1bbaef4fc505ba950d53e0081d0730dd7e86d5",
+          "locator": "https://files.pythonhosted.org/packages/bc/16/4ea354101abb1287856baa4af2732be351c7bee728065aed451b678153fd/pytest_cov-6.2.1-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:pytest-cov==6.2.1",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:7c67fd69174877359ed9371ec3af8a3d2b04741818c51e5e99cc1742251fa93c",
+          "locator": "https://files.pythonhosted.org/packages/08/ba/45911d754e8eba3d5a841a5ce61a65a685ff1798421ac054f85aa8747dfb/pytest-8.4.1.tar.gz"
+        },
+        {
+          "integrity": "sha256:539c70ba6fcead8e78eebbf1115e8b589e7565830d7d006a8723f19ac8a0afb7",
+          "locator": "https://files.pythonhosted.org/packages/29/16/c8a903f4c4dffe7a12843191437d7cd8e32751d5de349d45d3fe69544e87/pytest-8.4.1-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:pytest==8.4.1",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3",
+          "locator": "https://files.pythonhosted.org/packages/66/c0/0c8b6ad9f17a802ee498c46e004a0eb49bc148f2fd230864601a86dcf6db/python-dateutil-2.9.0.post0.tar.gz"
+        },
+        {
+          "integrity": "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427",
+          "locator": "https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:python-dateutil==2.9.0.post0",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:904552145e8bfed22162c09dab1c2b9b54fefa7b23ba780f4f26ca0316b0f0d9",
+          "locator": "https://files.pythonhosted.org/packages/0d/17/c5c6b53ddc18f297992099b3d9ec16c855c0ccc83263a21fe4d1c625ec6c/python_dotenv-1.2.3-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:a20a594dabeaa385725aa239d5244871c143ecb356add8a20fcf23773a6c3a35",
+          "locator": "https://files.pythonhosted.org/packages/6a/53/ed9d74092561d4b01a2ef1349d52cdbc135e526c245f366b089cfca6de49/python_dotenv-1.2.3.tar.gz"
+        }
+      ],
+      "coordinate": "python:python-dotenv==1.2.3",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:be54b7f3fa167bb83e4fcd936b887b708f4e57fe75911c02aebf53efaf8d938e",
+          "locator": "https://files.pythonhosted.org/packages/5b/42/55c32bb9b12693c092ad250a0e82edb5b31ddeda6eb772de5f308b3804ad/python_multipart-0.0.32.tar.gz"
+        },
+        {
+          "integrity": "sha256:ff6d3f776f16878c894e52e107296ffc890e913c611b1a4ec6c44e2821fe2e23",
+          "locator": "https://files.pythonhosted.org/packages/e1/04/e8135ebd1ad02c56ec633277529b2602ff99ff634be76cdba5744cf554fd/python_multipart-0.0.32-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:python-multipart==0.0.32",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:dd95840dd199baea12d9cc096a1d452caa6596a1c1e4b5f3dbd1541855d5e815",
+          "locator": "https://files.pythonhosted.org/packages/0f/7b/39c34ca613b0b198cb866466651b26b045e2009864c5183c979a3b83f383/pytz-2026.3.post1-py2.py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:2211d3fcf9a797d3405cac96ac7f61d80e6a644f72a3309607282fe8a2010c5d",
+          "locator": "https://files.pythonhosted.org/packages/fb/48/fb042503b6ca6cd271261dc559fd6432f7d8c713153e9ec5c591af4dfc1c/pytz-2026.3.post1.tar.gz"
+        }
+      ],
+      "coordinate": "python:pytz==2026.3.post1",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:d76623373421df22fb4cf8817020cbb7ef15c725b9d5e45f17e189bfc384190f",
+          "locator": "https://files.pythonhosted.org/packages/05/8e/961c0007c59b8dd7729d542c61a4d537767a59645b82a0b521206e1e25c2/pyyaml-6.0.3.tar.gz"
+        },
+        {
+          "integrity": "sha256:ba1cc08a7ccde2d2ec775841541641e4548226580ab850948cbfda66a1befcdc",
+          "locator": "https://files.pythonhosted.org/packages/8b/9d/b3589d3877982d4f2329302ef98a8026e7f4443c765c46cfecc8858c6b4b/pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
+        }
+      ],
+      "coordinate": "python:pyyaml==6.0.3",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:44aefc3142c5b842538163acb373e24cce6632bd54bdb01b21ad5863489f50d8",
+          "locator": "https://files.pythonhosted.org/packages/22/f5/df4e9027acead3ecc63e50fe1e36aca1523e1719559c499951bb4b53188f/referencing-0.37.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231",
+          "locator": "https://files.pythonhosted.org/packages/2c/58/ca301544e1fa93ed4f80d724bf5b194f6e4b945841c5bfd555878eea9fcb/referencing-0.37.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:referencing==0.37.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0",
+          "locator": "https://files.pythonhosted.org/packages/a0/f4/c67b0b3f1b9245e8d266f0f112c500d50e5b4e83cb6f3b71b6528104182a/requests-2.34.2-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:f288924cae4e29463698d6d60bc6a4da69c89185ad1e0bcc4104f584e960b9ed",
+          "locator": "https://files.pythonhosted.org/packages/ac/c3/e2a2b89f2d3e2179abd6d00ebd70bff6273f37fb3e0cc209f48b39d00cbf/requests-2.34.2.tar.gz"
+        }
+      ],
+      "coordinate": "python:requests==2.34.2",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:7ecd1343ee12c879d0e7ae74c3eb6d263b023d2929c6d114212eb1fd91057255",
+          "locator": "https://files.pythonhosted.org/packages/2a/68/1fc93dd759605b5d00fc98b50200739e41ed32bd22d6ba35ca6c3932371b/rich_rst-2.1.0-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:f4d117b49697f338769759fa5cacf5197da4888b347b9fda2e50aef5cd8d93bd",
+          "locator": "https://files.pythonhosted.org/packages/e2/d6/d0b9fafc73b65767200da027acab1db1bdb1048f4fea5ebf659df01c700e/rich_rst-2.1.0.tar.gz"
+        }
+      ],
+      "coordinate": "python:rich-rst==2.1.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:33bd4ef74232fb73fe9279a257718407f169c09b78a87ad3d296f548e27de0bb",
+          "locator": "https://files.pythonhosted.org/packages/82/3b/64d4899d73f91ba49a8c18a8ff3f0ea8f1c1d75481760df8c68ef5235bf5/rich-15.0.0-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:edd07a4824c6b40189fb7ac9bc4c52536e9780fbbfbddf6f1e2502c31b068c36",
+          "locator": "https://files.pythonhosted.org/packages/c0/8f/0722ca900cc807c13a6a0c696dacf35430f72e0ec571c4275d2371fca3e9/rich-15.0.0.tar.gz"
+        }
+      ],
+      "coordinate": "python:rich==15.0.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:ecabd69db66de867690f9797f2f8fa27ba501bbc24540cbdbdc649cd15888ba6",
+          "locator": "https://files.pythonhosted.org/packages/04/8f/d2f3f532616be4d06c316ef119683e832bd3d41e112bf3a88f4151c95b17/rpds_py-2026.6.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+        },
+        {
+          "integrity": "sha256:1cebd1337c242e4ec2293e541f712b2da849b29f48f0c293684b71c0632625d4",
+          "locator": "https://files.pythonhosted.org/packages/aa/2a/9618a122aeb2a169a28b03889a2995fe297588964333d4a7d67bdf46e147/rpds_py-2026.6.3.tar.gz"
+        }
+      ],
+      "coordinate": "python:rpds-py==2026.6.3",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:189ab65149d11ea69a2d775343adf5f49bb2426fc4780f65ee33b423ad2e47f9",
+          "locator": "https://files.pythonhosted.org/packages/3b/eb/8c073deb376e46ae767f4961390d17545e8535921d2f65101720ed8bd434/ruff-0.12.10.tar.gz"
+        },
+        {
+          "integrity": "sha256:1f68433c4fbc63efbfa3ba5db31727db229fa4e61000f452c540474b03de52a9",
+          "locator": "https://files.pythonhosted.org/packages/c0/1d/b4207ec35e7babaee62c462769e77457e26eb853fbdc877af29417033333/ruff-0.12.10-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+        }
+      ],
+      "coordinate": "python:ruff==0.12.10",
+      "roles": [
+        "build-only"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:28970f29ebc33df47f9975c805e5e5a360effe5b31045e607d64b3b60370dba1",
+          "locator": "https://files.pythonhosted.org/packages/68/76/6db02f36db58a7d009e90f51e961bcc3c44a1c930a744f026e30e791989b/scramp-1.4.17.tar.gz"
+        },
+        {
+          "integrity": "sha256:a4e3fd2e8169461a28a13777a166d3da94274454f0714a7d3023fee124474ac8",
+          "locator": "https://files.pythonhosted.org/packages/7f/99/0e372781210cd36b2f2727e5be3ea93066edad7edd6fa2dfdec3b3e28845/scramp-1.4.17-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:scramp==1.4.17",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:f04b8e4689cbce351744d5537bf6b1329c6fc68f91fa666f60a380edddcd11be",
+          "locator": "https://files.pythonhosted.org/packages/1c/03/e834bcd866f2f8a49a85eaff47340affa3bfa391ee9912a952a1faa68c7b/secretstorage-3.5.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:0ce65888c0725fcb2c5bc0fdb8e5438eece02c523557ea40ce0703c266248137",
+          "locator": "https://files.pythonhosted.org/packages/b7/46/f5af3402b579fd5e11573ce652019a67074317e18c1935cc0b4ba9b35552/secretstorage-3.5.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:secretstorage==3.5.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81",
+          "locator": "https://files.pythonhosted.org/packages/94/e7/b2c673351809dca68a0e064b6af791aa332cf192da575fd474ed7d6f16a2/six-1.17.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274",
+          "locator": "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:six==1.17.0",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:f4324edc670a0f49750a81b895f35c3adb843cca46f0530f79fc1babb23789dc",
+          "locator": "https://files.pythonhosted.org/packages/a2/87/a6771e1546d97e7e041b6ae58d80074f81b7d5121207425c964ddf5cfdbd/sniffio-1.3.1.tar.gz"
+        },
+        {
+          "integrity": "sha256:2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2",
+          "locator": "https://files.pythonhosted.org/packages/e9/44/75a9c9421471a6c4805dbf2356f7c181a29c1879239abab1ea2cc8f38b40/sniffio-1.3.1-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:sniffio==1.3.1",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:1a113da919c25f7f641ffbd07fbc9077abd4b3b75097c888ab818f962707eb48",
+          "locator": "https://files.pythonhosted.org/packages/6e/0e/3d155e264d2ed2778484006ef04647bc63f55b3e2d12e6a4f787747b5900/sqlalchemy-2.0.43-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+        },
+        {
+          "integrity": "sha256:1681c21dd2ccee222c2fe0bef671d1aef7c504087c9c4e800371cfcc8ac966fc",
+          "locator": "https://files.pythonhosted.org/packages/b8/d9/13bdde6521f322861fab67473cec4b1cc8999f3871953531cf61945fad92/sqlalchemy-2.0.43-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:788bfcef6787a7764169cfe9859fe425bf44559619e1d9f56f5bddf2ebf6f417",
+          "locator": "https://files.pythonhosted.org/packages/d7/bc/d59b5d97d27229b0e009bd9098cd81af71c2fa5549c580a0a67b9bed0496/sqlalchemy-2.0.43.tar.gz"
+        }
+      ],
+      "coordinate": "python:sqlalchemy==2.0.43",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:af5bf5a6f3933df1d9c7f8539633dc8444ca6a97ab2e2a7cd3b6e431ac03a431",
+          "locator": "https://files.pythonhosted.org/packages/23/a0/984525d19ca5c8a6c33911a0c164b11490dd0f90ff7fd689f704f84e9a11/sse_starlette-3.0.3-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:88cfb08747e16200ea990c8ca876b03910a23b547ab3bd764c0d8eb81019b971",
+          "locator": "https://files.pythonhosted.org/packages/db/3c/fa6517610dc641262b77cc7bf994ecd17465812c1b0585fe33e11be758ab/sse_starlette-3.0.3.tar.gz"
+        }
+      ],
+      "coordinate": "python:sse-starlette==3.0.3",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:340062b1587fc2880892811e2ab5b176d98ef3eee98b3672ff3a3ba1e8ed0f6f",
+          "locator": "https://files.pythonhosted.org/packages/4d/2e/59920f7d66b7f9932a3d83dd0ec53fab001be1e058bf582606fe414a5198/sseclient_py-1.9.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:sseclient-py==1.9.0",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:6bc94f839cc176c4858894f1f8908f0ab79dfec1a6b8402f6da9be26ebea52e9",
+          "locator": "https://files.pythonhosted.org/packages/15/b9/cc3017f9a9c9b6e27c5106cc10cc7904653c3eec0729793aec10479dd669/starlette-0.47.3.tar.gz"
+        },
+        {
+          "integrity": "sha256:89c0778ca62a76b826101e7c709e70680a1699ca7da6b44d38eb0a7e61fe4b51",
+          "locator": "https://files.pythonhosted.org/packages/ce/fd/901cfa59aaa5b30a99e16876f11abe38b59a1a2c51ffb3d7142bb6089069/starlette-0.47.3-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:starlette==0.47.3",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:adb31d4c263f2bd041081ab33b498309a57c77f9acf2db65aadf0898179cf93a",
+          "locator": "https://files.pythonhosted.org/packages/47/c6/ee486fd809e357697ee8a44d3d69222b344920433d3b6666ccd9b374630c/tenacity-9.1.4.tar.gz"
+        },
+        {
+          "integrity": "sha256:6095a360c919085f28c6527de529e76a06ad89b23659fa881ae0649b867a9d55",
+          "locator": "https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:tenacity==9.1.4",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+          "locator": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5",
+          "locator": "https://files.pythonhosted.org/packages/f6/cc/6253133b5bb138fc3306cebfbda2c520f545d36b5be2c7255cc528bb45d6/typing_extensions-4.16.0.tar.gz"
+        }
+      ],
+      "coordinate": "python:typing-extensions==4.16.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147",
+          "locator": "https://files.pythonhosted.org/packages/67/81/4add07e5172b7ac40d8ed5ff580409a7801a4fe26d529bdd915401dabfbe/typing_inspection-0.4.4-py3-none-any.whl"
+        },
+        {
+          "integrity": "sha256:547274fa6b0a561ccf549cc9524b999a578e737d015d8709d021f9d0d13bea47",
+          "locator": "https://files.pythonhosted.org/packages/a3/26/b09b8010994eccc3c09092e6b34058f36a460eea2d4c3e8b910c695975a0/typing_inspection-0.4.4.tar.gz"
+        }
+      ],
+      "coordinate": "python:typing-inspection==0.4.4",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:335b95bd2422332ec210d518f314a16e4c640921c39fc8bf2ad095bd3538f4af",
+          "locator": "https://files.pythonhosted.org/packages/6b/5a/92ce0b3ea5481915f55da994c2c2c5f7a3c09949afde196ee89f8ab961aa/uncalled_for-0.4.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:16c4bb3337532e4bd5569adc192285976f3ad5305402256d34c67a12b5c968bd",
+          "locator": "https://files.pythonhosted.org/packages/a2/40/97cec87c077eb3291fc7905e6633e08b7ca593c57d30238444bcb6bb3d53/uncalled_for-0.4.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:uncalled-for==0.4.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c",
+          "locator": "https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897",
+          "locator": "https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:urllib3==2.7.0",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:bc662f087f7cf2ce11a1d7fd70b90c9f98ef2e2831556dd078d131b96cc94a01",
+          "locator": "https://files.pythonhosted.org/packages/5e/42/e0e305207bb88c6b8d3061399c6a961ffe5fbb7e2aa63c9234df7259e9cd/uvicorn-0.35.0.tar.gz"
+        },
+        {
+          "integrity": "sha256:197535216b25ff9b785e29a0b79199f55222193d47f820816e7da751e9bc8d4a",
+          "locator": "https://files.pythonhosted.org/packages/d2/e2/dc81b1bd1dcfe91735810265e9d26bc8ec5da45b4c0f6237e286819194c3/uvicorn-0.35.0-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:uvicorn==0.35.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:6c84bae345b9147082b17371e3dd5d42775bddce91f885499017f4607fdaf39f",
+          "locator": "https://files.pythonhosted.org/packages/06/f0/18d39dbd1971d6d62c4629cc7fa67f74821b0dc1f5a77af43719de7936a7/uvloop-0.22.1.tar.gz"
+        },
+        {
+          "integrity": "sha256:7b5b1ac819a3f946d3b2ee07f09149578ae76066d70b44df3fa990add49a82e4",
+          "locator": "https://files.pythonhosted.org/packages/5f/6f/e62b4dfc7ad6518e7eff2516f680d02a0f6eb62c0c212e152ca708a0085e/uvloop-0.22.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl"
+        }
+      ],
+      "coordinate": "python:uvloop==0.22.1",
+      "roles": [
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:e53a384f76b631c3ae5334ce6a52f0baa3a911eb94a4eac7f160079868b716d5",
+          "locator": "https://files.pythonhosted.org/packages/22/24/ed72f68cbc1333ca9b9f2200aa048bb6658ae41709bc1caad4310f4bdffd/watchfiles-1.2.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+        },
+        {
+          "integrity": "sha256:c995fba777f1ea992f090f9236e9284cf7a5d1a0130dd5a3d82c598cacd76838",
+          "locator": "https://files.pythonhosted.org/packages/cd/41/5e1a4bb12aac5f1493fa1bdc11154eca3b258ca4eba65d39c473fe19d8e9/watchfiles-1.2.0.tar.gz"
+        }
+      ],
+      "coordinate": "python:watchfiles==1.2.0",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    },
+    {
+      "artifact_candidates": [
+        {
+          "integrity": "sha256:64dee438fed052b52e4f98f76c5790513235efaa1ef7f3f2192c392cd7c91b65",
+          "locator": "https://files.pythonhosted.org/packages/14/8f/aa61f528fba38578ec553c145857a181384c72b98156f858ca5c8e82d9d3/websockets-15.0.1-cp312-cp312-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+        },
+        {
+          "integrity": "sha256:82544de02076bafba038ce055ee6412d68da13ab47f0c60cab827346de828dee",
+          "locator": "https://files.pythonhosted.org/packages/21/e6/26d09fab466b7ca9c7737474c52be4f76a40301b08362eb2dbc19dcc16c1/websockets-15.0.1.tar.gz"
+        },
+        {
+          "integrity": "sha256:f7a866fbc1e97b5c617ee4116daaa09b722101d4a3c170c787450ba409f9736f",
+          "locator": "https://files.pythonhosted.org/packages/fa/a8/5b41e0da817d64113292ab1f8247140aac61cbf6cfd085d6a0fa77f4984f/websockets-15.0.1-py3-none-any.whl"
+        }
+      ],
+      "coordinate": "python:websockets==15.0.1",
+      "roles": [
+        "mcp-runtime",
+        "python-runtime"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "status": "LOCK_GRAPH_ONLY",
+  "target_environment": {
+    "implementation_name": "cpython",
+    "implementation_version": "3.12.13",
+    "os_name": "posix",
+    "platform_machine": "x86_64",
+    "platform_python_implementation": "CPython",
+    "platform_release": "",
+    "platform_system": "Linux",
+    "platform_version": "",
+    "python_full_version": "3.12.13",
+    "python_version": "3.12",
+    "sys_platform": "linux"
+  }
+}

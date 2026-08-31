@@ -1,0 +1,72 @@
+services:
+  - type: web
+    name: alphadecay
+    runtime: docker
+    plan: starter
+    region: ohio
+    branch: main
+    repo: https://github.com/broken-branch/alphadecay
+    autoDeployTrigger: "off"
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: APP_RUNTIME_CONFIG_REQUIRED
+        value: "false"
+      - key: APP_ACCOUNT_ROLE
+        value: SUBMISSION
+      - key: APP_AUTONOMOUS_ENABLED
+        value: "false"
+      - key: APP_POLICY_HASH
+        sync: false
+      - key: APP_CALIBRATION_HASH
+        sync: false
+      - key: APP_CALIBRATION_DECISION_BOUNDARY
+        sync: false
+      - key: APP_CALIBRATION_SEALED_AT
+        sync: false
+      - key: APP_ENTRY_EQUITY_FLOOR
+        sync: false
+      - key: APP_MAXIMUM_LIFETIME_ENTRIES
+        sync: false
+      - key: APP_MAXIMUM_LIFETIME_RISK
+        sync: false
+      - key: APP_MAXIMUM_POSITION_LOSS
+        sync: false
+      - key: APP_MAXIMUM_ENTRY_QUANTITY
+        sync: false
+      - key: ALPACA_API_ENDPOINT
+        value: https://paper-api.alpaca.markets
+      - key: ALPACA_PAPER_TRADE
+        value: "true"
+      - key: ALPACA_API_KEY
+        sync: false
+      - key: ALPACA_SECRET_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: alphadecay-db
+          property: connectionString
+      - key: APP_SESSION_SECRET
+        generateValue: true
+      - key: APP_PROVIDER_SETTINGS_SECRET
+        generateValue: true
+      - key: APP_OPENAI_COMPATIBLE_ORIGINS
+        sync: false
+      - key: APP_OWNER_ACCESS_CODE
+        sync: false
+      - key: APP_ALLOWED_ORIGIN
+        sync: false
+      - key: SCHEDULER_TOKEN
+        generateValue: true
+
+databases:
+  - name: alphadecay-db
+    databaseName: alphadecay
+    user: alphadecay
+    plan: free
+    region: ohio
+    postgresMajorVersion: "17"
+    ipAllowList: []
