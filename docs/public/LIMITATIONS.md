@@ -6,7 +6,7 @@ alphadecay is a hackathon prototype for paper options trading. These are its cur
 
 - Replay is tested against the fixtures in this repository. It sends no order.
 
-- The Friday entry check returned `NO_TRADE`, so no order was sent from the competition account.
+- After reviewing development results, a bearish competition candidate was fixed before its holdout was opened. It produced too few qualifying trades, and too much of the result depended on one trade. It was not promoted, and no competition order was sent.
 
 - A development account rehearsal exercised the Trading API, MCP, and CLI paths. Every provider request only read data, and the account book stayed unchanged. The run stopped because it could not identify one managed position.
 

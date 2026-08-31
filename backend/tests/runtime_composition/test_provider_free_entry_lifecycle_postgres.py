@@ -272,14 +272,7 @@ def test_approved_entry_fill_materializes_then_next_tick_holds_without_another_w
         assert loaded.managed_position_id == position_id
         assert loaded.position_fingerprint == retained.position_fingerprint
 
-        with sessions() as session:
-            database_now = session.scalar(select(func.current_timestamp()))
-        assert database_now is not None
-        trusted_at = database_now.replace(
-            minute=database_now.minute - database_now.minute % 5,
-            second=0,
-            microsecond=0,
-        )
+        trusted_at = NOW
         state = TimelineState(trusted_at=trusted_at)
         adapters = build_lifecycle_adapters(
             repository=lifecycle_repository,

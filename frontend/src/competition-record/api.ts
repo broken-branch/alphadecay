@@ -55,6 +55,29 @@ const assessmentEventSchema = z.object({
   ]),
 }).strict();
 
+type AssessmentEvent = z.infer<typeof assessmentEventSchema>;
+type AssessmentAction = AssessmentEvent["action"];
+type AssessmentReason = AssessmentEvent["reason_category"];
+type Spread = z.infer<typeof spreadSchema>;
+
+const assessmentReasons: Record<AssessmentAction, readonly AssessmentReason[]> = {
+  HOLD: ["POSITION_REVIEWED"],
+  CLOSE: ["RISK_REDUCTION", "THESIS_CHANGED"],
+  ROLL: ["POSITION_ADJUSTMENT"],
+  NO_ACTION: ["DATA_INCOMPLETE"],
+};
+
+function sameSpread(left: Spread | null, right: Spread | null): boolean {
+  if (left === null || right === null) return left === right;
+  return left.structure === right.structure
+    && left.underlying === right.underlying
+    && left.option_type === right.option_type
+    && left.expiration === right.expiration
+    && left.long_strike === right.long_strike
+    && left.short_strike === right.short_strike
+    && left.quantity === right.quantity;
+}
+
 const noTradeProjectionSchema = z.object({
   schema_version: z.literal("v1"),
   record_kind: z.literal("NO_TRADE"),
@@ -110,13 +133,10 @@ const positionProjectionSchema = z.object({
   const executions: z.infer<typeof executionEventSchema>[] = [];
   for (const event of position.events) {
     if (event.event_kind === "ASSESSMENT") {
-      const reasons: Record<string, readonly string[]> = {
-        HOLD: ["POSITION_REVIEWED"],
-        CLOSE: ["RISK_REDUCTION", "THESIS_CHANGED"],
-        ROLL: ["POSITION_ADJUSTMENT"],
-        NO_ACTION: ["DATA_INCOMPLETE"],
-      };
-      if (lifecycleState !== "OPEN" || !reasons[event.action].includes(event.reason_category)) {
+      if (
+        lifecycleState !== "OPEN"
+        || !assessmentReasons[event.action].includes(event.reason_category)
+      ) {
         issue("Assessment event is inconsistent");
       }
       continue;
@@ -142,7 +162,6 @@ const positionProjectionSchema = z.object({
   }
 
   const latest = executions.at(-1);
-  const sameSpread = (left: unknown, right: unknown) => JSON.stringify(left) === JSON.stringify(right);
   if (!latest || latest.resulting_state !== position.state) issue("Position state is inconsistent");
   if (latest && !sameSpread(latest.spread_after, position.current_spread)) {
     issue("Current spread is inconsistent");

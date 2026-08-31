@@ -15,6 +15,22 @@ jobs:
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    services:
+      postgres:
+        image: docker.io/library/postgres:17.6-bookworm
+        env:
+          POSTGRES_DB: alphadecay_test
+          POSTGRES_USER: alphadecay
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U alphadecay -d alphadecay_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ALPHADECAY_TEST_POSTGRES_URL: postgresql+pg8000://alphadecay@127.0.0.1:5432/alphadecay_test
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2

@@ -1,5 +1,5 @@
 {
-  "export_tree_sha256": "21817d1a8839fc79f8dffff26cd85a0d2411687e131d2019f89c529e00443b92",
+  "export_tree_sha256": "cb19c33adbe63b2caee0b1ca76a72b47a491200a3eb0301fa64043c1c73b077c",
   "files": [
     {
       "mode": "0644",
@@ -10,8 +10,8 @@
     {
       "mode": "0644",
       "path": ".env.example",
-      "sha256": "0c2180c545d665c8ca89843bde739aab7a6c127c59fe26cb6a57230aab35f41f",
-      "size": 2017
+      "sha256": "c3cb86dbed5827e66b5723f1790a1487c41add6c069e962e8439a274d3288b8c",
+      "size": 2050
     },
     {
       "mode": "0644",
@@ -22,8 +22,8 @@
     {
       "mode": "0644",
       "path": ".github/workflows/public-ci.yml",
-      "sha256": "52cf3ddd25f20b15b95f95467237a402be8567be8616b979bfa0972519103ce6",
-      "size": 2402
+      "sha256": "d14103bc2ba2970f5f19d610d6c763df4b8e095a0916c4c8efb13c07dea8f0a0",
+      "size": 2943
     },
     {
       "mode": "0644",
@@ -52,8 +52,8 @@
     {
       "mode": "0644",
       "path": "README.md",
-      "sha256": "a7d15d6a0081e11fbdaf7112170c9e107d8da6b65e9f7f9fa9034916232d6495",
-      "size": 5435
+      "sha256": "57edcb4b9e27cf8f3568e55339030e838120e5f445e6765bc64fc10ee5e423dc",
+      "size": 5730
     },
     {
       "mode": "0644",
@@ -586,8 +586,8 @@
     {
       "mode": "0644",
       "path": "backend/app/services/agent.py",
-      "sha256": "4d9c3e5c65b12760d79dc5efeb2e2ea22bfbdbd5225d7b35728626f3dbc85ac3",
-      "size": 24135
+      "sha256": "bd6f4d52fdaaa6202d2d910c12512b74bd9a71b67b126105ed32e9de5f61d819",
+      "size": 24033
     },
     {
       "mode": "0644",
@@ -1144,8 +1144,8 @@
     {
       "mode": "0644",
       "path": "backend/tests/runtime_composition/test_provider_free_entry_lifecycle_postgres.py",
-      "sha256": "41e247829b909025aaf06806c24db06390dae9fe734c44db037be5f735ebf54c",
-      "size": 13011
+      "sha256": "ab1ba9f75bab1487e46cf3719ab27f46e34dea62537ba5b39c1cff9be1753652",
+      "size": 12716
     },
     {
       "mode": "0644",
@@ -1216,8 +1216,8 @@
     {
       "mode": "0644",
       "path": "docs/public/COMPETITION_CHECKPOINT_PROOF.json",
-      "sha256": "7b8dbe2f9c07efbd0f74a42fcff3ca39fd64bd46dcf38991d00989a67a688e71",
-      "size": 407
+      "sha256": "42fec71e72ac61cf144e61ea19bc2d26b3ba15d5f606e1a7849a7d194f243b72",
+      "size": 1065
     },
     {
       "mode": "0644",
@@ -1228,8 +1228,8 @@
     {
       "mode": "0644",
       "path": "docs/public/LIMITATIONS.md",
-      "sha256": "f13bdcfc9ea180c0893b6dc0b39258b21b9593a71275d5468fcdd7d086e25368",
-      "size": 3461
+      "sha256": "a6b40ad18f19d584d9a6c9e8a237d55cf1388a25dffaf48ee5027bf351766098",
+      "size": 3621
     },
     {
       "mode": "0644",
@@ -1246,14 +1246,20 @@
     {
       "mode": "0644",
       "path": "docs/public/REPRODUCIBILITY.md",
-      "sha256": "62a40d7d02a93f64d503c4ced77973b6478905f7d7fd1b81a85b76a49dfd73b2",
-      "size": 4416
+      "sha256": "7cbdc57fb7ca64f5fcef4fc392f944019f9b3ad8857cc20e4160679465aac288",
+      "size": 4758
     },
     {
       "mode": "0644",
       "path": "docs/public/SETUP.md",
       "sha256": "086cd04e8660ef35652e5043ea57ed26d0dacca1e8b549708f8d18d7c2845691",
       "size": 5669
+    },
+    {
+      "mode": "0644",
+      "path": "docs/public/STRATEGY_RESEARCH.md",
+      "sha256": "2eceb14d50ecaa02be2b7b89183a60c0162547787c527fbf1b1ce4577f8b4ef5",
+      "size": 3319
     },
     {
       "mode": "0644",
@@ -1390,8 +1396,8 @@
     {
       "mode": "0644",
       "path": "frontend/src/competition-record/api.ts",
-      "sha256": "0c756a05571e78b2c329347fbf73ef900d9a1d104334adcce0d80a6c8c1c3da7",
-      "size": 9175
+      "sha256": "f46dad860abf2a67b1aaa446049d9c7ebb52038e2f852f657fff888521b12971",
+      "size": 9770
     },
     {
       "mode": "0644",
@@ -1408,8 +1414,8 @@
     {
       "mode": "0644",
       "path": "frontend/src/content/public-copy.json",
-      "sha256": "5dadfb0a6a9de5637a2f823362c00ecb688c3eba8cc591adbca02e58751e53f1",
-      "size": 25735
+      "sha256": "70a820387a533e42c83d80fa4629271a6a4aecf8be846b85baa89a843450448d",
+      "size": 25766
     },
     {
       "mode": "0644",
@@ -1786,7 +1792,7 @@
     {
       "mode": "0644",
       "path": "ops/media/test_render_one_page.py",
-      "sha256": "a5a3f14da34256a359ef2157d07404a190d62d4f47f3e1ca1114ddf88c0a7267",
+      "sha256": "75292d8904b2548ecc2782485ccd1d083c2f365a2c17089606964a4c3d97a5af",
       "size": 6831
     },
     {
@@ -1846,8 +1852,8 @@
     {
       "mode": "0644",
       "path": "ops/quality/test_scheduler_workflow_check.py",
-      "sha256": "96d1ebfd387a69d682d916ef9ac88d63927b84985513102ed40c1f3bc1b613d0",
-      "size": 3807
+      "sha256": "b53423968231ff352ba73c8bbb982cec81d6cd65c24bd32ca034a38458834bba",
+      "size": 4398
     },
     {
       "mode": "0644",
@@ -1954,8 +1960,8 @@
     {
       "mode": "0644",
       "path": "submission/one-page-sponsor-writeup.md",
-      "sha256": "04cdc75973a40e3302269b22ef12c2bc2e13be0b9b988340ca80c3680a243102",
-      "size": 4961
+      "sha256": "c1b30bf0d363f30e4557d23326a544581c2d32e6e411c4d96348a2fc5eb71b10",
+      "size": 4921
     },
     {
       "mode": "0644",
@@ -2060,7 +2066,7 @@
       "size": 286
     }
   ],
-  "policy_sha256": "6a00ff871303e267e8a2043cee2560d5bc11eea1e68c0430fe2760e4411d94c0",
+  "policy_sha256": "c5f10cd14b713fd58d4b20c6950314a19ebd2d99887e34b36a9b3f4cac909ba7",
   "schema_version": 3,
   "tool": {
     "name": "alphadecay-public-export",

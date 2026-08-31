@@ -212,11 +212,7 @@ class AgentRunService:
             and actor is Actor.SCHEDULER
         )
         executable_role = authority.role is AccountRole.DEVELOPMENT or submission_authorized
-        if (
-            executable_role
-            and not getattr(authority, "execution_locked", False)
-            and self._entry_materializer is not None
-        ):
+        if executable_role and self._entry_materializer is not None:
             try:
                 self._entry_materializer.recover_pending(
                     account_role=authority.role.value,

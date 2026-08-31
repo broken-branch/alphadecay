@@ -2,7 +2,7 @@
 
 An options lifecycle agent that checks whether a paper trade still matches its thesis.
 
-`PAPER · SIMULATED · $100,000 COMPETITION START · NO COMPETITION ORDER YET`
+`PAPER · SIMULATED · $100,000 COMPETITION START · NO COMPETITION ORDER`
 
 ## What it does
 
@@ -12,9 +12,9 @@ Replay follows a sample through its opening checks, then shows four ways the sam
 
 ## AI logic
 
-Replay uses fixed sample data and no model. The paper application can use Gemini or a configured service that follows the OpenAI API format. Before a model sees anything, alphadecay removes private identifiers and narrows the input to evidence fields and source IDs. The model returns a structured classification: event, relation, materiality, relevance, and confidence. It cannot choose a tool, calculate Greeks, select an action, or place an order.
+Replay uses fixed sample data and no model. In the paper application, Gemini or an OpenAI compatible service receives evidence fields and source IDs, never private identifiers. It returns a structured classification: event, relation, materiality, relevance, and confidence. It cannot choose a tool, calculate Greeks, select an action, or place an order.
 
-Application code calculates exposure and drift, checks each choice, and applies the risk rules. With no open position, a scheduled paper run may review one candidate from an event plan that was fixed in advance. With a managed position, it runs the lifecycle review. The same evidence hash reuses an earlier classification. If the model fails, the run takes no discretionary action.
+Application code calculates exposure and drift, checks each choice, and applies the risk rules. A qualified operator plan can supply one candidate when no position is open. Otherwise, the application reviews the managed position. The competition candidate did not qualify, so the application did not prepare an order. If the model fails, the run takes no discretionary action.
 
 ## Risk gates
 
@@ -36,12 +36,12 @@ A development rehearsal ran the application's normal startup path, verified the 
 
 ## Competition Record and limits
 
-The competition paper account began at the required $100,000, and its baseline was sealed before any eligible order. No competition order has been submitted. Development history and Replay do not count toward competition performance.
+The competition paper account began at the required $100,000, and its baseline was sealed before any eligible order. After reviewing the development results, we selected a bearish competition candidate and fixed it before opening its holdout once. Validation produced too few qualifying trades, and too much of the result depended on one trade. The candidate was not promoted, and no competition order was submitted. Development history and Replay do not count toward competition performance.
 
-The public record keeps position events separate from the account snapshot. A snapshot will report equity change and return only while the baseline and account history still verify. Those figures are not the organizer's official score. Paper fills leave out market impact, queue position, latency slippage, and other live effects. The organizer has not published its exact P&L formula.
+The public record keeps position events separate from the account snapshot. It reports equity change only when the baseline and account history still verify. The Competition Record has no lifecycle events because the rejected strategy sent no order. Paper fills omit market impact, queue position, and other live effects. The organizer has not published its exact P&L formula.
 
 ## What can be checked now
 
-Open the [Replay](https://alphadecay.onrender.com), [sample decision API](https://alphadecay.onrender.com/docs#/Replay/anonymous_replay), [repository tests](https://github.com/broken-branch/alphadecay/actions), and [Competition Record](https://alphadecay.onrender.com/api/competition-record). The tests cover Replay policy, anonymous order blocking, duplicate prevention, and the final broker reconciliation rule. The CLI receipt and development rehearsal show paper connections that sent no order. Competition results will appear only after they are verified and published.
+Open the [Replay](https://alphadecay.onrender.com), [sample decision API](https://alphadecay.onrender.com/docs#/Replay/anonymous_replay), [repository tests](https://github.com/broken-branch/alphadecay/actions), and [Competition Record](https://alphadecay.onrender.com/api/competition-record). The tests cover policy, anonymous order blocking, duplicate prevention, and broker reconciliation.
 
 Built for the Aug. 28 to Sept. 4, 2026 hackathon. MIT licensed. Paper trading only.

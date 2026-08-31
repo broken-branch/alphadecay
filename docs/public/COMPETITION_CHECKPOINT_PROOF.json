@@ -1,13 +1,28 @@
 {
+  "account_receipt_sha256": "04c3890a11a6bc520ea6633060b7003bc7a7daec900091bca0109299041edf6e",
   "account_role": "SUBMISSION",
   "baseline_captured_at": "2026-08-28T15:13:00Z",
   "baseline_order_count": 0,
   "baseline_position_count": 0,
-  "checkpoint_at": "2026-08-29T18:55:00Z",
+  "checkpoint_at": "2026-08-31T13:48:14Z",
+  "checkpoint_equity_usd": "100000.00",
+  "checkpoint_order_count": 0,
+  "checkpoint_position_count": 0,
   "competition_performance_claim": false,
+  "judged_order_authorized": false,
+  "option_performance_claim": false,
   "paper_simulated": true,
   "project_order_dispatch_count_since_baseline": 0,
+  "qualification_fixed_before_validation": true,
+  "qualification_reason_codes": [
+    "INSUFFICIENT_EVIDENCE",
+    "RESULT_CONCENTRATION"
+  ],
+  "qualification_status": "NOT_PROMOTED",
+  "qualification_selected_after_development_review": true,
+  "qualification_validation_runs": 1,
+  "research_attestation_sha256": "7bd66df62247c62c3400f4673ec6a0f6c7c29b1c553ce57258c31dd4b5c19b8a",
   "result_status": "NOT_PUBLISHED",
-  "schema_version": 1,
+  "schema_version": 2,
   "starting_equity_usd": "100000.00"
 }

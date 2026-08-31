@@ -35,6 +35,18 @@ def test_public_ci_runs_scheduler_workflow_check() -> None:
     assert "python ops/quality/scheduler_workflow_check.py" in PUBLIC_CI.read_text(encoding="utf-8")
 
 
+def test_public_ci_runs_full_suite_against_postgres() -> None:
+    workflow = yaml.load(PUBLIC_CI.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
+    verify = workflow["jobs"]["verify"]
+    postgres = verify["services"]["postgres"]
+    assert postgres["image"] == "docker.io/library/postgres:17.6-bookworm"
+    assert postgres["env"]["POSTGRES_HOST_AUTH_METHOD"] == "trust"
+    assert postgres["options"].startswith('--health-cmd "pg_isready')
+    assert verify["env"]["ALPHADECAY_TEST_POSTGRES_URL"] == (
+        "postgresql+pg8000://alphadecay@127.0.0.1:5432/alphadecay_test"
+    )
+
+
 @pytest.mark.skipif(not PRIVATE_CI.exists(), reason="private CI is not part of the public export")
 def test_private_ci_runs_scheduler_workflow_check() -> None:
     assert "python ops/quality/scheduler_workflow_check.py" in PRIVATE_CI.read_text(

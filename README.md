@@ -25,7 +25,7 @@ That is the production path. Public Replay begins with a typed fixture stored in
 
 The tested Replay runs four fixed options scenarios through the same decision policy. Each one is labeled `REPLAY · SAMPLE DATA · NO ORDER SENT`. It shows the saved thesis, later sample state, current exposure, rejected alternatives, expected exposure after the action, and a separate record showing that execution was disabled.
 
-The Friday entry gate returned `NO_TRADE`, so the competition account sent no order. That is the result of the gate, not a performance claim.
+After reviewing the development results, we selected a bearish competition candidate and fixed it before opening its holdout once. Validation produced too few qualifying trades, and too much of the result depended on one trade. The candidate was rejected, so alphadecay sent no competition order. This is a research result, not a live agent decision or a performance claim.
 
 We also ran a limited rehearsal against the development paper account. alphadecay reached Alpaca's paper endpoint through the Trading API, read the market clock through MCP, checked the pinned CLI dry run, and left the account unchanged without sending an order. The sanitized [provider receipt](docs/public/PROVIDER_REHEARSAL_PROOF.json) shows development integration, not competition performance or a paper fill. An autonomous broker write has not been proven.
 
@@ -82,6 +82,7 @@ The sponsor requirement is the Trading API plus either MCP or CLI. alphadecay's 
 ## Documentation
 
 - [Architecture](docs/public/ARCHITECTURE.md)
+- [Strategy research record](docs/public/STRATEGY_RESEARCH.md)
 - [Setup](docs/public/SETUP.md)
 - [Reproducing the evidence](docs/public/REPRODUCIBILITY.md)
 - [Limitations](docs/public/LIMITATIONS.md)

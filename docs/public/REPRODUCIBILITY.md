@@ -61,9 +61,11 @@ For each example, compare the API response with the page:
 
 This checks the path from a fixed fixture to the policy result. It does not check current provider data, a paper order, or profit and loss.
 
-## Check the Friday result
+## Check the competition strategy status
 
-The frozen Friday entry check returned `NO_TRADE`. No order was sent from the competition account. The private market observation from that decision is not in the public repository, so the recorded outcome is the full public claim. Account and provider identifiers are deliberately omitted.
+After reviewing the development results, we selected a bearish competition candidate and fixed it before opening its holdout once. Validation produced too few qualifying trades, and too much of the result depended on one trade. The candidate was rejected, so alphadecay sent no competition order.
+
+[`COMPETITION_CHECKPOINT_PROOF.json`](COMPETITION_CHECKPOINT_PROOF.json) records that narrow result alongside a current account checkpoint. It omits the ticker, dates, private thresholds, provider records, and account identifiers. The Competition Record API remains `NOT_PUBLISHED` because no competition order was sent.
 
 ## Check the provider receipt
 

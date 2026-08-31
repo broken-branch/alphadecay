@@ -101,7 +101,7 @@ def test_reviewed_sponsor_source_fits_the_default_final_word_range() -> None:
 
     assert 'name="alphadecay-page-count" content="1"' in rendered
     assert 'name="alphadecay-page-size" content="Letter"' in rendered
-    assert 'data-word-count="744"' in rendered
+    assert 'data-word-count="733"' in rendered
 
 
 def test_letter_layout_retains_readable_type_and_balanced_columns() -> None:
