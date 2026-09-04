@@ -1,0 +1,616 @@
+.experiment-workspace {
+  --experiment-accent: var(--accent, #a991ff);
+  --experiment-positive: var(--positive, #089981);
+  --experiment-adverse: var(--adverse, #f23645);
+  --experiment-rule: var(--divider-soft, #363636);
+  --experiment-muted: var(--muted, #8e8e8e);
+  --experiment-secondary: var(--secondary, #c8c8c8);
+
+  width: min(100%, 1440px);
+  margin: 0 auto;
+  padding: clamp(36px, 6vw, 88px) clamp(20px, 5vw, 72px) 112px;
+  color: var(--primary, #f6f6f6);
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+}
+
+.experiment-workspace h1,
+.experiment-workspace h2,
+.experiment-workspace p,
+.experiment-workspace dl,
+.experiment-workspace dd,
+.experiment-workspace figure {
+  margin: 0;
+}
+
+.experiment-workspace h1 {
+  max-width: 18ch;
+  font-size: clamp(2.6rem, 7vw, 6.6rem);
+  font-weight: 500;
+  letter-spacing: -0.055em;
+  line-height: 0.95;
+}
+
+.experiment-workspace h2 {
+  font-size: clamp(1.45rem, 2.6vw, 2.6rem);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+}
+
+.experiment-kicker {
+  color: var(--experiment-muted);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.experiment-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(260px, 0.75fr);
+  gap: clamp(44px, 8vw, 136px);
+  align-items: end;
+  padding-bottom: clamp(56px, 8vw, 112px);
+  border-bottom: 1px solid var(--experiment-rule);
+}
+
+.experiment-hero__identity {
+  display: grid;
+  gap: 20px;
+}
+
+.experiment-hero__thesis {
+  max-width: 62ch;
+  color: var(--experiment-secondary);
+  font-size: clamp(1rem, 1.5vw, 1.3rem);
+  line-height: 1.6;
+}
+
+.experiment-hero__result {
+  display: grid;
+  gap: 10px;
+  padding-top: 18px;
+  border-top: 1px solid var(--experiment-rule);
+}
+
+.experiment-hero__result span {
+  color: var(--experiment-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.experiment-hero__result strong {
+  font-size: clamp(1.5rem, 3vw, 2.6rem);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+}
+
+.experiment-hero__result p {
+  color: var(--experiment-secondary);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.experiment-performance,
+.experiment-trade,
+.experiment-section {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.42fr) minmax(0, 1.58fr);
+  gap: clamp(36px, 7vw, 110px);
+  padding: clamp(56px, 8vw, 104px) 0;
+  border-bottom: 1px solid var(--experiment-rule);
+}
+
+.experiment-section-heading {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.experiment-performance__projection {
+  display: grid;
+  grid-column: 2;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(30px, 4vw, 64px);
+  padding-bottom: 52px;
+}
+
+.experiment-decision-spine {
+  display: grid;
+  grid-column: 2;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 18px;
+  margin: 0 0 48px;
+  padding: 0;
+  list-style: none;
+}
+
+.experiment-decision-spine li {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--experiment-rule);
+}
+
+.experiment-decision-spine span {
+  color: var(--experiment-muted);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.experiment-decision-spine strong {
+  color: var(--experiment-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.experiment-performance__projection > section {
+  min-width: 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--experiment-rule);
+}
+
+.experiment-performance__certified {
+  grid-column: 1 / -1;
+  color: var(--experiment-muted);
+  font-size: 0.82rem;
+}
+
+.experiment-performance__projection h3 {
+  margin: 0 0 26px;
+  color: var(--experiment-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.experiment-performance__projection dl {
+  display: grid;
+  gap: 24px;
+}
+
+.experiment-performance__unavailable {
+  grid-column: 2;
+  max-width: 56ch;
+  padding: 22px 0 52px;
+  color: var(--experiment-muted);
+  line-height: 1.6;
+}
+
+.experiment-metric {
+  min-width: 0;
+}
+
+.experiment-metric dt {
+  margin-bottom: 7px;
+  color: var(--experiment-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.experiment-metric dd {
+  overflow-wrap: anywhere;
+  color: var(--primary, #f6f6f6);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: clamp(0.82rem, 1.25vw, 1.05rem);
+  line-height: 1.5;
+}
+
+.experiment-metric__unavailable {
+  color: var(--experiment-muted);
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  font-size: 0.8rem;
+}
+
+.experiment-tone--positive {
+  color: var(--experiment-positive) !important;
+}
+
+.experiment-tone--adverse {
+  color: var(--experiment-adverse) !important;
+}
+
+.experiment-chart {
+  grid-column: 2;
+  min-width: 0;
+}
+
+.experiment-chart svg {
+  display: block;
+  width: 100%;
+  min-height: 230px;
+  overflow: visible;
+}
+
+.experiment-chart text {
+  fill: var(--experiment-muted);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px;
+}
+
+.experiment-chart__axis {
+  stroke: var(--experiment-rule);
+  stroke-width: 1;
+}
+
+.experiment-chart__line {
+  stroke: var(--experiment-accent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.experiment-chart__benchmark {
+  stroke: var(--experiment-muted);
+  stroke-dasharray: 7 7;
+  stroke-width: 1.5;
+}
+
+.experiment-chart__point {
+  fill: var(--canvas, #0d0d0d);
+  stroke: var(--experiment-accent);
+  stroke-width: 2;
+}
+
+.experiment-chart figcaption {
+  display: flex;
+  gap: 26px;
+  padding-top: 16px;
+  color: var(--experiment-muted);
+  font-size: 0.75rem;
+}
+
+.experiment-chart figcaption span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.experiment-chart__key {
+  display: inline-block;
+  width: 24px;
+  height: 2px;
+}
+
+.experiment-chart__key--strategy {
+  background: var(--experiment-accent);
+}
+
+.experiment-chart__key--benchmark {
+  border-top: 1px dashed var(--experiment-muted);
+}
+
+.experiment-trade__facts {
+  display: grid;
+  grid-column: 2;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 34px 46px;
+}
+
+.experiment-payoff {
+  display: grid;
+  grid-column: 2;
+  grid-template-columns: minmax(170px, 0.42fr) minmax(0, 1.58fr);
+  gap: 40px;
+  align-items: end;
+  margin-top: 54px !important;
+  padding-top: 36px;
+  border-top: 1px solid var(--experiment-rule);
+}
+
+.experiment-payoff > div {
+  display: grid;
+  gap: 22px;
+}
+
+.experiment-payoff dl {
+  display: grid;
+  gap: 18px;
+}
+
+.experiment-payoff svg {
+  display: block;
+  width: 100%;
+  min-height: 180px;
+  overflow: visible;
+}
+
+.experiment-payoff__line {
+  stroke: var(--experiment-accent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.experiment-disclosure {
+  grid-column: 2;
+  margin-top: 38px;
+  border-top: 1px solid var(--experiment-rule);
+}
+
+.experiment-disclosure summary {
+  padding: 18px 0;
+  color: var(--experiment-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.experiment-disclosure summary:focus-visible {
+  outline: 2px solid var(--experiment-accent);
+  outline-offset: 4px;
+}
+
+.experiment-options-detail,
+.experiment-technical-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px 42px;
+  padding: 18px 0 30px;
+}
+
+.experiment-rationale-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(48px, 9vw, 144px);
+  padding: clamp(64px, 9vw, 120px) 0;
+  border-bottom: 1px solid var(--experiment-rule);
+}
+
+.experiment-rationale-grid section {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.experiment-plain-list {
+  display: grid;
+  gap: 0;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.experiment-plain-list li {
+  position: relative;
+  padding: 18px 0 18px 28px;
+  border-top: 1px solid var(--experiment-rule);
+  color: var(--experiment-secondary);
+  line-height: 1.55;
+}
+
+.experiment-plain-list li::before {
+  position: absolute;
+  top: 26px;
+  left: 2px;
+  width: 8px;
+  height: 8px;
+  content: "";
+  border: 1px solid var(--experiment-muted);
+  border-radius: 50%;
+}
+
+.experiment-evidence {
+  display: grid;
+  grid-column: 2;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.experiment-evidence > li {
+  display: grid;
+  gap: 13px;
+  padding: 24px 0;
+  border-top: 1px solid var(--experiment-rule);
+}
+
+.experiment-evidence > li > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: baseline;
+}
+
+.experiment-evidence > li > div strong {
+  font-size: 1.04rem;
+  font-weight: 500;
+}
+
+.experiment-evidence > li > p {
+  max-width: 68ch;
+  color: var(--experiment-secondary);
+  line-height: 1.6;
+}
+
+.experiment-evidence > li > dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 36px;
+}
+
+.experiment-evidence__state {
+  flex: 0 0 auto;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.69rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.experiment-evidence__state--supports {
+  color: var(--experiment-positive);
+}
+
+.experiment-evidence__state--contradicts {
+  color: var(--experiment-adverse);
+}
+
+.experiment-evidence__state--neutral,
+.experiment-evidence__state--unknown {
+  color: var(--experiment-muted);
+}
+
+.experiment-timeline {
+  display: grid;
+  grid-column: 2;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.experiment-timeline li {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(160px, 0.45fr) minmax(170px, 0.55fr) minmax(220px, 1fr);
+  gap: 28px;
+  padding: 26px 0 26px 26px;
+  border-top: 1px solid var(--experiment-rule);
+}
+
+.experiment-timeline li::before {
+  position: absolute;
+  top: 31px;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  content: "";
+  background: var(--canvas, #0d0d0d);
+  border: 1px solid var(--experiment-accent);
+  border-radius: 50%;
+}
+
+.experiment-timeline time,
+.experiment-timeline p {
+  color: var(--experiment-muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.experiment-timeline strong {
+  font-size: 0.94rem;
+  font-weight: 500;
+}
+
+.experiment-timeline p span {
+  display: block;
+  color: var(--experiment-muted);
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.experiment-empty {
+  grid-column: 2;
+  max-width: 60ch;
+  padding: 28px 0;
+  color: var(--experiment-muted);
+  line-height: 1.6;
+}
+
+.experiment-disclosure--technical {
+  margin-top: 64px;
+}
+
+.experiment-disclosure--technical > p {
+  max-width: 64ch;
+  color: var(--experiment-muted);
+  font-size: 0.82rem;
+}
+
+.experiment-technical-grid dd {
+  font-size: 0.72rem;
+}
+
+@media (max-width: 820px) {
+  .experiment-hero,
+  .experiment-performance,
+  .experiment-trade,
+  .experiment-section,
+  .experiment-rationale-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .experiment-hero {
+    align-items: start;
+  }
+
+  .experiment-performance__projection,
+  .experiment-decision-spine,
+  .experiment-performance__unavailable,
+  .experiment-chart,
+  .experiment-trade__facts,
+  .experiment-payoff,
+  .experiment-disclosure,
+  .experiment-evidence,
+  .experiment-timeline,
+  .experiment-empty {
+    grid-column: 1;
+  }
+
+  .experiment-payoff {
+    grid-template-columns: 1fr;
+  }
+
+  .experiment-performance__projection,
+  .experiment-decision-spine,
+  .experiment-trade__facts,
+  .experiment-options-detail,
+  .experiment-technical-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .experiment-timeline li {
+    grid-template-columns: minmax(140px, 0.7fr) minmax(0, 1.3fr);
+  }
+
+  .experiment-timeline li p {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 520px) {
+  .experiment-workspace {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .experiment-workspace h1 {
+    font-size: clamp(2.3rem, 14vw, 4rem);
+  }
+
+  .experiment-performance__projection,
+  .experiment-decision-spine,
+  .experiment-trade__facts,
+  .experiment-options-detail,
+  .experiment-technical-grid,
+  .experiment-timeline li {
+    grid-template-columns: 1fr;
+  }
+
+  .experiment-timeline li p {
+    grid-column: 1;
+  }
+
+  .experiment-evidence > li > div,
+  .experiment-chart figcaption {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .experiment-workspace *,
+  .experiment-workspace *::before,
+  .experiment-workspace *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import Protocol
 from uuid import UUID
 
@@ -13,11 +15,13 @@ from backend.app.execution import (
     ExecutionAction,
     ExecutionBlocked,
     ExecutionCertificate,
+    ExecutionPending,
     OrderLegIntent,
     intent_digest,
     order_envelope_hash,
 )
 from backend.app.execution.models import ExecutionIntent, IntentState
+from backend.app.experiment_lineage import ExperimentExecutionLineage
 from backend.app.policy import (
     AssessmentInput,
     ExecutionDecision,
@@ -47,6 +51,10 @@ from .acquisition import (
     TrustedClockPort,
 )
 
+_LOGGER = logging.getLogger(__name__)
+
+_OPPORTUNITY_PENDING_FAILURE_CODES = {"OPPORTUNITY_DECISION_BOUNDARY_NOT_REACHED"}
+
 
 @dataclass(frozen=True)
 class AgentDecision:
@@ -54,11 +62,13 @@ class AgentDecision:
     decided_at: datetime
     thesis_version_id: UUID | None = None
     calibration: CalibrationBinding | None = None
+    submission_authority: CalibrationBinding | None = None
     opportunity: OpportunityDecisionRecord | None = None
     lifecycle: PolicyResult | None = None
     provider_failure_code: str | None = None
     provider_failure_kind: AcquisitionKind | None = None
     normalized_input: OpportunityInput | AssessmentInput | None = None
+    experiment_lineage: ExperimentExecutionLineage | None = None
 
 
 @dataclass(frozen=True)
@@ -74,6 +84,31 @@ class AgentTick:
 class PersistedAgentDecision:
     decision: AgentDecision
     approved_intent: ExecutionIntent | None
+
+
+@dataclass(frozen=True)
+class SubmissionOrderPreview:
+    intent_id: UUID
+    thesis_version_id: UUID
+    thesis_code: str
+    strategy: str
+    reason_codes: tuple[str, ...]
+    risk_cap: Decimal
+    legs: tuple[OrderLegIntent, ...]
+    quantity: int
+    limit_price: Decimal
+    maximum_loss: Decimal
+    account_role: AccountRole
+    decision_id: UUID
+    approval_id: UUID
+    account_fingerprint: str
+    book_fingerprint: str
+    policy_hash: str
+    envelope_hash: str
+    decision_result_hash: str
+    intent_digest: str
+    created_at: datetime
+    experiment_lineage: ExperimentExecutionLineage | None
 
 
 @dataclass(frozen=True)
@@ -127,6 +162,16 @@ class AgentDecisionRepository(Protocol):
         certificate: ExecutionCertificate | None,
     ) -> AgentRunResult:
         """Use the tick reservation to persist a terminal result and proof once."""
+        ...
+
+    def submission_order_preview(self, intent_id: UUID) -> SubmissionOrderPreview:
+        """Render the exact already-durable SUBMISSION order authority."""
+
+    def pending_submission_lifecycle_intents(
+        self,
+        authority: ObservedPaperAccountAuthority,
+    ) -> tuple[UUID, ...]:
+        """Return the sole recoverable SUBMISSION CLOSE intent, if any."""
         ...
 
 
@@ -227,7 +272,20 @@ class AgentRunService:
                 if pending and actor is not Actor.SCHEDULER:
                     raise ExecutionBlocked("ENTRY_EXECUTION_RECOVERY_SCHEDULER_REQUIRED")
                 for intent_id in pending:
-                    certificate = self._runtime.execution.execute(intent_id, actor, trusted_at)
+                    if authority.role is AccountRole.SUBMISSION:
+                        self._decisions.submission_order_preview(intent_id)
+                    try:
+                        certificate = self._runtime.execution.execute(intent_id, actor, trusted_at)
+                    except ExecutionPending:
+                        started = self._decisions.begin_tick(authority, actor, trusted_at)
+                        if isinstance(started, AgentRunResult):
+                            return started
+                        decision = AgentDecision(
+                            code="ENTRY_EXECUTION_RECOVERY_PENDING",
+                            decided_at=trusted_at,
+                        )
+                        self._decisions.persist_decision(started, decision, None)
+                        return self._decisions.complete_tick(started, decision.code, None)
                     if certificate.intent_id != intent_id:
                         raise ExecutionBlocked("ENTRY_EXECUTION_RECOVERY_CERTIFICATE_MISMATCH")
                 if pending:
@@ -245,18 +303,34 @@ class AgentRunService:
         started = self._decisions.begin_tick(authority, actor, trusted_at)
         if isinstance(started, AgentRunResult):
             return started
+        if submission_authorized:
+            try:
+                pending_lifecycle = self._decisions.pending_submission_lifecycle_intents(authority)
+            except ExecutionBlocked:
+                decision = AgentDecision(
+                    code="SUBMISSION_LIFECYCLE_RECOVERY_UNAVAILABLE",
+                    decided_at=trusted_at,
+                )
+                self._decisions.persist_decision(started, decision, None)
+                return self._decisions.complete_tick(started, decision.code, None)
+            if pending_lifecycle:
+                return self._recover_submission_lifecycle(started, pending_lifecycle[0])
         latch = self._decisions.permanent_latch(authority)
-        if authority.role is AccountRole.SUBMISSION and not submission_authorized:
+        submission_binding = None
+        if authority.role is AccountRole.SUBMISSION:
             binding = self._calibration.binding_for(authority)
             if (
                 binding.account_role is not authority.role
                 or binding.account_fingerprint != authority.account_fingerprint
             ):
                 raise ValueError("CALIBRATION_BINDING_AUTHORITY_MISMATCH")
+            submission_binding = binding
+        if authority.role is AccountRole.SUBMISSION and not submission_authorized:
+            assert submission_binding is not None
             decision = AgentDecision(
                 code="CALIBRATION_BINDING_NO_TRADE",
-                decided_at=binding.sealed_at,
-                calibration=binding,
+                decided_at=submission_binding.sealed_at,
+                calibration=submission_binding,
             )
             self._decisions.persist_decision(started, decision, None)
             terminal_code = "ACCOUNT_PERMANENTLY_LATCHED" if latch.latched else decision.code
@@ -276,29 +350,87 @@ class AgentRunService:
                 actor=actor,
             )
         except AcquisitionFailure as error:
-            code = (
-                "PROVIDER_FAILURE_NO_TRADE"
-                if error.kind is AcquisitionKind.OPPORTUNITY
-                else "PROVIDER_FAILURE_NO_ACTION"
-            )
+            if (
+                error.kind is AcquisitionKind.OPPORTUNITY
+                and error.code in _OPPORTUNITY_PENDING_FAILURE_CODES
+            ):
+                code = "OPPORTUNITY_DECISION_PENDING"
+            else:
+                code = (
+                    "PROVIDER_FAILURE_NO_TRADE"
+                    if error.kind is AcquisitionKind.OPPORTUNITY
+                    else "PROVIDER_FAILURE_NO_ACTION"
+                )
             decision = AgentDecision(
                 code=code,
                 decided_at=trusted_at,
+                submission_authority=(
+                    submission_binding if error.kind is AcquisitionKind.OPPORTUNITY else None
+                ),
                 provider_failure_code=error.code,
                 provider_failure_kind=error.kind,
             )
             self._decisions.persist_decision(started, decision, None)
             return self._decisions.complete_tick(started, decision.code, None)
         if isinstance(acquisition, OpportunityNoTradeAcquisition):
-            return self._run_opportunity_no_trade(started, acquisition)
+            return self._run_opportunity_no_trade(started, acquisition, submission_binding)
         if isinstance(acquisition, OpportunityAcquisition):
-            return self._run_opportunity(started, acquisition)
+            return self._run_opportunity(started, acquisition, submission_binding)
         return self._run_lifecycle(started, acquisition)
+
+    def _recover_submission_lifecycle(
+        self,
+        tick: AgentTick,
+        intent_id: UUID,
+    ) -> AgentRunResult:
+        try:
+            preview = self._decisions.submission_order_preview(intent_id)
+        except ExecutionBlocked:
+            decision = AgentDecision(
+                code="SUBMISSION_ORDER_PREVIEW_UNAVAILABLE",
+                decided_at=tick.trusted_at,
+            )
+            self._decisions.persist_decision(tick, decision, None)
+            return self._decisions.complete_tick(tick, decision.code, None)
+        try:
+            certificate = self._runtime.execution.execute(
+                intent_id,
+                tick.actor,
+                tick.trusted_at,
+            )
+        except ExecutionBlocked:
+            decision = AgentDecision(
+                code="LIFECYCLE_EXECUTION_RECOVERY_PENDING",
+                decided_at=tick.trusted_at,
+            )
+            self._decisions.persist_decision(tick, decision, None)
+            return self._decisions.complete_tick(tick, decision.code, None)
+        terminal_code = f"LIFECYCLE_RECOVERY_{certificate.execution_status}"
+        if (
+            certificate.intent_id != intent_id
+            or certificate.entry_approval_id is not None
+            or certificate.assessment_certificate_id != preview.approval_id
+        ):
+            terminal_code = "LIFECYCLE_RECOVERY_CERTIFICATE_MISMATCH"
+        elif certificate.execution_status == "FILLED":
+            if self._lifecycle_terminal_materializer is None:
+                terminal_code = "LIFECYCLE_RECOVERY_MATERIALIZATION_PENDING"
+            else:
+                try:
+                    self._lifecycle_terminal_materializer.materialize(
+                        execution_certificate_id=certificate.certificate_id,
+                    )
+                except RuntimeError:
+                    terminal_code = "LIFECYCLE_RECOVERY_MATERIALIZATION_PENDING"
+        decision = AgentDecision(code=terminal_code, decided_at=tick.trusted_at)
+        self._decisions.persist_decision(tick, decision, None)
+        return self._decisions.complete_tick(tick, terminal_code, None)
 
     def _run_opportunity_no_trade(
         self,
         tick: AgentTick,
         acquisition: OpportunityNoTradeAcquisition,
+        submission_binding: CalibrationBinding | None,
     ) -> AgentRunResult:
         result = evaluate_opportunity(acquisition.policy, acquisition.values)
         if result != acquisition.decision or result.outcome is not OpportunityOutcome.NO_TRADE:
@@ -306,6 +438,7 @@ class AgentRunService:
         decision = AgentDecision(
             code=result.outcome.value,
             decided_at=tick.trusted_at,
+            submission_authority=submission_binding,
             opportunity=result,
             normalized_input=acquisition.values,
         )
@@ -316,12 +449,14 @@ class AgentRunService:
         self,
         tick: AgentTick,
         acquisition: OpportunityAcquisition,
+        submission_binding: CalibrationBinding | None,
     ) -> AgentRunResult:
         result = evaluate_opportunity(acquisition.policy, acquisition.values)
         decision = AgentDecision(
             code=result.outcome.value,
             decided_at=tick.trusted_at,
             thesis_version_id=acquisition.thesis_version_id,
+            submission_authority=submission_binding,
             opportunity=result,
             normalized_input=acquisition.values,
         )
@@ -408,13 +543,23 @@ class AgentRunService:
         return self._dispatch_lifecycle(tick, persisted.approved_intent)
 
     def _dispatch_lifecycle(self, tick: AgentTick, intent: ExecutionIntent) -> AgentRunResult:
+        if tick.authority.role is AccountRole.SUBMISSION:
+            try:
+                self._decisions.submission_order_preview(intent.intent_id)
+            except ExecutionBlocked:
+                return self._decisions.complete_tick(
+                    tick,
+                    "SUBMISSION_ORDER_PREVIEW_UNAVAILABLE",
+                    None,
+                )
         try:
             certificate = self._runtime.execution.execute(
                 intent.intent_id,
                 tick.actor,
                 tick.trusted_at,
             )
-        except ExecutionBlocked:
+        except ExecutionBlocked as error:
+            _LOGGER.warning("execution blocked: %s intent=%s", error, intent.intent_id)
             return self._decisions.complete_tick(tick, "EXECUTION_BLOCKED", None)
         if certificate.execution_status != "FILLED":
             return self._decisions.complete_tick(
@@ -452,6 +597,15 @@ class AgentRunService:
         intent: ExecutionIntent,
         launch_authority: LifecycleLaunchAuthority | None,
     ) -> AgentRunResult:
+        if tick.authority.role is AccountRole.SUBMISSION:
+            try:
+                self._decisions.submission_order_preview(intent.intent_id)
+            except ExecutionBlocked:
+                return self._decisions.complete_tick(
+                    tick,
+                    "SUBMISSION_ORDER_PREVIEW_UNAVAILABLE",
+                    None,
+                )
         try:
             certificate = self._runtime.execution.execute(
                 intent.intent_id,
@@ -534,7 +688,10 @@ def _valid_entry_proposal(
         == decision.approved_max_loss
         == authorization.approved_max_loss
         and envelope.minimum_limit == candidate.approved_limit
-        and envelope.maximum_limit == candidate.approved_limit
+        and envelope.maximum_limit
+        == (
+            candidate.approved_limit if candidate.maximum_limit is None else candidate.maximum_limit
+        )
         and authorization.account_role is tick.authority.role
         and authorization.valid
         and authorization.book_fingerprint == decision.book_fingerprint

@@ -8,8 +8,10 @@ from collections.abc import Callable, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Protocol
+from uuid import UUID
 
 import httpx
 from alpaca.common.enums import Sort
@@ -19,17 +21,23 @@ from alpaca.trading.enums import QueryOrderStatus
 from alpaca.trading.requests import GetOrdersRequest
 from requests import ConnectionError as RequestsConnectionError
 from requests import Timeout as RequestsTimeout
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import sessionmaker
 
+from backend.app.contracts.v1 import AccountRole
 from backend.app.persistence.opportunity_evidence import opportunity_baseline_identity
+from backend.app.persistence.runtime import normalize_database_url, verify_schema
+from backend.app.persistence.sqlalchemy_models import AccountReconciliationStateRow
 from backend.app.services.opportunity_baseline import (
     ActivityPage,
     OpportunityBaselineCollectionError,
-    collect_development_opportunity_bootstrap,
+    SubmissionReconciliationBinding,
+    collect_opportunity_bootstrap,
 )
 from backend.app.services.opportunity_bootstrap import (
     OpportunityBootstrapError,
-    parse_development_opportunity_bootstrap,
-    parse_development_opportunity_plan,
+    parse_opportunity_bootstrap,
+    parse_opportunity_plan,
 )
 
 _PAPER_ENDPOINT = "https://paper-api.alpaca.markets"
@@ -141,11 +149,18 @@ class AlpacaOpportunityBaselineProvider:
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Capture one complete read-only DEVELOPMENT opportunity baseline"
+        description="Capture one complete read-only DEVELOPMENT or SUBMISSION opportunity baseline"
+    )
+    parser.add_argument(
+        "--role",
+        default=AccountRole.DEVELOPMENT.value,
+        choices=(AccountRole.DEVELOPMENT.value, AccountRole.SUBMISSION.value),
     )
     parser.add_argument("--plan-file", required=True, type=Path)
     parser.add_argument("--credentials-file", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--submission-baseline-id", type=UUID)
+    parser.add_argument("--database-url-file", type=Path)
     return parser
 
 
@@ -158,18 +173,34 @@ def main(
 ) -> int:
     parser = _parser()
     args = parser.parse_args(argv)
+    account_role = AccountRole(args.role)
+    if (account_role is AccountRole.SUBMISSION) != (args.submission_baseline_id is not None):
+        parser.error("--submission-baseline-id is required only with --role SUBMISSION")
     trading: object | None = None
     activity_http: object | None = None
+    engine = None
     try:
         plan_payload = json.loads(_read_private_file(args.plan_file).decode("utf-8"))
         if isinstance(plan_payload, dict) and set(plan_payload) == {"account_role", "plan"}:
-            if plan_payload["account_role"] != "DEVELOPMENT":
-                raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_DEVELOPMENT_ONLY")
+            if plan_payload["account_role"] != account_role.value:
+                raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_AUTHORITY_MISMATCH")
             plan_payload = plan_payload["plan"]
-        plan = parse_development_opportunity_plan(plan_payload)
+        plan = parse_opportunity_plan(plan_payload, account_role=account_role)
         credentials = _parse_credentials(
             json.loads(_read_private_file(args.credentials_file).decode("utf-8"))
         )
+        reconciliation = None
+        if args.database_url_file is not None:
+            database_url = _read_private_file(args.database_url_file).decode("utf-8")
+            if database_url != database_url.strip() or "\n" in database_url or "\r" in database_url:
+                raise OpportunityBaselineCollectionError(
+                    "OPPORTUNITY_BASELINE_DATABASE_URL_INVALID"
+                )
+            engine = create_engine(normalize_database_url(database_url), pool_pre_ping=True)
+            verify_schema(engine)
+            reconciliation = _latest_submission_reconciliation(sessionmaker(engine))
+        elif account_role is AccountRole.SUBMISSION:
+            reconciliation = None
         captured_at = clock()
         trading = trading_factory(
             api_key=credentials.api_key,
@@ -182,12 +213,15 @@ def main(
             timeout=httpx.Timeout(10.0), follow_redirects=False, trust_env=False
         )
         provider = AlpacaOpportunityBaselineProvider(trading, activity_http, credentials)
-        payload = collect_development_opportunity_bootstrap(
+        payload = collect_opportunity_bootstrap(
             plan,
             provider,
+            account_role=account_role,
             captured_at=captured_at,
+            submission_baseline_id=args.submission_baseline_id,
+            submission_reconciliation=reconciliation,
         )
-        parse_development_opportunity_bootstrap(payload)
+        parse_opportunity_bootstrap(payload, account_role=account_role)
         output_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode() + b"\n"
         _write_private_file(args.output, output_bytes)
     except (
@@ -205,13 +239,16 @@ def main(
     finally:
         _close(activity_http)
         _close(trading)
+        if engine is not None:
+            engine.dispose()
 
-    result = parse_development_opportunity_bootstrap(payload)
+    result = parse_opportunity_bootstrap(payload, account_role=account_role)
     baseline_id, _baseline_hash = opportunity_baseline_identity(result.baseline)
     print(
         json.dumps(
             {
                 "mode": "READ_ONLY_CAPTURE",
+                "account_role": account_role.value,
                 "baseline_id": str(baseline_id),
                 "plan_id": str(result.baseline.plan_id),
                 "output_written": True,
@@ -239,6 +276,34 @@ def _parse_credentials(value: object) -> _Credentials:
     ):
         raise OpportunityBaselineCollectionError("OPPORTUNITY_BASELINE_CREDENTIALS_INVALID")
     return _Credentials(api_key, secret_key)
+
+
+def _latest_submission_reconciliation(sessions: sessionmaker) -> SubmissionReconciliationBinding:
+    with sessions() as session:
+        state = session.scalar(
+            select(AccountReconciliationStateRow)
+            .where(AccountReconciliationStateRow.account_role == AccountRole.SUBMISSION.value)
+            .order_by(AccountReconciliationStateRow.sequence.desc())
+        )
+    if state is None or state.expected_open_orders:
+        raise OpportunityBaselineCollectionError("RECONCILIATION_STATE_REQUIRED")
+    try:
+        positions = tuple(
+            sorted(
+                (
+                    str(item["symbol"]),
+                    Decimal(str(item["signed_quantity"])),
+                )
+                for item in state.expected_positions
+            )
+        )
+        return SubmissionReconciliationBinding(
+            account_fingerprint=state.account_fingerprint,
+            expected_cash=Decimal(state.expected_cash),
+            expected_positions=positions,
+        )
+    except (KeyError, TypeError, ValueError, ArithmeticError):
+        raise OpportunityBaselineCollectionError("RECONCILIATION_STATE_CORRUPT") from None
 
 
 def _read_private_file(path: Path) -> bytes:

@@ -130,9 +130,7 @@ class Settings(BaseSettings):
     def openai_compatible_origins(self) -> tuple[str, ...]:
         if not self.app_openai_compatible_origins:
             return ()
-        supplied = tuple(
-            value.strip() for value in self.app_openai_compatible_origins.split(",")
-        )
+        supplied = tuple(value.strip() for value in self.app_openai_compatible_origins.split(","))
         if len(supplied) > 4 or any(not value for value in supplied):
             raise ValueError("OpenAI-compatible origins are invalid")
         try:
@@ -154,15 +152,9 @@ class Settings(BaseSettings):
             return EntryBudgetLimits(
                 policy_hash=self.app_policy_hash.get_secret_value(),
                 equity_floor=Decimal(self.app_entry_equity_floor.get_secret_value()),
-                maximum_lifetime_entries=int(
-                    self.app_maximum_lifetime_entries.get_secret_value()
-                ),
-                maximum_lifetime_risk=Decimal(
-                    self.app_maximum_lifetime_risk.get_secret_value()
-                ),
-                maximum_position_loss=Decimal(
-                    self.app_maximum_position_loss.get_secret_value()
-                ),
+                maximum_lifetime_entries=int(self.app_maximum_lifetime_entries.get_secret_value()),
+                maximum_lifetime_risk=Decimal(self.app_maximum_lifetime_risk.get_secret_value()),
+                maximum_position_loss=Decimal(self.app_maximum_position_loss.get_secret_value()),
                 maximum_entry_quantity=int(self.app_maximum_entry_quantity.get_secret_value()),
             )
         except (InvalidOperation, ValueError) as error:

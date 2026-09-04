@@ -1,0 +1,252 @@
+.experiment-history {
+  width: min(100%, 1320px);
+  margin: 0 auto;
+  padding: clamp(40px, 6vw, 84px) clamp(20px, 5vw, 68px) 96px;
+  color: var(--primary, #f6f6f6);
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+}
+
+.experiment-history h2,
+.experiment-history h3,
+.experiment-history h4,
+.experiment-history p,
+.experiment-history dl,
+.experiment-history dd {
+  margin: 0;
+}
+
+.experiment-history__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.62fr);
+  gap: clamp(40px, 8vw, 120px);
+  align-items: end;
+  padding-bottom: clamp(36px, 5vw, 64px);
+  border-bottom: 1px solid var(--divider-soft, #363636);
+}
+
+.experiment-history__header > div {
+  display: grid;
+  gap: 12px;
+}
+
+.experiment-history__header h2 {
+  font-size: clamp(2.2rem, 5vw, 4.8rem);
+  font-weight: 500;
+  letter-spacing: -0.05em;
+  line-height: 0.98;
+}
+
+.experiment-history__header > div > p:last-child,
+.experiment-history__limitation,
+.experiment-history__muted,
+.experiment-history__availability p {
+  color: var(--secondary, #c8c8c8);
+  line-height: 1.6;
+}
+
+.experiment-history__limitation {
+  max-width: 52ch;
+  font-size: 0.9rem;
+}
+
+.experiment-history__eyebrow,
+.experiment-history__index time,
+.experiment-history__facts dt,
+.experiment-history__availability dt {
+  color: var(--muted, #8e8e8e);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.experiment-history__layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.28fr);
+  gap: clamp(44px, 8vw, 124px);
+  padding-top: clamp(42px, 6vw, 76px);
+}
+
+.experiment-history--index {
+  padding-bottom: 32px;
+}
+
+.experiment-history--index .experiment-history__header {
+  grid-template-columns: 1fr;
+  gap: 10px;
+  padding-bottom: 24px;
+}
+
+.experiment-history--index .experiment-history__header h2 {
+  font-size: clamp(1.8rem, 4vw, 3.3rem);
+}
+
+.experiment-history__layout--index {
+  grid-template-columns: 1fr;
+  padding-top: 20px;
+}
+
+.experiment-history__layout--index .experiment-history__index {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0 28px;
+  padding-left: 0;
+}
+
+.experiment-history__layout--index .experiment-history__index::before,
+.experiment-history__layout--index .experiment-history__index li::before {
+  content: none;
+}
+
+.experiment-history__index {
+  position: relative;
+  margin: 0;
+  padding: 0 0 0 28px;
+  list-style: none;
+}
+
+.experiment-history__index::before {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 4px;
+  width: 1px;
+  background: var(--divider-soft, #363636);
+  content: "";
+}
+
+.experiment-history__index li {
+  position: relative;
+}
+
+.experiment-history__index li::before {
+  position: absolute;
+  top: 25px;
+  left: -28px;
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--canvas, #0d0d0d);
+  border-radius: 50%;
+  background: var(--muted, #8e8e8e);
+  box-shadow: 0 0 0 1px var(--divider, #4d4d4d);
+  content: "";
+}
+
+.experiment-history__index button {
+  display: grid;
+  width: 100%;
+  gap: 5px;
+  padding: 16px 0 20px;
+  border: 0;
+  border-bottom: 1px solid var(--divider-soft, #363636);
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.experiment-history__index button strong {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.experiment-history__index button span {
+  color: var(--secondary, #c8c8c8);
+  font-size: 0.82rem;
+}
+
+.experiment-history__index button[aria-current="true"] strong {
+  color: var(--accent, #a991ff);
+}
+
+.experiment-history__index button:focus-visible {
+  outline: 2px solid var(--accent, #a991ff);
+  outline-offset: 5px;
+}
+
+.experiment-history__detail {
+  display: grid;
+  gap: clamp(34px, 5vw, 58px);
+  min-width: 0;
+}
+
+.experiment-history__detail header {
+  display: grid;
+  gap: 10px;
+}
+
+.experiment-history__detail h3 {
+  font-size: clamp(1.8rem, 4vw, 3.7rem);
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  line-height: 1;
+}
+
+.experiment-history__detail h4 {
+  margin-bottom: 16px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.experiment-history__state {
+  color: var(--accent, #a991ff);
+}
+
+.experiment-history__facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px 34px;
+}
+
+.experiment-history__facts div {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.experiment-history__facts dd,
+.experiment-history__availability dd {
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+.experiment-history__availability {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 36px;
+  padding: 26px 0;
+  border-top: 1px solid var(--divider-soft, #363636);
+  border-bottom: 1px solid var(--divider-soft, #363636);
+}
+
+.experiment-history__availability dl {
+  display: grid;
+  gap: 8px;
+}
+
+.experiment-history__decision {
+  padding-bottom: 12px;
+}
+
+.experiment-history__empty {
+  padding: clamp(46px, 8vw, 96px) 0;
+  color: var(--secondary, #c8c8c8);
+}
+
+.experiment-history__empty--detail {
+  padding-top: 0;
+}
+
+@media (max-width: 760px) {
+  .experiment-history__header,
+  .experiment-history__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .experiment-history__facts,
+  .experiment-history__availability {
+    grid-template-columns: 1fr;
+  }
+}

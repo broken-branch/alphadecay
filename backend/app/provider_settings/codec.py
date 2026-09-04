@@ -72,10 +72,7 @@ class CredentialCodec:
     __slots__ = ("_aead",)
 
     def __init__(self, master_secret: bytes) -> None:
-        if (
-            not isinstance(master_secret, bytes)
-            or len(master_secret) < _MINIMUM_MASTER_BYTES
-        ):
+        if not isinstance(master_secret, bytes) or len(master_secret) < _MINIMUM_MASTER_BYTES:
             raise CredentialCodecError("PROVIDER_MASTER_SECRET_INVALID")
         key = HKDF(
             algorithm=hashes.SHA256(),

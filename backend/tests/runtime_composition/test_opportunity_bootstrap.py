@@ -14,10 +14,12 @@ from backend.app.alpaca.opportunity import OpportunitySnapshotRequest
 from backend.app.contracts.v1 import AccountRole
 from backend.app.persistence.opportunity_evidence import (
     OpportunityBaselineSeal,
+    OpportunityEvidenceError,
     OpportunityPlanSpec,
     SQLAlchemyOpportunityEvidenceRepository,
     _json_value,
     _request_material,
+    opportunity_baseline_identity,
     opportunity_plan_identity,
 )
 from backend.app.persistence.sqlalchemy_models import (
@@ -25,13 +27,17 @@ from backend.app.persistence.sqlalchemy_models import (
     Base,
     DevelopmentOpportunityBaselineRow,
     DevelopmentOpportunityPlanRow,
+    SubmissionBaselineRow,
 )
 from backend.app.policy.opportunity import OpportunityPolicy
 from backend.app.services.opportunity_bootstrap import (
     OpportunityBootstrapError,
     OpportunityBootstrapInput,
     bootstrap_development_opportunity,
+    bootstrap_opportunity,
+    opportunity_bootstrap_payload,
     parse_development_opportunity_bootstrap,
+    parse_opportunity_bootstrap,
 )
 from ops.launch.opportunity_bootstrap import main
 
@@ -131,6 +137,7 @@ def _payload(plan: OpportunityPlanSpec, baseline: OpportunityBaselineSeal) -> di
     assert isinstance(policy, dict)
     return {
         "account_role": "DEVELOPMENT",
+        "submission_baseline_id": None,
         "plan": {
             "opportunity_key": plan.opportunity_key,
             "version": plan.version,
@@ -171,20 +178,43 @@ def _payload(plan: OpportunityPlanSpec, baseline: OpportunityBaselineSeal) -> di
     }
 
 
-def _repository():
+def _repository(*roles: AccountRole):
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
     sessions = sessionmaker(engine, expire_on_commit=False)
+    if not roles:
+        roles = (AccountRole.DEVELOPMENT,)
     with sessions.begin() as session:
-        session.add(
-            AccountRoleRow(
-                role=AccountRole.DEVELOPMENT.value,
-                account_fingerprint=ACCOUNT,
-                equity=Decimal("100000"),
-                autonomous_enabled=False,
-            )
+        session.add_all(
+            [
+                AccountRoleRow(
+                    role=role.value,
+                    account_fingerprint=ACCOUNT,
+                    equity=Decimal("100000"),
+                    autonomous_enabled=False,
+                )
+                for role in roles
+            ]
         )
     return SQLAlchemyOpportunityEvidenceRepository(sessions), sessions, engine
+
+
+def _submission_bootstrap() -> OpportunityBootstrapInput:
+    development_plan = _plan()
+    plan = replace(
+        development_plan,
+        request_contract=replace(
+            development_plan.request_contract,
+            account_role=AccountRole.SUBMISSION,
+        ),
+        account_role=AccountRole.SUBMISSION,
+    )
+    baseline = replace(
+        _baseline(plan),
+        account_role=AccountRole.SUBMISSION,
+        submission_baseline_id=uuid4(),
+    )
+    return OpportunityBootstrapInput(plan, baseline)
 
 
 def test_preview_validates_authority_without_repository_writes() -> None:
@@ -220,6 +250,53 @@ def test_persist_freezes_then_replays_and_reloads_exact_authority() -> None:
     engine.dispose()
 
 
+def test_submission_persist_replays_with_submission_authority() -> None:
+    bootstrap = _submission_bootstrap()
+    repository, sessions, engine = _repository(AccountRole.SUBMISSION)
+    with sessions.begin() as session:
+        session.add(
+            SubmissionBaselineRow(
+                baseline_id=bootstrap.baseline.submission_baseline_id,
+                account_role=AccountRole.SUBMISSION.value,
+                account_fingerprint=ACCOUNT,
+                equity=Decimal("100000"),
+                captured_at=NOW,
+                positions_hash="7" * 64,
+                orders_hash="8" * 64,
+                activities_hash="9" * 64,
+                contaminated=False,
+            )
+        )
+
+    first = bootstrap_opportunity(
+        bootstrap,
+        account_role=AccountRole.SUBMISSION,
+        persist=True,
+        repository=repository,
+    )
+    replay = bootstrap_opportunity(
+        bootstrap,
+        account_role=AccountRole.SUBMISSION,
+        persist=True,
+        repository=repository,
+    )
+
+    assert first == replay
+    assert first.mode == "PERSISTED"
+    with sessions() as session:
+        plan = session.scalar(select(DevelopmentOpportunityPlanRow))
+        baseline = session.scalar(select(DevelopmentOpportunityBaselineRow))
+        assert plan is not None and plan.account_role == AccountRole.SUBMISSION.value
+        assert baseline is not None and baseline.account_role == AccountRole.SUBMISSION.value
+    with pytest.raises(OpportunityEvidenceError, match="OPPORTUNITY_ACCOUNT_MISSING"):
+        repository.load_plan(
+            bootstrap.plan.opportunity_key,
+            version=bootstrap.plan.version,
+            account_role=AccountRole.DEVELOPMENT,
+        )
+    engine.dispose()
+
+
 def test_persist_rejects_repository_replay_mismatch() -> None:
     plan = _plan()
     bootstrap = OpportunityBootstrapInput(plan, _baseline(plan))
@@ -239,11 +316,21 @@ def test_persist_rejects_repository_replay_mismatch() -> None:
         def seal_baseline(self, seal):
             return repository.seal_baseline(seal)
 
-        def load_plan(self, opportunity_key, *, version=None):
-            return repository.load_plan(opportunity_key, version=version)
+        def load_plan(
+            self,
+            opportunity_key,
+            *,
+            version=None,
+            account_role=AccountRole.DEVELOPMENT,
+        ):
+            return repository.load_plan(
+                opportunity_key,
+                version=version,
+                account_role=account_role,
+            )
 
-        def load_baseline(self, plan_id):
-            return repository.load_baseline(plan_id)
+        def load_baseline(self, plan_id, *, account_role=AccountRole.DEVELOPMENT):
+            return repository.load_baseline(plan_id, account_role=account_role)
 
     with pytest.raises(OpportunityBootstrapError, match="REPLAY_MISMATCH"):
         bootstrap_development_opportunity(
@@ -280,7 +367,7 @@ def test_parser_rejects_non_development_role_and_unknown_fields() -> None:
     plan = _plan()
     payload = _payload(plan, _baseline(plan))
     payload["account_role"] = "SUBMISSION"
-    with pytest.raises(OpportunityBootstrapError, match="DEVELOPMENT_ONLY"):
+    with pytest.raises(OpportunityBootstrapError, match="AUTHORITY_MISMATCH"):
         parse_development_opportunity_bootstrap(payload)
 
     payload = _payload(plan, _baseline(plan))
@@ -293,7 +380,9 @@ def test_parser_rejects_non_development_role_and_unknown_fields() -> None:
 def test_cli_defaults_to_preview_and_prints_only_sanitized_identity(tmp_path, capsys) -> None:
     plan = _plan()
     input_path = tmp_path / "private-opportunity.json"
-    input_path.write_text(json.dumps(_payload(plan, _baseline(plan))))
+    payload = _payload(plan, _baseline(plan))
+    del payload["submission_baseline_id"]
+    input_path.write_text(json.dumps(payload))
 
     assert main(["--input", str(input_path)]) == 0
 
@@ -310,4 +399,105 @@ def test_persist_requires_explicit_database_url_file(tmp_path) -> None:
     input_path.write_text(json.dumps(_payload(plan, _baseline(plan))))
 
     with pytest.raises(SystemExit, match="2"):
-        main(["--input", str(input_path), "--persist"])
+        main(["--role", "DEVELOPMENT", "--input", str(input_path), "--persist"])
+
+
+def test_persist_rejects_nonprivate_database_url_file(tmp_path) -> None:
+    plan = _plan()
+    input_path = tmp_path / "private-opportunity.json"
+    database_url_path = tmp_path / "database-url.txt"
+    input_path.write_text(json.dumps(_payload(plan, _baseline(plan))))
+    database_url_path.write_text("postgresql://user:secret@localhost/alphadecay")
+    database_url_path.chmod(0o644)
+
+    with pytest.raises(SystemExit, match="2"):
+        main(
+            [
+                "--input",
+                str(input_path),
+                "--persist",
+                "--database-url-file",
+                str(database_url_path),
+            ]
+        )
+
+
+def test_submission_preview_requires_exact_role_and_clean_baseline_binding() -> None:
+    plan = _plan()
+    request = replace(plan.request_contract, account_role=AccountRole.SUBMISSION)
+    plan = replace(plan, request_contract=request, account_role=AccountRole.SUBMISSION)
+    submission_baseline_id = uuid4()
+    baseline = replace(
+        _baseline(plan),
+        account_role=AccountRole.SUBMISSION,
+        submission_baseline_id=submission_baseline_id,
+    )
+    payload = opportunity_bootstrap_payload(OpportunityBootstrapInput(plan, baseline))
+
+    bootstrap = parse_opportunity_bootstrap(payload, account_role=AccountRole.SUBMISSION)
+    result = bootstrap_opportunity(bootstrap, account_role=AccountRole.SUBMISSION)
+
+    assert result.mode == "PREVIEW"
+    assert bootstrap.baseline.submission_baseline_id == submission_baseline_id
+    with pytest.raises(OpportunityBootstrapError, match="AUTHORITY_MISMATCH"):
+        parse_opportunity_bootstrap(payload, account_role=AccountRole.DEVELOPMENT)
+    with pytest.raises(OpportunityBootstrapError, match="ROLE_INVALID"):
+        parse_opportunity_bootstrap(payload, account_role=AccountRole.REPLAY)
+
+
+def test_submission_baseline_identity_binds_the_immutable_baseline_id() -> None:
+    plan = _plan()
+    request = replace(plan.request_contract, account_role=AccountRole.SUBMISSION)
+    plan = replace(plan, request_contract=request, account_role=AccountRole.SUBMISSION)
+    first = replace(
+        _baseline(plan),
+        account_role=AccountRole.SUBMISSION,
+        submission_baseline_id=uuid4(),
+    )
+    second = replace(first, submission_baseline_id=uuid4())
+
+    assert opportunity_baseline_identity(first) != opportunity_baseline_identity(second)
+
+
+def test_submission_cli_preview_prints_no_account_authority(tmp_path, capsys) -> None:
+    plan = _plan()
+    request = replace(plan.request_contract, account_role=AccountRole.SUBMISSION)
+    plan = replace(plan, request_contract=request, account_role=AccountRole.SUBMISSION)
+    baseline = replace(
+        _baseline(plan),
+        account_role=AccountRole.SUBMISSION,
+        submission_baseline_id=uuid4(),
+    )
+    input_path = tmp_path / "submission-opportunity.json"
+    input_path.write_text(
+        json.dumps(opportunity_bootstrap_payload(OpportunityBootstrapInput(plan, baseline)))
+    )
+    input_path.chmod(0o600)
+
+    assert main(["--role", "SUBMISSION", "--input", str(input_path)]) == 0
+
+    output = capsys.readouterr().out
+    decoded = json.loads(output)
+    assert decoded["mode"] == "PREVIEW"
+    assert decoded["account_role"] == "SUBMISSION"
+    assert ACCOUNT not in output
+    assert "ACME" not in output
+
+
+def test_submission_cli_rejects_nonprivate_bootstrap_input(tmp_path) -> None:
+    plan = _plan()
+    request = replace(plan.request_contract, account_role=AccountRole.SUBMISSION)
+    plan = replace(plan, request_contract=request, account_role=AccountRole.SUBMISSION)
+    baseline = replace(
+        _baseline(plan),
+        account_role=AccountRole.SUBMISSION,
+        submission_baseline_id=uuid4(),
+    )
+    input_path = tmp_path / "submission-opportunity.json"
+    input_path.write_text(
+        json.dumps(opportunity_bootstrap_payload(OpportunityBootstrapInput(plan, baseline)))
+    )
+    input_path.chmod(0o644)
+
+    with pytest.raises(SystemExit, match="2"):
+        main(["--role", "SUBMISSION", "--input", str(input_path)])

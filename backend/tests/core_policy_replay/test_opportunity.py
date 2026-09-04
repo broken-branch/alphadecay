@@ -562,13 +562,11 @@ def test_option_structure_and_quote_quality_fail_closed(
             {"account": account(account_role=AccountRole.REPLAY)},
             OpportunityReason.ACCOUNT_ROLE_NOT_EXECUTABLE,
         ),
-        ({}, {"account": account(baseline_clean=False)}, OpportunityReason.BASELINE_NOT_CLEAN),
         (
             {},
             {"account": account(clean_equity=Decimal("54321"))},
             OpportunityReason.EQUITY_FLOOR_REACHED,
         ),
-        ({}, {"account": account(open_position_count=1)}, OpportunityReason.ACCOUNT_NOT_FLAT),
         ({}, {"account": account(open_order_count=1)}, OpportunityReason.OPEN_ORDER_EXISTS),
         (
             {},
@@ -579,11 +577,6 @@ def test_option_structure_and_quote_quality_fail_closed(
             {},
             {"account": account(lifetime_approved_risk=Decimal("2000"))},
             OpportunityReason.LIFETIME_RISK_LIMIT_REACHED,
-        ),
-        (
-            {},
-            {"account": account(event_already_attempted=True)},
-            OpportunityReason.EVENT_ALREADY_ATTEMPTED,
         ),
         (
             {},

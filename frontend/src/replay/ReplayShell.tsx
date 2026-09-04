@@ -2,9 +2,25 @@ import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { CompetitionPerformanceProofResponse, HealthResponse } from "../contracts/v1";
 import { CompetitionRecordView } from "../competition-record/CompetitionRecord";
-import type { CompetitionRecordResponse } from "../competition-record/api";
+import type { CompetitionRecord, CompetitionRecordResponse } from "../competition-record/api";
 import { copy } from "../content/copy";
+import {
+  adaptCompetitionExperiment,
+  ExperimentHistory,
+  ExperimentWindowTimeline,
+  ExperimentWorkspace,
+  projectExperimentHistory,
+  ReviewedExperimentRegistry,
+  ReviewedExperimentRequestError,
+  reviewedExperimentClient,
+  type ExperimentDefinition,
+  type ExperimentWindowList,
+  type ReviewedExperimentClient,
+  type ReviewedExperimentDefinition,
+} from "../experiments";
 import { InformationDialog, OwnerSettings } from "../owner/OwnerSettings";
+import { useOwnerSession } from "../owner/useOwnerSession";
+import { ConnectedStrategyIntake } from "../strategy-intake";
 import brandLockupUrl from "../assets/branding/alphadecay-lockup.svg";
 import brandLockupLightUrl from "../assets/branding/alphadecay-lockup-light.svg";
 import brandMarkUrl from "../assets/branding/alphadecay-mark.svg";
@@ -12,6 +28,7 @@ import brandMarkLightUrl from "../assets/branding/alphadecay-mark-light.svg";
 import { replayFixtures } from "./fixtures";
 import { actionLabels, alternativeStateLabels, matchLabels, qualityLabels } from "./labels";
 import { StateNotice } from "./StateNotice";
+import { Landing } from "./Landing";
 import type {
   ComparisonRow,
   GreekExposure,
@@ -31,7 +48,7 @@ const scenarioIds: ScenarioId[] = [
 const tabIds = ["evidence", "choices", "activity", "record"] as const;
 type TabId = (typeof tabIds)[number];
 type Theme = "dark" | "light";
-type WorkspaceView = "competition" | "demo" | "setup";
+type WorkspaceView = "experiments" | "new" | "replay" | "settings";
 
 const comparisonLabels: Record<ComparisonRow["key"], string> = {
   direction: copy.thesis.direction,
@@ -57,11 +74,8 @@ const driftLabels = {
 const stageCopy = [
   copy.run.observe,
   copy.run.validate,
-  copy.run.research,
-  copy.run.classify,
   copy.run.measure,
   copy.run.compare,
-  copy.run.enforce,
   copy.run.certify,
 ];
 const expectedAfterCopy: Record<ReplayAction, string> = {
@@ -110,10 +124,43 @@ type ReplayShellProps = {
   replayLoader?: (scenario: ScenarioId, fallback: ReplayFixture) => Promise<ReplayFixture>;
   proofLoader?: () => Promise<CompetitionPerformanceProofResponse>;
   archiveLoader?: () => Promise<CompetitionRecordResponse>;
+  experimentWindowsLoader?: () => Promise<ExperimentWindowList>;
   runtimeLoader?: () => Promise<HealthResponse>;
+  experimentClient?: ReviewedExperimentClient;
 };
 type PerformancePoint = NonNullable<CompetitionPerformanceProofResponse["point"]>;
 type BaselineStatus = NonNullable<CompetitionPerformanceProofResponse["baseline_status"]>;
+
+function experimentDefinition(record: CompetitionRecord): ExperimentDefinition {
+  if (record.payload.record_kind === "NO_TRADE") {
+    return {
+      id: record.public_record_id,
+      name: copy.experiment.adapter.noTradeName,
+      underlying: copy.experiment.technical.notAvailable,
+      thesis: copy.experiment.adapter.noTradeThesis,
+      whyChosen: [copy.experiment.adapter.noTradeWhy],
+      invalidation: [copy.experiment.adapter.invalidation],
+      status: "REJECTED",
+      source: "PAPER",
+      structure: null,
+      maximumRiskUsd: null,
+      policyVersion: null,
+    };
+  }
+  return {
+    id: record.public_record_id,
+    name: `${record.payload.underlying} ${copy.experiment.adapter.paperExperiment}`,
+    underlying: record.payload.underlying,
+    thesis: copy.experiment.adapter.positionThesis,
+    whyChosen: [copy.experiment.adapter.positionWhy],
+    invalidation: [copy.experiment.adapter.invalidation],
+    status: record.payload.state,
+    source: "PAPER",
+    structure: null,
+    maximumRiskUsd: null,
+    policyVersion: null,
+  };
+}
 
 function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () => void }) {
   const light = theme === "light";
@@ -145,7 +192,7 @@ function isProtectedShortcutTarget(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
   return Boolean(
     target.closest(
-      'input, select, textarea, button, a, summary, audio, video, dialog, [role="dialog"], [role="button"], [role="link"], [role="textbox"], [role="combobox"], [contenteditable], [tabindex]:not([tabindex="-1"])',
+      'input, select, textarea, audio, video, dialog, [role="dialog"], [role="textbox"], [role="combobox"], [contenteditable]',
     ),
   );
 }
@@ -265,7 +312,7 @@ function PerformanceProof({
   }
 
   return (
-    <section className="performance-proof" aria-label={copy.performance.label}>
+    <section id={compact ? undefined : "performance-proof"} className="performance-proof" aria-label={copy.performance.label}>
       <p className="eyebrow">{copy.performance.sourceLabel}</p>
       <h3 aria-live="polite" aria-atomic="true">
         {heading}
@@ -334,23 +381,29 @@ function PerformanceProof({
               label={copy.performance.simulator}
               value={copy.performance.simulatorValue}
             />
-            <ProofMetric
-              label={copy.performance.publicationHash}
-              value={published.proof.publication_hash ?? copy.performance.notAvailable}
-            />
-            <ProofMetric
-              label={copy.performance.predecessor}
-              value={
-                published.proof.predecessor_hash
-                  ? `${copy.performance.linkedPublication}: ${published.proof.predecessor_hash}`
-                  : copy.performance.firstPublication
-              }
-            />
-            <ProofMetric
-              label={copy.performance.linkedCertificates}
-              value={published.proof.linked_certificate_ids.length}
-            />
           </dl>
+          <details className="proof-technical-details">
+            <summary>{copy.performance.technicalSummary}</summary>
+            <p>{copy.performance.technicalIntro}</p>
+            <dl className="proof-grid">
+              <ProofMetric
+                label={copy.performance.publicationHash}
+                value={published.proof.publication_hash ?? copy.performance.notAvailable}
+              />
+              <ProofMetric
+                label={copy.performance.predecessor}
+                value={
+                  published.proof.predecessor_hash
+                    ? `${copy.performance.linkedPublication}: ${published.proof.predecessor_hash}`
+                    : copy.performance.firstPublication
+                }
+              />
+              <ProofMetric
+                label={copy.performance.linkedCertificates}
+                value={published.proof.linked_certificate_ids.length}
+              />
+            </dl>
+          </details>
           <p className="proof-limitation">{copy.performance.simulatorDetail}</p>
         </>
       ) : null}
@@ -373,28 +426,31 @@ function WorkspaceNavigation({
   const stateLabel =
     view === null
       ? copy.competitionRecord.loading
-      : view === "demo"
-      ? copy.gateway.sample
-      : view === "setup"
-        ? copy.gateway.paperSetup
-        : published
-          ? copy.gateway.actualRecord
-          : copy.gateway.noPublishedRecord;
+      : view === "new"
+        ? copy.productShell.newState
+        : view === "replay"
+          ? copy.productShell.replayState
+          : view === "settings"
+            ? copy.productShell.settingsState
+            : published
+              ? copy.productShell.experimentsState
+              : copy.gateway.noPublishedRecord;
   return (
     <div className="workspace-strip">
-      <nav className="workspace-nav" aria-label={copy.gateway.label}>
+      <nav className="workspace-nav" aria-label={copy.productShell.navigationLabel}>
         {(
           [
-            ["competition", copy.gateway.competition],
-            ["demo", copy.gateway.demo],
-            ["setup", copy.gateway.setup],
+            ["experiments", copy.productShell.experiments],
+            ["new", copy.productShell.newExperiment],
+            ["replay", copy.productShell.replay],
+            ["settings", copy.productShell.settings],
           ] as const
         ).map(([id, label]) => (
           <button
             key={id}
             type="button"
             aria-current={view === id ? "page" : undefined}
-            className={id === "setup" ? "workspace-nav__secondary" : undefined}
+            className={id === "settings" ? "workspace-nav__secondary" : undefined}
             onClick={() => onChange(id)}
           >
             {label}
@@ -408,9 +464,11 @@ function WorkspaceNavigation({
 
 function SetupView({
   onOpenOwnerSettings,
+  onOpenReplay,
   ownerControlsEnabled,
 }: {
   onOpenOwnerSettings: () => void;
+  onOpenReplay: () => void;
   ownerControlsEnabled: boolean;
 }) {
   return (
@@ -428,7 +486,11 @@ function SetupView({
             <button type="button" className="primary-button" onClick={onOpenOwnerSettings}>
               {copy.gateway.ownerAction}
             </button>
-          ) : null}
+          ) : (
+            <button type="button" className="primary-button" onClick={onOpenReplay}>
+              {copy.gateway.publicAction}
+            </button>
+          )}
         </section>
         <section>
           <h2>{copy.gateway.selfHostTitle}</h2>
@@ -987,23 +1049,11 @@ function ActivityPanel({ fixture }: { fixture: ReplayFixture }) {
     <section aria-labelledby="run-title">
       <h3 id="run-title">{copy.run.title}</h3>
       <p className="muted">{copy.run.intro}</p>
-      <div className="technology-proof">
-        <h4>{copy.run.technologyTitle}</h4>
-        <ul>
-          <li>{copy.run.tradingApi}</li>
-          <li>{copy.run.mcp}</li>
-          <li>{copy.run.model}</li>
-          <li>{copy.run.cli}</li>
-        </ul>
-      </div>
-      <AutonomousCycle fixture={fixture} />
       <ol className="activity-list">
-        {stageCopy.map((stage, index) => (
+        {stageCopy.map((stage) => (
           <li key={stage}>
             <span>{stage}</span>
-            <strong>
-              {index === 2 || index === 3 ? copy.run.notRun : copy.run.complete}
-            </strong>
+            <strong>{copy.run.complete}</strong>
           </li>
         ))}
       </ol>
@@ -1056,6 +1106,7 @@ function RecordPanel({ fixture }: { fixture: ReplayFixture }) {
       </dl>
       <details>
         <summary>{copy.certificate.howChecked}</summary>
+        <p>{copy.positionReview.recordDetailsIntro}</p>
         <p>{copy.certificate.details}</p>
         <dl className="lineage-grid">
           <div>
@@ -1075,6 +1126,17 @@ function RecordPanel({ fixture }: { fixture: ReplayFixture }) {
             <dd>{fixture.lineage.inputHash}</dd>
           </div>
         </dl>
+        <p>{copy.run.technicalIntro}</p>
+        <div className="technology-proof">
+          <h4>{copy.run.technologyTitle}</h4>
+          <ul>
+            <li>{copy.run.tradingApi}</li>
+            <li>{copy.run.mcp}</li>
+            <li>{copy.run.model}</li>
+            <li>{copy.run.cli}</li>
+          </ul>
+        </div>
+        <AutonomousCycle fixture={fixture} />
       </details>
       <p className="proof-limitation">{copy.certificate.limitations}</p>
     </section>
@@ -1141,7 +1203,7 @@ function DetailTabs({
   };
   return (
     <section className="details demo-sections" aria-label={copy.navigation.label}>
-      <div className="tab-list" role="tablist" aria-label={copy.navigation.label}>
+      <div className="tab-list tab-list--wrap-on-phone" role="tablist" aria-label={copy.navigation.label}>
         {tabIds.map((tab) => (
           <button
             key={tab}
@@ -1227,19 +1289,29 @@ export function ReplayShell({
   replayLoader,
   proofLoader,
   archiveLoader,
+  experimentWindowsLoader,
   runtimeLoader,
+  experimentClient = reviewedExperimentClient,
 }: ReplayShellProps) {
   const [selectedScenario, setSelectedScenario] = useState(initialScenario);
   const [loadedFixture, setLoadedFixture] = useState<ReplayFixture | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [theme, setTheme] = useState<Theme>("dark");
-  const [view, setView] = useState<WorkspaceView | null>(archiveLoader ? null : "demo");
+  const [view, setView] = useState<WorkspaceView | null>(archiveLoader ? null : "replay");
   const [proof, setProof] = useState<CompetitionPerformanceProofResponse | null | undefined>(
     proofLoader ? undefined : null,
   );
   const [archive, setArchive] = useState<CompetitionRecordResponse | null | undefined>(
     archiveLoader ? undefined : null,
   );
+  const [experimentWindows, setExperimentWindows] = useState<
+    ExperimentWindowList | null | undefined
+  >(experimentWindowsLoader ? undefined : null);
+  const [selectedExperimentKey, setSelectedExperimentKey] = useState<string | null>(null);
+  const [reviewedExperiments, setReviewedExperiments] = useState<
+    readonly ReviewedExperimentDefinition[] | null | undefined
+  >(null);
+  const [registryRefreshVersion, setRegistryRefreshVersion] = useState(0);
   const [runtimeMode, setRuntimeMode] = useState<HealthResponse["runtime_mode"] | undefined>(
     runtimeLoader ? undefined : "CONNECTED",
   );
@@ -1247,11 +1319,41 @@ export function ReplayShell({
   const [keyboardTabNavigationVersion, setKeyboardTabNavigationVersion] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [informationOpen, setInformationOpen] = useState<"privacy" | "important" | null>(null);
+  const ownerControlsEnabled = runtimeMode === "CONNECTED";
+  const ownerSession = useOwnerSession(ownerControlsEnabled);
   const settingsButtonRef = useRef<HTMLButtonElement | null>(null);
   const informationTriggerRef = useRef<HTMLButtonElement | null>(null);
   const viewChosenRef = useRef(false);
   const initialViewResolvedRef = useRef(false);
   const fallback = replayFixtures[selectedScenario];
+
+  useEffect(() => {
+    const csrfToken = ownerSession.session.csrfToken;
+    if (!ownerSession.session.authenticated || !csrfToken) {
+      setReviewedExperiments(null);
+      return;
+    }
+    let active = true;
+    setReviewedExperiments(undefined);
+    experimentClient.list(csrfToken).then(
+      (result) => {
+        if (active) setReviewedExperiments(result.experiments);
+      },
+      (error: unknown) => {
+        if (!active) return;
+        setReviewedExperiments(null);
+        if (
+          error instanceof ReviewedExperimentRequestError
+          && (error.status === 401 || error.status === 403)
+        ) {
+          ownerSession.invalidate();
+        }
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [experimentClient, ownerSession.session, registryRefreshVersion]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -1304,7 +1406,7 @@ export function ReplayShell({
           && !initialViewResolvedRef.current
         ) {
           initialViewResolvedRef.current = true;
-          setView(result.publication_status === "PUBLISHED" ? "competition" : "demo");
+          setView("experiments");
         }
       },
       () => {
@@ -1312,7 +1414,7 @@ export function ReplayShell({
         setProof(null);
         if (!archiveLoader && !viewChosenRef.current && !initialViewResolvedRef.current) {
           initialViewResolvedRef.current = true;
-          setView("demo");
+          setView("experiments");
         }
       },
     );
@@ -1327,7 +1429,7 @@ export function ReplayShell({
       setArchive({ schema_version: "v1", publication_status: "NOT_PUBLISHED", records: [] });
       if (!viewChosenRef.current && !initialViewResolvedRef.current) {
         initialViewResolvedRef.current = true;
-        setView("demo");
+        setView("experiments");
       }
       return;
     }
@@ -1343,7 +1445,7 @@ export function ReplayShell({
         setArchive(result);
         if (!viewChosenRef.current && !initialViewResolvedRef.current) {
           initialViewResolvedRef.current = true;
-          setView(result.publication_status === "PUBLISHED" ? "competition" : "demo");
+          setView("experiments");
         }
       },
       () => {
@@ -1351,7 +1453,7 @@ export function ReplayShell({
         setArchive(null);
         if (!viewChosenRef.current && !initialViewResolvedRef.current) {
           initialViewResolvedRef.current = true;
-          setView("demo");
+          setView("experiments");
         }
       },
     );
@@ -1359,6 +1461,27 @@ export function ReplayShell({
       active = false;
     };
   }, [archiveLoader, runtimeMode]);
+
+  useEffect(() => {
+    if (runtimeMode === undefined) return;
+    if (!experimentWindowsLoader) {
+      setExperimentWindows(null);
+      return;
+    }
+    let active = true;
+    setExperimentWindows(undefined);
+    experimentWindowsLoader().then(
+      (result) => {
+        if (active) setExperimentWindows(result);
+      },
+      () => {
+        if (active) setExperimentWindows(null);
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [experimentWindowsLoader, runtimeMode]);
 
   const toggleTheme = () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
@@ -1397,6 +1520,36 @@ export function ReplayShell({
           ? "COLD"
           : null;
   const shortcutsOnly = runtimeMode !== "CONNECTED";
+  const experimentHistory = projectExperimentHistory(archive);
+  const selectedHistoryRecord = experimentHistory.records.find(
+    (record) => record.selectionKey === selectedExperimentKey,
+  );
+  const selectedRecord = archive?.publication_status === "PUBLISHED" && selectedHistoryRecord
+    ? archive.records.find(
+        (record) => record.publication_hash === selectedHistoryRecord.publicationHash,
+      )
+    : undefined;
+  const competitionExperiment = selectedRecord
+    ? adaptCompetitionExperiment({
+        definition: experimentDefinition(selectedRecord),
+        archive,
+        proof,
+        lineage: { publicRecordId: selectedRecord.public_record_id, certificateId: null },
+      })
+    : null;
+  const noPublishedExperiment = experimentHistory.sourceState === "NOT_PUBLISHED"
+    || (!archiveLoader && proof?.publication_status === "NOT_PUBLISHED");
+  const hasExperimentWindows = Boolean(experimentWindows?.windows.length);
+
+  useEffect(() => {
+    if (experimentHistory.records.length === 0) {
+      setSelectedExperimentKey(null);
+      return;
+    }
+    if (!experimentHistory.records.some((record) => record.selectionKey === selectedExperimentKey)) {
+      setSelectedExperimentKey(experimentHistory.records.at(-1)?.selectionKey ?? null);
+    }
+  }, [experimentHistory, selectedExperimentKey]);
 
   useEffect(() => {
     const handleReviewShortcut = (event: globalThis.KeyboardEvent) => {
@@ -1404,6 +1557,7 @@ export function ReplayShell({
 
       const isSettingsToggle = event.key === "?" && !event.altKey && !event.ctrlKey && !event.metaKey;
       if (isSettingsToggle) {
+        if (shortcutsOnly && view !== "replay") return;
         if (isProtectedShortcutTarget(event.target)) return;
         event.preventDefault();
         setSettingsOpen((open) => !open);
@@ -1414,11 +1568,11 @@ export function ReplayShell({
 
     document.addEventListener("keydown", handleReviewShortcut);
     return () => document.removeEventListener("keydown", handleReviewShortcut);
-  }, []);
+  }, [shortcutsOnly, view]);
 
   return (
     <div
-      className={`app-shell${view === "demo" ? " app-shell--demo" : ""}`}
+      className={`app-shell${view === "replay" ? " app-shell--demo" : ""}`}
       data-layout="responsive"
     >
       <header className="site-header">
@@ -1435,31 +1589,34 @@ export function ReplayShell({
         </a>
         <div className="header-actions">
           <ThemeToggle theme={theme} onToggle={toggleTheme} />
-          <button
-            ref={settingsButtonRef}
-            className={`keyboard-trigger${shortcutsOnly ? " keyboard-trigger--icon" : ""}`}
-            type="button"
-            aria-haspopup="dialog"
-            aria-expanded={settingsOpen}
-            aria-keyshortcuts="?"
-            aria-label={shortcutsOnly ? copy.keyboardGuide.toggleGuide : undefined}
-            title={shortcutsOnly ? copy.keyboardGuide.toggleGuide : undefined}
-            onClick={() => setSettingsOpen(true)}
-          >
-            {shortcutsOnly ? (
-              <svg
-                className="keyboard-trigger__icon"
-                viewBox="0 0 24 16"
-                aria-hidden="true"
-              >
-                <rect x="1" y="1" width="22" height="14" rx="2" />
-                <path d="M4 5h2M9 5h2M14 5h2M19 5h1M4 9h2M9 9h2M14 9h2M19 9h1M6 12h12" />
-              </svg>
-            ) : copy.ownerSettings.entry}
-          </button>
+          {!shortcutsOnly || view === "replay" ? (
+            <button
+              ref={settingsButtonRef}
+              className={`keyboard-trigger${shortcutsOnly ? " keyboard-trigger--icon" : ""}`}
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded={settingsOpen}
+              aria-keyshortcuts="?"
+              aria-label={shortcutsOnly ? copy.keyboardGuide.toggleGuide : undefined}
+              title={shortcutsOnly ? copy.keyboardGuide.toggleGuide : undefined}
+              onClick={() => setSettingsOpen(true)}
+            >
+              {shortcutsOnly ? (
+                <svg
+                  className="keyboard-trigger__icon"
+                  viewBox="0 0 24 16"
+                  aria-hidden="true"
+                >
+                  <rect x="1" y="1" width="22" height="14" rx="2" />
+                  <path d="M4 5h2M9 5h2M14 5h2M19 5h1M4 9h2M9 9h2M14 9h2M19 9h1M6 12h12" />
+                </svg>
+              ) : copy.ownerSettings.entry}
+            </button>
+          ) : null}
           <button
             type="button"
             className="header-environment"
+            aria-label={copy.provenance.paperOnly}
             aria-haspopup="dialog"
             aria-expanded={informationOpen === "important"}
             onClick={(event) => {
@@ -1467,36 +1624,137 @@ export function ReplayShell({
               setInformationOpen("important");
             }}
           >
-            {copy.provenance.paperOnly}
+            <span className="header-environment__desktop">{copy.provenance.paperOnly}</span>
+            <span className="header-environment__mobile">
+              {runtimeMode === "REPLAY_ONLY"
+                ? copy.provenance.paperOnlyCompact
+                : copy.provenance.paperCompact}
+            </span>
           </button>
         </div>
       </header>
       <WorkspaceNavigation view={view} proof={proof} archive={archive} onChange={selectView} />
-      <main id="position-review" className={view === "demo" ? "demo-main" : undefined}>
+      <main id="position-review" className={view === "replay" ? "demo-main" : undefined}>
         {view === null ? (
           <div className="review-heading initial-view-loading" aria-live="polite">
             <h1>{copy.competitionRecord.loading}</h1>
           </div>
         ) : null}
-        {view === "competition" ? (
+        {view === "experiments" && ownerSession.session.authenticated ? (
+          <ReviewedExperimentRegistry
+            experiments={reviewedExperiments}
+            csrfToken={ownerSession.session.csrfToken ?? ""}
+            client={experimentClient}
+            onSessionRejected={ownerSession.invalidate}
+          />
+        ) : null}
+        {view === "experiments" && !ownerSession.session.authenticated ? (
+          <Landing
+            archive={archive}
+            proof={proof}
+            windows={experimentWindows}
+            onOpenReplay={() => selectView("replay")}
+          />
+        ) : null}
+        {view === "experiments" && experimentHistory.records.length === 0 && ownerSession.session.authenticated ? (
           <>
             <div className="review-heading">
-              <p className="eyebrow">
-                {archive?.publication_status === "PUBLISHED"
-                  ? copy.gateway.actualRecord
-                  : copy.gateway.noPublishedRecord}
-              </p>
-              <h1>{copy.gateway.competitionTitle}</h1>
-              <p>{copy.gateway.competitionIntro}</p>
+              <p className="eyebrow">{copy.productShell.experimentsState}</p>
+              <h1>{copy.productShell.experimentsTitle}</h1>
+              <p>{copy.productShell.experimentsIntro}</p>
+              {noPublishedExperiment ? (
+                <button type="button" className="primary-button" onClick={() => selectView("replay")}>
+                  {copy.productShell.openReplay}
+                </button>
+              ) : null}
             </div>
-            {archiveLoader ? <CompetitionRecordView archive={archive} /> : null}
+            {!ownerSession.session.authenticated ? (
+              <ExperimentWindowTimeline windows={experimentWindows} />
+            ) : null}
+            {noPublishedExperiment && !hasExperimentWindows ? (
+              <div className="experiment-empty-state">
+                <ol
+                  className="experiment-empty-spine"
+                  aria-label={copy.productShell.decisionSpineLabel}
+                >
+                  <li>{copy.productShell.thesisNode}</li>
+                  <li>{copy.productShell.curationNode}</li>
+                  <li>{copy.productShell.protocolNode}</li>
+                  <li>{copy.productShell.decisionNode}</li>
+                  <li>{copy.productShell.resultNode}</li>
+                </ol>
+                <section className="experiment-empty-copy">
+                  <p className="eyebrow">{copy.gateway.noPublishedRecord}</p>
+                  <h2>{copy.competitionRecord.notPublished}</h2>
+                  <p>{copy.competitionRecord.notPublishedDetail}</p>
+                </section>
+                <section className="experiment-empty-copy">
+                  <h2>{copy.experiment.history.notPublishedTitle}</h2>
+                  <p>{copy.experiment.history.notPublished}</p>
+                </section>
+              </div>
+            ) : archiveLoader ? <CompetitionRecordView archive={archive} /> : null}
           </>
         ) : null}
-        {view === "demo" ? (
+        {view === "experiments" && experimentHistory.records.length === 0 && !ownerSession.session.authenticated ? (
+          <>
+            <ExperimentWindowTimeline windows={experimentWindows} />
+            <button type="button" className="primary-button" onClick={() => selectView("replay")}>
+              {copy.productShell.openReplay}
+            </button>
+          </>
+        ) : null}
+        {view === "experiments" && experimentHistory.records.length > 0 ? (
+          <>
+            <div className="review-heading">
+              <p className="eyebrow">{copy.gateway.actualRecord}</p>
+              <h1>{copy.gateway.competitionTitle}</h1>
+              <p>{copy.gateway.competitionIntro}</p>
+              <a className="primary-button" href="#competition-experiment-workspace">
+                {copy.productShell.viewCompetitionExperiment}
+              </a>
+            </div>
+            {!ownerSession.session.authenticated ? (
+              <ExperimentWindowTimeline windows={experimentWindows} />
+            ) : null}
+            <ExperimentHistory
+              history={experimentHistory}
+              selectedRecordKey={selectedExperimentKey}
+              onSelectRecord={setSelectedExperimentKey}
+              indexOnly
+            />
+            {competitionExperiment ? (
+              <div id="competition-experiment-workspace">
+                <ExperimentWorkspace
+                  {...competitionExperiment.workspace}
+                  performanceConnection={{
+                    authenticated: ownerSession.session.authenticated,
+                    csrfToken: ownerSession.session.csrfToken,
+                    onSessionRejected: ownerSession.invalidate,
+                  }}
+                />
+              </div>
+            ) : null}
+          </>
+        ) : null}
+        {view === "new" ? (
+          <ConnectedStrategyIntake
+            session={ownerSession.session}
+            onSessionRejected={ownerSession.invalidate}
+            experimentClient={experimentClient}
+            onExperimentSaved={() => {
+              setRegistryRefreshVersion((current) => current + 1);
+              selectView("experiments");
+              window.scrollTo(0, 0);
+            }}
+          />
+        ) : null}
+        {view === "replay" ? (
           <div className="review-heading">
             <div>
               <p className="eyebrow">{copy.provenance.publicAccess}</p>
               <h1>{copy.positionReview.title}</h1>
+              <p className="replay-intro">{copy.productShell.replayIntro}</p>
             </div>
             <details className="view-help">
               <summary aria-label={copy.positionReview.helpLabel}>
@@ -1506,10 +1764,18 @@ export function ReplayShell({
             </details>
           </div>
         ) : null}
-        {view === "competition" && proofLoader && (!archiveLoader || proof?.publication_status === "PUBLISHED") ? (
+        {view === "experiments" && proofLoader && !archiveLoader ? (
           <PerformanceProof proof={proof} />
         ) : null}
-        {view === "demo" ? (
+        {view === "experiments" &&
+        archive?.publication_status === "PUBLISHED" &&
+        proof?.publication_status === "PUBLISHED" ? (
+          <details className="experiment-disclosure experiment-disclosure--account">
+            <summary>{copy.performance.label}</summary>
+            <PerformanceProof proof={proof} />
+          </details>
+        ) : null}
+        {view === "replay" ? (
           <>
             {replayLoader && loadedFixture?.scenario !== selectedScenario ? null : (
               <PositionContext
@@ -1538,19 +1804,20 @@ export function ReplayShell({
             )}
           </>
         ) : null}
-        {view === "setup" ? (
+        {view === "settings" ? (
           <SetupView
             onOpenOwnerSettings={() => setSettingsOpen(true)}
+            onOpenReplay={() => selectView("replay")}
             ownerControlsEnabled={runtimeMode === "CONNECTED"}
           />
         ) : null}
       </main>
-      {view === "demo" ? (
+      {view === "replay" ? (
         <div className="content-hint">
           <p>{copy.footer.keyboard}</p>
         </div>
       ) : null}
-      <footer>
+      <footer className="site-footer">
         <nav className="footer-links">
           <a href="/docs">{copy.footer.api}</a>
           <button
@@ -1577,7 +1844,8 @@ export function ReplayShell({
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         triggerRef={settingsButtonRef}
-        ownerControlsEnabled={runtimeMode === "CONNECTED"}
+        ownerSession={ownerSession}
+        ownerControlsEnabled={ownerControlsEnabled}
       />
       <InformationDialog
         kind={informationOpen}

@@ -21,6 +21,9 @@ from .sqlalchemy_repository import (
 
 if TYPE_CHECKING:
     from backend.app.evidence.repository import SQLAlchemyEvidenceLedger
+    from backend.app.experiments.performance_reader import SQLAlchemyExperimentPerformanceReader
+    from backend.app.experiments.repository import SQLAlchemyExperimentRegistry
+    from backend.app.experiments.windows import SQLAlchemyExperimentWindowReader
     from backend.app.lifecycle.repository import SQLAlchemyLifecycleRepository
     from backend.app.performance.repository import SQLAlchemyPerformanceRepository
     from backend.app.persistence.opportunity_authority import (
@@ -62,6 +65,9 @@ class RuntimePersistence:
     opportunity_authority_repository: SQLAlchemyOpportunityAuthorityRepository | None = None
     opportunity_evidence_repository: SQLAlchemyOpportunityEvidenceRepository | None = None
     opportunity_thesis_repository: SQLAlchemyOpportunityThesisRepository | None = None
+    experiment_registry: SQLAlchemyExperimentRegistry | None = None
+    experiment_performance_reader: SQLAlchemyExperimentPerformanceReader | None = None
+    experiment_window_reader: SQLAlchemyExperimentWindowReader | None = None
 
     @property
     def performance_proof_reader(self) -> SQLAlchemyPerformanceRepository:
@@ -133,6 +139,9 @@ def create_runtime_persistence(
     server_autonomy_enabled: bool = False,
 ) -> RuntimePersistence:
     from backend.app.evidence.repository import SQLAlchemyEvidenceLedger
+    from backend.app.experiments.performance_reader import SQLAlchemyExperimentPerformanceReader
+    from backend.app.experiments.repository import SQLAlchemyExperimentRegistry
+    from backend.app.experiments.windows import SQLAlchemyExperimentWindowReader
     from backend.app.lifecycle.repository import SQLAlchemyLifecycleRepository
     from backend.app.performance.repository import SQLAlchemyPerformanceRepository
     from backend.app.persistence.opportunity_authority import (
@@ -176,6 +185,9 @@ def create_runtime_persistence(
         opportunity_authority_repository=SQLAlchemyOpportunityAuthorityRepository(sessions),
         opportunity_evidence_repository=SQLAlchemyOpportunityEvidenceRepository(sessions),
         opportunity_thesis_repository=SQLAlchemyOpportunityThesisRepository(sessions),
+        experiment_registry=SQLAlchemyExperimentRegistry(sessions),
+        experiment_performance_reader=SQLAlchemyExperimentPerformanceReader(sessions),
+        experiment_window_reader=SQLAlchemyExperimentWindowReader(sessions),
     )
 
 

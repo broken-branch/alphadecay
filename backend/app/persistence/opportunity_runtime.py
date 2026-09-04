@@ -155,10 +155,8 @@ class SQLAlchemyOpportunityHistoryAdapter:
         book = snapshot.account_book
         if (
             seal.account_fingerprint != expected_account_fingerprint
-            or getattr(seal, "account_role", AccountRole.DEVELOPMENT)
-            is not self._account_role
-            or getattr(baseline, "account_role", AccountRole.DEVELOPMENT)
-            is not self._account_role
+            or getattr(seal, "account_role", AccountRole.DEVELOPMENT) is not self._account_role
+            or getattr(baseline, "account_role", AccountRole.DEVELOPMENT) is not self._account_role
             or baseline.account_fingerprint != expected_account_fingerprint
             or book.account_fingerprint != expected_account_fingerprint
             or book.account.role is not self._account_role
@@ -170,9 +168,13 @@ class SQLAlchemyOpportunityHistoryAdapter:
             event_key=opportunity_key,
             trading_day=trading_day,
         )
-        if (
-            history.account_fingerprint != expected_account_fingerprint
-            or history.clean_equity != book.account.equity
+        # A clean book's equity must equal the durable account equity exactly. With
+        # positions open, equity moves with option marks between reads, so the book is
+        # bound through the reconciliation state instead and equity only has to be sane.
+        if history.account_fingerprint != expected_account_fingerprint or (
+            history.clean_equity != book.account.equity
+            if not book.positions.positions
+            else not (book.account.equity.is_finite() and book.account.equity > 0)
         ):
             raise OpportunityRuntimePersistenceError("OPPORTUNITY_ACCOUNT_AUTHORITY_MISMATCH")
 
@@ -185,7 +187,11 @@ class SQLAlchemyOpportunityHistoryAdapter:
             baseline_source_hash=baseline.baseline_hash,
             book_fingerprint=book.source_hash,
             book_source_hash=book.source_hash,
-            clean_equity=history.clean_equity,
+            # With positions open the budget is sized from the equity observed in this
+            # snapshot, so the selector, assembler, and policy all see one equity figure.
+            clean_equity=(
+                book.account.equity if book.positions.positions else history.clean_equity
+            ),
             open_position_count=len(book.positions.positions),
             open_order_count=len(book.open_orders),
             filled_entry_count=history.entries_used,

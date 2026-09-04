@@ -7,7 +7,7 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from threading import Barrier
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 import pytest
 from sqlalchemy import create_engine, text
@@ -35,9 +35,11 @@ from backend.app.persistence.sqlalchemy_models import (
     DevelopmentOpportunityBaselineRow,
     DevelopmentOpportunityPlanRow,
     OpportunityObservationManifestRow,
+    SubmissionBaselineRow,
 )
 from backend.app.policy.opportunity import OpportunityPolicy
 
+ACTIVITY_FIXTURE_ID = str(uuid5(NAMESPACE_URL, "test-fixture-activity-prior-1"))
 ACCOUNT = "a" * 64
 NOW = datetime(2026, 8, 30, 15, tzinfo=UTC)
 MIGRATIONS = Path(__file__).parents[3] / "migrations"
@@ -122,7 +124,7 @@ def _baseline(plan_id) -> OpportunityBaselineSeal:
         positions_source_hash="2" * 64,
         orders_manifest=(),
         orders_source_hash="3" * 64,
-        activity_manifest=({"activity_id": "prior-1"},),
+        activity_manifest=({"activity_id": ACTIVITY_FIXTURE_ID},),
         activity_source_hash="4" * 64,
         book_hash="5" * 64,
         history_hash="6" * 64,
@@ -293,6 +295,27 @@ def test_plan_version_sequences_are_independent_by_executable_role() -> None:
         ).persisted.version
         == 2
     )
+    engine.dispose()
+
+
+def test_plan_version_sequences_are_independent_by_opportunity_key() -> None:
+    repository, _, engine = _sqlite_repository()
+    first = _plan()
+    second_key = "ACME_SECOND_PROTOCOL"
+    second = replace(
+        first,
+        opportunity_key=second_key,
+        policy=replace(first.policy, opportunity_key=second_key),
+        thesis_code=second_key,
+    )
+
+    first_persisted = repository.freeze_plan(first)
+    second_persisted = repository.freeze_plan(second)
+
+    assert first_persisted.version == 1
+    assert second_persisted.version == 1
+    assert repository.load_plan(first.opportunity_key).spec == first
+    assert repository.load_plan(second.opportunity_key).spec == second
     engine.dispose()
 
 
@@ -468,7 +491,7 @@ def test_exact_replay_revalidates_stored_payloads_and_nested_inputs_are_copied()
     repository, sessions, engine = _sqlite_repository()
     plan = repository.freeze_plan(_plan())
     mutable_detail = {"state": "settled"}
-    mutable_activity = {"activity_id": "prior-1", "detail": mutable_detail}
+    mutable_activity = {"activity_id": ACTIVITY_FIXTURE_ID, "detail": mutable_detail}
     seal = replace(_baseline(plan.plan_id), activity_manifest=(mutable_activity,))
     baseline = repository.seal_baseline(seal)
     mutable_detail["state"] = "changed"
@@ -481,7 +504,9 @@ def test_exact_replay_revalidates_stored_payloads_and_nested_inputs_are_copied()
         repository.seal_baseline(
             replace(
                 _baseline(plan.plan_id),
-                activity_manifest=({"activity_id": "prior-1", "detail": {"state": "settled"}},),
+                activity_manifest=(
+                    {"activity_id": ACTIVITY_FIXTURE_ID, "detail": {"state": "settled"}},
+                ),
             )
         )
     engine.dispose()
@@ -522,7 +547,7 @@ def _postgres_engine():
 def test_postgres_fresh_upgrade_replay_and_immutability() -> None:
     engine = _postgres_engine()
     migrations = discover_migrations(MIGRATIONS)
-    assert [migration.version for migration in migrations] == list(range(1, 27))
+    assert [migration.version for migration in migrations] == list(range(1, 37))
     assert migrations[19].sha256 == (
         "62dd83dcd3fe2392cbd5ee31330e8218776e9b8e8a57afc106c18c8f05627cc9"
     )
@@ -614,6 +639,66 @@ def test_postgres_fresh_upgrade_replay_and_immutability() -> None:
             pytest.raises(DBAPIError, match="DEVELOPMENT_OPPORTUNITY_EVIDENCE_IMMUTABLE"),
         ):
             connection.execute(text(statement), {"hash": "4" * 64, "id": row_id})
+    engine.dispose()
+
+
+def test_postgres_submission_plan_and_baseline_persist_and_replay() -> None:
+    engine = _postgres_engine()
+    migrations = discover_migrations(MIGRATIONS)
+    with engine.begin() as connection:
+        connection.execute(text("DROP SCHEMA public CASCADE"))
+        connection.execute(text("CREATE SCHEMA public"))
+    apply_migrations(engine, migrations)
+    sessions = sessionmaker(engine, expire_on_commit=False)
+    submission_baseline_id = uuid4()
+    with sessions.begin() as session:
+        session.add(
+            AccountRoleRow(
+                role=AccountRole.SUBMISSION.value,
+                account_fingerprint=ACCOUNT,
+                equity=Decimal("100000"),
+                autonomous_enabled=False,
+            )
+        )
+        session.add(
+            SubmissionBaselineRow(
+                baseline_id=submission_baseline_id,
+                account_role=AccountRole.SUBMISSION.value,
+                account_fingerprint=ACCOUNT,
+                equity=Decimal("100000"),
+                captured_at=NOW,
+                positions_hash="7" * 64,
+                orders_hash="8" * 64,
+                activities_hash="9" * 64,
+                contaminated=False,
+            )
+        )
+    development_plan = _plan()
+    submission_plan = replace(
+        development_plan,
+        account_role=AccountRole.SUBMISSION,
+        request_contract=replace(
+            development_plan.request_contract,
+            account_role=AccountRole.SUBMISSION,
+        ),
+    )
+    repository = SQLAlchemyOpportunityEvidenceRepository(sessions)
+    plan = repository.freeze_plan(submission_plan)
+    expected_baseline = replace(
+        _baseline(plan.plan_id),
+        account_role=AccountRole.SUBMISSION,
+        submission_baseline_id=submission_baseline_id,
+    )
+    baseline = repository.seal_baseline(expected_baseline)
+
+    assert repository.freeze_plan(submission_plan) == plan
+    assert repository.seal_baseline(expected_baseline) == baseline
+    loaded = repository.load_baseline(
+        plan.plan_id,
+        account_role=AccountRole.SUBMISSION,
+    )
+    assert loaded is not None
+    assert loaded.seal == expected_baseline
     engine.dispose()
 
 

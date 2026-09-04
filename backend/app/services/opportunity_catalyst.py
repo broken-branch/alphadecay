@@ -22,6 +22,9 @@ from backend.app.policy.opportunity import (
 )
 from backend.app.services.opportunity_input import CatalystAuthority
 
+_RETRIEVAL_SKEW_TOLERANCE = timedelta(seconds=30)
+
+
 _HASH = re.compile(r"^[0-9a-f]{64}$")
 _KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$")
 _CODE = re.compile(r"^[A-Z][A-Z0-9_]{0,63}$")
@@ -137,7 +140,9 @@ class BoundedOpportunityCatalystAuthority:
         except Exception as error:
             raise CatalystAuthorityError("CATALYST_CLASSIFICATION_UNAVAILABLE") from error
         _validate_classifications(classifications, bundle, plan)
-        quality, score = _assess_classifications(classifications)
+        quality, score = _assess_classifications(
+            tuple(item for item in classifications if item.event_code in plan.allowed_event_codes)
+        )
         return _result(
             plan=plan,
             policy=policy,
@@ -228,7 +233,7 @@ def _validate_bundle(
         or len(bundle.clusters) > 12
         or len(bundle.sources) > 48
         or not _is_utc(bundle.retrieved_at)
-        or bundle.retrieved_at > trusted_at
+        or bundle.retrieved_at - trusted_at > _RETRIEVAL_SKEW_TOLERANCE
         or trusted_at - bundle.retrieved_at > policy.maximum_catalyst_age
         or not _matches(_HASH, bundle.source_hash)
         or bool(bundle.clusters) != bool(bundle.sources)
@@ -359,7 +364,7 @@ def _validate_classifications(
             or type(classification.relation) is not EvidenceRelation
             or classification.source_tier is not cluster.source_tier
             or classification.independent_reporting_group != cluster.independent_reporting_group
-            or classification.event_code not in plan.allowed_event_codes
+            or not _matches(_CODE, classification.event_code)
             or type(classification.materiality) is not int
             or type(classification.relevance) is not Decimal
             or type(classification.confidence) is not Decimal

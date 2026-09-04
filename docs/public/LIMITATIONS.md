@@ -1,53 +1,31 @@
 # Limitations
 
-alphadecay is a hackathon prototype for paper options trading. These are its current limits.
+AlphaDecay is a hackathon prototype for one narrow options experiment. The public demo, development receipts, and competition record answer different questions and should not be treated as interchangeable evidence.
 
-## What has been proven
+## Evidence
 
-- Replay is tested against the fixtures in this repository. It sends no order.
+Replay proves that fixed repository inputs produce the displayed `HOLD`, `CLOSE`, `ROLL`, and `NO_ACTION` decisions. It uses invented data. The [development receipt](PROVIDER_REHEARSAL_PROOF.json) proves that eleven read-only provider requests completed and the development account stayed unchanged. It does not prove an order. Only a deliberately published [competition timeline](https://alphadecay.onrender.com/api/competition-record) and [account checkpoint](https://alphadecay.onrender.com/api/proof) can support a judged-account claim.
 
-- After reviewing development results, a bearish competition candidate was fixed before its holdout was opened. It produced too few qualifying trades, and too much of the result depended on one trade. It was not promoted, and no competition order was sent.
+An unavailable value stays unavailable. `NOT_PUBLISHED` means no eligible result has been released. A deployment health response proves that the app is running, not that providers are connected or that an order filled.
 
-- A development account rehearsal exercised the Trading API, MCP, and CLI paths. Every provider request only read data, and the account book stayed unchanged. The run stopped because it could not identify one managed position.
+## Data and simulated trading
 
-- The route that lets an owner arm the scheduler has been rehearsed with a development paper account. The account book did not change.
+Alpaca's free options feed is indicative rather than OPRA. Quotes can be missing, old, crossed, or inconsistent. Greeks and implied volatility may be absent when there is no usable bid and ask. The policy treats missing execution data as unknown and stops.
 
-- The broker service is covered by tests using fakes and PostgreSQL. This revision does not provide public proof of a real autonomous order.
+Historical option data does not contain every old executable bid, ask, and Greek needed to recreate a trustworthy options fill. Most strategy studies therefore test direction on the underlying security. The weekly spread study uses derived and delayed option trade bars. Its limits and losses are recorded in [Strategy research](STRATEGY_RESEARCH.md).
 
-- The Render app and GitHub repository are available without signing in. That proves the demo can be reached. It does not prove a broker connection, order, or return.
+Paper fills omit market impact, order-queue position, latency slippage, price improvement, regulatory fees, and dividends. They do not show that a live order would fill at the same price, and they do not predict future performance.
 
-The development rehearsal does not prove a positive assessment, fill, reconciliation, competition result, or profit and loss.
+## Product scope
 
-## Market data
+The policy supports one underlying, defined-risk call or put verticals, one expiration, and a bounded quantity and risk limit fixed by each plan. A reconciled open book may admit another eligible plan only when its controls allow it; each position still has a separate lifecycle. It excludes naked short options, expiration-day entries, market orders, separate-leg execution, bulk closing or cancellation, exercise, and do-not-exercise instructions.
 
-The free Alpaca options feed is indicative rather than OPRA. Quotes may be missing, stale, or crossed. Greeks and implied volatility may also be absent, especially when there is no usable bid and ask. alphadecay treats missing execution data as unknown and stops the action. It never replaces a missing value with zero.
+The experiment workspace can collect a thesis, accept bounded model labels, preserve a reviewed definition, compile fixed rules, and show a performance record. User-authored experiments are not automatically scheduled or connected to the launch runtime in this release.
 
-Historical Alpaca option data does not include the old bid, ask, and Greek record needed to recreate a complete options decision. Research on historical direction cannot prove that the option structure or fill would have worked.
+The model can classify the supplied thesis and named evidence incorrectly or be unavailable. It does not calculate Greeks, set risk, select a contract, choose an action, or write the public explanation. Fixed code performs those jobs. A source headline is attributed evidence, not a fact verified by AlphaDecay.
 
-## Paper trading
+## Operations and privacy
 
-Alpaca paper fills are simulations. They omit market impact, queue position, latency slippage, price improvement, regulatory fees, and dividends. Paper results do not predict live performance.
+The hosted service can restart, and scheduled requests can arrive late. Every run checks the market clock and data age before acting. Public records omit account, order, position, activity, and provider identifiers. Replay writes no browser storage; the only cookies are short-lived owner authentication and request-protection cookies. The full policy is in [Privacy](reviewers/PRIVACY.md), and connected deployment requirements are in [Setup](reviewers/SETUP.md).
 
-alphadecay has no live trading setting. It rejects every Alpaca trading endpoint except the paper endpoint.
-
-## Supported strategy
-
-The policy manages vertical spreads with a defined maximum loss and one expiration date. It does not support naked short options, entries on expiration day, market orders, separate leg orders, bulk closing or cancellation, exercise, or instructions not to exercise.
-
-The policy returns `NO_ACTION` when data, authority, or reconciliation is uncertain. It returns `NO_TRADE` when an entry check does not pass. Both are normal results.
-
-## Model and research sources
-
-Gemini receives a small sanitized evidence object and returns a bounded classification. The service may be unavailable, and its answer may be wrong. The model cannot calculate Greeks, select tools, choose an action, write browser copy, or place an order. The fixed policy and data checks decide the result.
-
-MCP research is limited to calls selected by the application that cannot change an account. A source headline is evidence, not a statement verified by alphadecay.
-
-## Operations
-
-The hosted app can restart, and scheduled GitHub Actions can run late. The backend checks the market time and data age on every run. A late start never permits an action based on stale data.
-
-The public performance endpoint shows only a sanitized record that the owner deliberately published. It is not the organizer's scoring formula, which has not been published.
-
-## Use
-
-alphadecay is not investment advice. Its paper results and Replay examples are not promises of live returns.
+AlphaDecay is not investment advice, a recommendation service, or a broker. Options can lose money even when their planned maximum loss is defined. Provider availability, paper records, tests, and model classifications are not warranties or endorsements.

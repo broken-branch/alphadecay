@@ -81,9 +81,7 @@ def build_production_opportunity_halt_resource(
     config: HaltAuthorityConfig,
     clock: Callable[[], datetime],
     stream_factory: Callable[..., HaltStockDataStream] = PinnedAlpacaStockDataStream,
-    adapter_factory: Callable[..., OpportunityHaltAuthority] = (
-        AlpacaOpportunityHaltStreamAdapter
-    ),
+    adapter_factory: Callable[..., OpportunityHaltAuthority] = (AlpacaOpportunityHaltStreamAdapter),
 ) -> RuntimeResource[OpportunityHaltAuthority]:
     _require_paper_settings(settings)
     codebook = alpaca_trading_status_codebook()
@@ -101,6 +99,7 @@ def build_production_opportunity_halt_resource(
             secret_key=settings.alpaca_secret_key.get_secret_value(),
             raw_data=False,
             feed=DataFeed.IEX,
+            data_timeout=config.maximum_trade_age.total_seconds(),
         )
         adapter = adapter_factory(
             stream,

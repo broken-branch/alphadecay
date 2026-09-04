@@ -1,0 +1,219 @@
+.protocol-builder {
+  width: min(100%, 1240px);
+  margin: 0 auto;
+  padding: clamp(40px, 6vw, 82px) clamp(20px, 5vw, 66px) 96px;
+  color: var(--primary, #f6f6f6);
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+}
+
+.protocol-builder h1,
+.protocol-builder h2,
+.protocol-builder p,
+.protocol-builder fieldset {
+  margin: 0;
+}
+
+.protocol-builder__header {
+  display: grid;
+  max-width: 880px;
+  gap: 14px;
+  padding-bottom: clamp(38px, 6vw, 68px);
+}
+
+.protocol-builder__header h1 {
+  font-size: clamp(2.5rem, 6vw, 5.8rem);
+  font-weight: 500;
+  letter-spacing: -0.055em;
+  line-height: 0.95;
+}
+
+.protocol-builder__header > p:not(.protocol-builder__eyebrow),
+.protocol-builder section > header p,
+.protocol-builder__advanced header p,
+.protocol-builder__footer p {
+  color: var(--secondary, #c8c8c8);
+  line-height: 1.6;
+}
+
+.protocol-builder__header strong {
+  color: var(--muted, #8e8e8e);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.protocol-builder__eyebrow,
+.protocol-builder__field label,
+.protocol-builder__rule legend {
+  color: var(--muted, #8e8e8e);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.protocol-builder > section,
+.protocol-builder__advanced {
+  padding: clamp(34px, 5vw, 58px) 0;
+  border-top: 1px solid var(--divider-soft, #363636);
+}
+
+.protocol-builder section > header,
+.protocol-builder__advanced header {
+  display: grid;
+  max-width: 760px;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.protocol-builder h2 {
+  font-size: clamp(1.45rem, 3vw, 2.5rem);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+}
+
+.protocol-builder__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 26px 32px;
+}
+
+.protocol-builder__field {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  align-content: start;
+}
+
+.protocol-builder__field input,
+.protocol-builder__field select {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 10px;
+  border: 1px solid var(--divider, #4d4d4d);
+  border-radius: 3px;
+  color: var(--primary, #f6f6f6);
+  background: var(--sheet, #171717);
+  font: inherit;
+}
+
+.protocol-builder__field input[type="date"],
+.protocol-builder__field input[type="datetime-local"],
+.protocol-builder__field input[type="number"] {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.protocol-builder__field input:focus-visible,
+.protocol-builder__field select:focus-visible,
+.protocol-builder__advanced summary:focus-visible,
+.protocol-builder__footer button:focus-visible {
+  outline: 2px solid var(--accent, #a991ff);
+  outline-offset: 3px;
+}
+
+.protocol-builder__field input[aria-invalid="true"],
+.protocol-builder__field select[aria-invalid="true"] {
+  border-color: var(--adverse, #f23645);
+}
+
+.protocol-builder__field small {
+  color: var(--muted, #8e8e8e);
+  line-height: 1.4;
+}
+
+.protocol-builder__error,
+.protocol-builder__section-error,
+.protocol-builder__summary {
+  color: var(--adverse, #f23645) !important;
+}
+
+.protocol-builder__summary {
+  padding: 14px 0;
+  border-top: 1px solid var(--adverse, #f23645);
+}
+
+.protocol-builder__section-error {
+  margin-top: 20px !important;
+}
+
+.protocol-builder__advanced summary {
+  color: var(--secondary, #c8c8c8);
+  cursor: pointer;
+}
+
+.protocol-builder__advanced > div {
+  padding-top: 32px;
+}
+
+.protocol-builder__rules {
+  display: grid;
+  gap: 0;
+}
+
+.protocol-builder__rule {
+  display: grid;
+  gap: 18px;
+  padding: 28px 0 32px;
+  border: 0;
+  border-top: 1px solid var(--divider-soft, #363636);
+}
+
+.protocol-builder__rule legend {
+  padding: 0;
+  color: var(--secondary, #c8c8c8);
+}
+
+.protocol-builder__rule > p {
+  max-width: 76ch;
+  line-height: 1.55;
+}
+
+.protocol-builder__rule-controls {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.protocol-builder__footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 28px;
+  align-items: center;
+  padding-top: 34px;
+  border-top: 1px solid var(--divider-soft, #363636);
+}
+
+.protocol-builder__footer button {
+  min-height: 46px;
+  padding: 0 22px;
+  border: 1px solid var(--accent, #a991ff);
+  border-radius: 3px;
+  color: var(--primary, #f6f6f6);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .protocol-builder__grid,
+  .protocol-builder__rule-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .protocol-builder__grid,
+  .protocol-builder__rule-controls,
+  .protocol-builder__footer {
+    grid-template-columns: 1fr;
+  }
+
+  .protocol-builder__footer button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .protocol-builder * {
+    scroll-behavior: auto;
+  }
+}

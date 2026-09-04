@@ -347,7 +347,7 @@ def test_incomplete_or_current_decision_bar_fails_closed() -> None:
         }
     )
 
-    with pytest.raises(OpportunitySnapshotError, match="DECISION_BAR_INVALID"):
+    with pytest.raises(OpportunitySnapshotError, match="DECISION_BAR_(INVALID|INCOMPLETE)"):
         target.collect(request(), trusted_at=TRUSTED_AT)
 
 

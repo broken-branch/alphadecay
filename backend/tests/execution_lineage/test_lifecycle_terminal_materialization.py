@@ -10,11 +10,13 @@ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 import pytest
 from pg8000.dbapi import ProgrammingError as PGProgrammingError
 from sqlalchemy import create_engine, event, insert, inspect, select, text
+from sqlalchemy.exc import DatabaseError as SQLDatabaseError
 from sqlalchemy.exc import ProgrammingError as SQLProgrammingError
 
 from backend.app.contracts.v1 import AccountRole, PositionIntent
 from backend.app.execution import ExecutionBlocked, intent_digest, order_envelope_hash
 from backend.app.execution.models import ExecutionAction, OrderEnvelope, OrderLegIntent
+from backend.app.experiment_lineage import ExperimentExecutionLineage
 from backend.app.lifecycle.fingerprint import option_position_fingerprint
 from backend.app.lifecycle.materialization import SQLAlchemyEntryMaterializer
 from backend.app.lifecycle.repository import (
@@ -24,6 +26,7 @@ from backend.app.lifecycle.repository import (
 from backend.app.lifecycle.terminal_materialization import (
     LifecycleTerminalMaterializationError,
     SQLAlchemyLifecycleTerminalMaterializer,
+    _final_reconciliation_request_hash,
     _validate_terminal_inventory,
 )
 from backend.app.persistence.agent_repository import AgentDecisionRepository
@@ -46,6 +49,7 @@ from backend.app.persistence.sqlalchemy_models import (
     ManagedPositionSnapshotRow,
     ManagedPositionTransitionRow,
     OrderAttemptRow,
+    ThesisVersionRow,
     WholeAccountReconciliationRow,
 )
 from backend.app.services import ObservedPaperAccountAuthority
@@ -54,6 +58,7 @@ from backend.tests.execution_lineage.test_entry_materialization import (
 )
 from backend.tests.execution_lineage.test_entry_materialization import (
     ENTRY_AT,
+    EXPERIMENT_LINEAGE,
     _repository,
 )
 from backend.tests.execution_lineage.test_entry_materialization import (
@@ -78,8 +83,8 @@ PERMIT_ID = UUID("90000000-0000-0000-0000-000000000009")
 OBSERVATION_ID = UUID("90000000-0000-0000-0000-000000000010")
 RECONCILIATION_ID = UUID("90000000-0000-0000-0000-000000000011")
 STATE_ID = UUID("90000000-0000-0000-0000-000000000012")
-CLIENT_ID = "lifecycle-client-a0"
-PROVIDER_ID = "lifecycle-provider-a0"
+CLIENT_ID = str(uuid5(NAMESPACE_URL, "test-fixture-lifecycle-client-order-a0"))
+PROVIDER_ID = str(uuid5(NAMESPACE_URL, "test-fixture-lifecycle-provider-order-a0"))
 POSTGRES_URL_ENV = "ALPHADECAY_TEST_POSTGRES_URL"
 MIGRATIONS = Path(__file__).parents[3] / "migrations"
 
@@ -133,14 +138,18 @@ def _copy_fixture_rows(source, target) -> None:
             target.execute(insert(table), rows)
 
 
-def _seed_terminal(action: str):
-    sessions, engine, retained = _repository()
-    position_id = SQLAlchemyEntryMaterializer(sessions).materialize(
+def _seed_terminal(
+    action: str,
+    account_role: AccountRole = AccountRole.DEVELOPMENT,
+    experiment_lineage: ExperimentExecutionLineage | None = None,
+):
+    sessions, engine, retained = _repository(account_role, experiment_lineage)
+    materialized_position = SQLAlchemyEntryMaterializer(sessions).materialize(
         execution_certificate_id=ENTRY_CERTIFICATE_ID,
         launch_authority=retained.launch_authority,
     )
     with sessions.begin() as session:
-        position = session.get(ManagedLifecyclePositionRow, position_id)
+        position = session.get(ManagedLifecyclePositionRow, materialized_position)
         predecessor = session.get(ManagedPositionSnapshotRow, position.current_snapshot_id)
         prior_state = session.get(AccountReconciliationStateRow, ENTRY_STATE_ID)
         prior_inventory = predecessor.normalized_inventory
@@ -212,7 +221,11 @@ def _seed_terminal(action: str):
             approved_max_loss=Decimal("500"),
             event_key=event_key,
             trading_day=TERMINAL_AT.date(),
-            market_session_id=(UUID(int=220) if action == "ROLL" else None),
+            market_session_id=(
+                uuid5(NAMESPACE_URL, "test-fixture-market-session-220")
+                if action == "ROLL"
+                else None
+            ),
             quoted_relative_spread=(Decimal("0.05") if action == "ROLL" else None),
             maximum_relative_spread=(Decimal("0.25") if action == "ROLL" else None),
             incremental_debit=(Decimal("100") if action == "ROLL" else None),
@@ -265,9 +278,9 @@ def _seed_terminal(action: str):
         session.add(
             LifecycleAccountObservationRow(
                 observation_id=ACCOUNT_OBSERVATION_ID,
-                managed_position_id=position_id,
+                managed_position_id=materialized_position,
                 managed_snapshot_id=predecessor.snapshot_id,
-                account_role="DEVELOPMENT",
+                account_role=account_role.value,
                 account_fingerprint=FINGERPRINT,
                 sweep_payload={},
                 sweep_hash="2" * 64,
@@ -282,7 +295,7 @@ def _seed_terminal(action: str):
                 manifest_hash=manifest_hash,
                 agent_input_snapshot_id=None,
                 account_observation_id=ACCOUNT_OBSERVATION_ID,
-                managed_position_id=position_id,
+                managed_position_id=materialized_position,
                 managed_snapshot_id=predecessor.snapshot_id,
                 reconciliation_id=None,
                 greek_authority_id=retained.greek_authority.authority_id,
@@ -303,7 +316,7 @@ def _seed_terminal(action: str):
             AgentInputSnapshotRow(
                 snapshot_id=INPUT_ID,
                 thesis_version_id=retained.thesis_version_id,
-                account_role="DEVELOPMENT",
+                account_role=account_role.value,
                 account_fingerprint=FINGERPRINT,
                 decision_kind="ASSESSMENT",
                 decision_boundary=TERMINAL_AT - timedelta(minutes=6),
@@ -339,9 +352,9 @@ def _seed_terminal(action: str):
             AgentDecisionRow(
                 decision_id=DECISION_ID,
                 thesis_version_id=retained.thesis_version_id,
-                origin_tick_id=UUID(int=202),
+                origin_tick_id=uuid5(NAMESPACE_URL, "test-fixture-terminal-tick-202"),
                 input_snapshot_id=INPUT_ID,
-                account_role="DEVELOPMENT",
+                account_role=account_role.value,
                 account_fingerprint=FINGERPRINT,
                 decision_kind="ASSESSMENT",
                 outcome=outcome,
@@ -352,6 +365,17 @@ def _seed_terminal(action: str):
                 autonomy_authorized=True,
                 decision_boundary=TERMINAL_AT - timedelta(minutes=6),
                 created_at=TERMINAL_AT - timedelta(minutes=4),
+                experiment_id=(
+                    experiment_lineage.experiment_id if experiment_lineage is not None else None
+                ),
+                experiment_source_definition_hash=(
+                    experiment_lineage.source_definition_hash
+                    if experiment_lineage is not None
+                    else None
+                ),
+                experiment_protocol_hash=(
+                    experiment_lineage.protocol_hash if experiment_lineage is not None else None
+                ),
             )
         )
         session.add(
@@ -360,7 +384,7 @@ def _seed_terminal(action: str):
                 thesis_version_id=retained.thesis_version_id,
                 agent_decision_id=DECISION_ID,
                 assessment_id=ASSESSMENT_ID,
-                account_role="DEVELOPMENT",
+                account_role=account_role.value,
                 action=action,
                 position_fingerprint=predecessor.position_fingerprint,
                 envelope_hash=envelope_hash,
@@ -371,12 +395,23 @@ def _seed_terminal(action: str):
                 created_at=TERMINAL_AT - timedelta(minutes=3),
                 expires_at=TERMINAL_AT + timedelta(minutes=3),
                 valid=True,
+                experiment_id=(
+                    experiment_lineage.experiment_id if experiment_lineage is not None else None
+                ),
+                experiment_source_definition_hash=(
+                    experiment_lineage.source_definition_hash
+                    if experiment_lineage is not None
+                    else None
+                ),
+                experiment_protocol_hash=(
+                    experiment_lineage.protocol_hash if experiment_lineage is not None else None
+                ),
             )
         )
         session.add(
             ExecutionIntentRow(
                 intent_id=INTENT_ID,
-                account_role="DEVELOPMENT",
+                account_role=account_role.value,
                 intent_digest=digest,
                 action=action,
                 policy_hash=POLICY_HASH,
@@ -422,7 +457,11 @@ def _seed_terminal(action: str):
             "intent_id": str(INTENT_ID),
             "intent_digest": digest,
             "attempt_ordinal": 0,
-            "request_hash": "6" * 64,
+            "request_hash": _final_reconciliation_request_hash(
+                digest,
+                0,
+                "0" * 63 + "1",
+            ),
             "expected_open_orders": [],
             "expected_cash": "99625",
         }
@@ -439,11 +478,11 @@ def _seed_terminal(action: str):
                 expectation_hash="a" * 64,
                 execution_intent_id=INTENT_ID,
                 intent_digest=digest,
-                account_role="DEVELOPMENT",
+                account_role=account_role.value,
                 account_fingerprint=FINGERPRINT,
                 purpose="SUBMIT",
                 attempt_ordinal=0,
-                request_hash="6" * 64,
+                request_hash=expectation["request_hash"],
                 accepted_at=TERMINAL_AT,
                 expectation_payload=expectation,
                 sweep_payload=sweep,
@@ -457,7 +496,7 @@ def _seed_terminal(action: str):
         session.add(
             AccountReconciliationStateRow(
                 state_id=STATE_ID,
-                account_role="DEVELOPMENT",
+                account_role=account_role.value,
                 sequence=prior_state.sequence + 1,
                 account_fingerprint=FINGERPRINT,
                 baseline_id=prior_state.baseline_id,
@@ -486,7 +525,7 @@ def _seed_terminal(action: str):
                 reconciliation_id=RECONCILIATION_ID,
                 execution_intent_id=INTENT_ID,
                 intent_digest=digest,
-                claim_token=UUID(int=203),
+                claim_token=uuid5(NAMESPACE_URL, "test-fixture-terminal-claim-203"),
                 claim_generation=2,
                 execution_epoch=0,
                 mutation_kind="SUBMIT",
@@ -498,7 +537,7 @@ def _seed_terminal(action: str):
                 issued_at=TERMINAL_AT - timedelta(minutes=2),
                 expires_at=TERMINAL_AT + timedelta(minutes=1),
                 state="CONSUMED",
-                dispatch_nonce=UUID(int=204),
+                dispatch_nonce=uuid5(NAMESPACE_URL, "test-fixture-terminal-dispatch-204"),
                 dispatch_acquired_at=TERMINAL_AT - timedelta(minutes=1),
                 consumed_at=TERMINAL_AT,
                 outcome_hash="9" * 64,
@@ -549,17 +588,17 @@ def _seed_terminal(action: str):
                 last_observation_hash="0" * 63 + "1",
             )
         )
-    return sessions, engine, position_id, certificate_id, inventory
+    return sessions, engine, materialized_position, certificate_id, inventory
 
 
 def _complete_failed_materialization_tick(sessions, certificate_id: UUID):
-    tick_id = UUID(int=202)
-    reservation_token = UUID(int=205)
+    tick_reference = uuid5(NAMESPACE_URL, "test-fixture-terminal-tick-202")
+    reservation_token = uuid5(NAMESPACE_URL, "test-fixture-terminal-reservation-205")
     tick_boundary = TERMINAL_AT - timedelta(minutes=7)
     with sessions.begin() as session:
         session.add(
             AgentTickRow(
-                tick_id=tick_id,
+                tick_id=tick_reference,
                 account_role="DEVELOPMENT",
                 account_fingerprint=FINGERPRINT,
                 tick_key="lifecycle-terminal-materialization-fixture",
@@ -576,13 +615,13 @@ def _complete_failed_materialization_tick(sessions, certificate_id: UUID):
             )
         )
     with sessions.begin() as session:
-        session.get(AgentTickRow, tick_id).decision_id = DECISION_ID
+        session.get(AgentTickRow, tick_reference).decision_id = DECISION_ID
     return AgentDecisionRepository(
         sessions,
         database_clock=_TerminalClock(),
         server_autonomy_enabled=True,
     ).complete_tick(
-        tick_id=tick_id,
+        tick_id=tick_reference,
         reservation_token=reservation_token,
         terminal_code="LIFECYCLE_FILLED_MATERIALIZATION_FAILED",
         decision_id=DECISION_ID,
@@ -620,7 +659,7 @@ def test_sqlite_tick_rejects_substituted_lifecycle_certificate_lineage(
         _complete_failed_materialization_tick(sessions, certificate_id)
 
     with sessions() as session:
-        tick = session.get(AgentTickRow, UUID(int=202))
+        tick = session.get(AgentTickRow, uuid5(NAMESPACE_URL, "test-fixture-terminal-tick-202"))
         assert tick.status == "RESERVED"
         assert tick.execution_certificate_id is None
     engine.dispose()
@@ -677,6 +716,109 @@ def test_filled_terminal_materialization_is_exactly_idempotent(action: str) -> N
     engine.dispose()
 
 
+def test_terminal_materialization_accepts_matching_experiment_lineage() -> None:
+    sessions, engine, position_id, certificate_id, _ = _seed_terminal(
+        "ROLL",
+        experiment_lineage=EXPERIMENT_LINEAGE,
+    )
+
+    SQLAlchemyLifecycleTerminalMaterializer(sessions).materialize(
+        execution_certificate_id=certificate_id
+    )
+
+    with sessions() as session:
+        position = session.get(ManagedLifecyclePositionRow, position_id)
+        assert position is not None
+        assert position.experiment_id == EXPERIMENT_LINEAGE.experiment_id
+        assert position.experiment_protocol_hash == EXPERIMENT_LINEAGE.protocol_hash
+    engine.dispose()
+
+
+def test_terminal_materialization_rejects_mismatched_experiment_lineage() -> None:
+    sessions, engine, _, certificate_id, _ = _seed_terminal(
+        "ROLL",
+        experiment_lineage=EXPERIMENT_LINEAGE,
+    )
+    with sessions.begin() as session:
+        assessment = session.get(AssessmentCertificateRow, ASSESSMENT_CERTIFICATE_ID)
+        assert assessment is not None
+        assessment.experiment_protocol_hash = "8" * 64
+
+    with pytest.raises(
+        LifecycleTerminalMaterializationError,
+        match="LIFECYCLE_LINEAGE_INVALID",
+    ):
+        SQLAlchemyLifecycleTerminalMaterializer(sessions).materialize(
+            execution_certificate_id=certificate_id
+        )
+    engine.dispose()
+
+
+@pytest.mark.parametrize("action", ("ROLL", "CLOSE"))
+def test_submission_lifecycle_fill_materializes_for_exact_account_role(action: str) -> None:
+    sessions, engine, position_id, certificate_id, _ = _seed_terminal(
+        action,
+        AccountRole.SUBMISSION,
+    )
+
+    SQLAlchemyLifecycleTerminalMaterializer(sessions).materialize(
+        execution_certificate_id=certificate_id
+    )
+
+    with sessions() as session:
+        position = session.get(ManagedLifecyclePositionRow, position_id)
+        assert position.account_role == AccountRole.SUBMISSION.value
+        assert (position.closed_at is not None) == (action == "CLOSE")
+        transitions = session.scalars(
+            select(ManagedPositionTransitionRow)
+            .where(ManagedPositionTransitionRow.managed_position_id == position_id)
+            .order_by(ManagedPositionTransitionRow.transition_sequence)
+        ).all()
+        assert [item.action for item in transitions] == ["ENTRY", action]
+    engine.dispose()
+
+
+@pytest.mark.parametrize(
+    "row",
+    ("decision", "thesis", "predecessor-state", "predecessor-fingerprint"),
+)
+def test_submission_lifecycle_rejects_cross_role_lineage(row: str) -> None:
+    sessions, engine, _, certificate_id, _ = _seed_terminal(
+        "CLOSE",
+        AccountRole.SUBMISSION,
+    )
+    with sessions.begin() as session:
+        if row == "decision":
+            target = session.get(AgentDecisionRow, DECISION_ID)
+        elif row == "thesis":
+            assessment = session.get(AssessmentCertificateRow, ASSESSMENT_CERTIFICATE_ID)
+            assert assessment is not None
+            target = session.get(ThesisVersionRow, assessment.thesis_version_id)
+        else:
+            position = session.scalar(select(ManagedLifecyclePositionRow))
+            assert position is not None
+            snapshot = session.get(ManagedPositionSnapshotRow, position.current_snapshot_id)
+            assert snapshot is not None
+            target = session.get(
+                AccountReconciliationStateRow,
+                snapshot.reconciliation_state_id,
+            )
+        assert target is not None
+        if row == "predecessor-fingerprint":
+            target.account_fingerprint = "f" * 64
+        else:
+            target.account_role = AccountRole.DEVELOPMENT.value
+
+    with pytest.raises(
+        LifecycleTerminalMaterializationError,
+        match="LIFECYCLE_LINEAGE_INVALID",
+    ):
+        SQLAlchemyLifecycleTerminalMaterializer(sessions).materialize(
+            execution_certificate_id=certificate_id
+        )
+    engine.dispose()
+
+
 @pytest.mark.parametrize(
     "status",
     ("REJECTED", "CANCELED", "EXPIRED", "UNFILLED", "PARTIAL_CANCELED_RECONCILED"),
@@ -714,7 +856,9 @@ def test_nonfilled_terminal_certificate_never_mutates_managed_position(status: s
             session.get(AgentInputSnapshotRow, INPUT_ID),
             "normalized_payload",
             {
-                "acquisition_manifest_id": str(UUID(int=999)),
+                "acquisition_manifest_id": str(
+                    uuid5(NAMESPACE_URL, "test-fixture-acquisition-manifest-999")
+                ),
                 "acquisition_manifest_hash": "1" * 64,
             },
         ),
@@ -926,6 +1070,106 @@ def test_reconciliation_cannot_backdate_new_fill_activity() -> None:
     POSTGRES_URL_ENV not in os.environ,
     reason="requires a dedicated PostgreSQL integration URL",
 )
+@pytest.mark.parametrize(
+    ("position_lineage", "assessment_lineage"),
+    (
+        pytest.param(EXPERIMENT_LINEAGE, None, id="null-assessment-lineaged-position"),
+        pytest.param(None, EXPERIMENT_LINEAGE, id="lineaged-assessment-null-position"),
+    ),
+)
+def test_postgres_0033_rejects_assessment_position_lineage_mismatch(
+    position_lineage: ExperimentExecutionLineage | None,
+    assessment_lineage: ExperimentExecutionLineage | None,
+) -> None:
+    sqlite_sessions, sqlite_engine, retained = _repository(
+        AccountRole.DEVELOPMENT,
+        position_lineage,
+    )
+    SQLAlchemyEntryMaterializer(sqlite_sessions).materialize(
+        execution_certificate_id=ENTRY_CERTIFICATE_ID,
+        launch_authority=retained.launch_authority,
+    )
+    admin = create_engine(os.environ[POSTGRES_URL_ENV])
+    schema = f"experiment_assessment_lineage_{uuid4().hex}"
+    with admin.begin() as connection:
+        connection.execute(text(f'CREATE SCHEMA "{schema}"'))
+    engine = create_engine(os.environ[POSTGRES_URL_ENV])
+
+    @event.listens_for(engine, "connect")
+    def _set_search_path(dbapi_connection, _connection_record) -> None:
+        cursor = dbapi_connection.cursor()
+        try:
+            cursor.execute(f'SET search_path TO "{schema}"')
+        finally:
+            cursor.close()
+
+    try:
+        apply_migrations(engine, discover_migrations(MIGRATIONS))
+        with sqlite_sessions() as source, engine.begin() as target:
+            target.exec_driver_sql("SET session_replication_role = replica")
+            _copy_fixture_rows(source, target)
+            target.exec_driver_sql("SET session_replication_role = origin")
+        with (
+            pytest.raises(
+                SQLDatabaseError,
+                match="EXPERIMENT_ASSESSMENT_POSITION_LINEAGE_INVALID",
+            ),
+            engine.begin() as connection,
+        ):
+            connection.execute(
+                text(
+                    "CREATE TEMP TABLE assessment_lineage_probe ("
+                    "account_role varchar(16) NOT NULL, "
+                    "position_fingerprint varchar(64) NOT NULL, "
+                    "experiment_id uuid, "
+                    "experiment_source_definition_hash varchar(64), "
+                    "experiment_protocol_hash varchar(64))"
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE CONSTRAINT TRIGGER assessment_lineage_probe_guard "
+                    "AFTER INSERT ON assessment_lineage_probe "
+                    "DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION "
+                    "experiment_assessment_position_lineage_guard()"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO assessment_lineage_probe ("
+                    "account_role, position_fingerprint, experiment_id, "
+                    "experiment_source_definition_hash, experiment_protocol_hash) "
+                    "VALUES (:account_role, :position_fingerprint, :experiment_id, "
+                    ":source_definition_hash, :protocol_hash)"
+                ),
+                {
+                    "account_role": AccountRole.DEVELOPMENT.value,
+                    "position_fingerprint": retained.position_fingerprint,
+                    "experiment_id": (
+                        assessment_lineage.experiment_id if assessment_lineage is not None else None
+                    ),
+                    "source_definition_hash": (
+                        assessment_lineage.source_definition_hash
+                        if assessment_lineage is not None
+                        else None
+                    ),
+                    "protocol_hash": (
+                        assessment_lineage.protocol_hash if assessment_lineage is not None else None
+                    ),
+                },
+            )
+    finally:
+        sqlite_engine.dispose()
+        engine.dispose()
+        with admin.begin() as connection:
+            connection.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
+        admin.dispose()
+
+
+@pytest.mark.skipif(
+    POSTGRES_URL_ENV not in os.environ,
+    reason="requires a dedicated PostgreSQL integration URL",
+)
 def test_postgres_0017_close_upgrade_and_delayed_terminal_materialization() -> None:
     action = "CLOSE"
     sqlite_sessions, sqlite_engine, position_id, certificate_id, inventory = _seed_terminal(action)
@@ -1043,19 +1287,19 @@ def test_postgres_agent_tick_guard_requires_certificate_for_new_terminal_statuse
     terminal_code: str,
 ) -> None:
     sqlite_sessions, sqlite_engine, _, _, _ = _seed_terminal("ROLL")
-    tick_id = UUID(int=202)
+    tick_reference = uuid5(NAMESPACE_URL, "test-fixture-terminal-tick-202")
     tick_boundary = TERMINAL_AT - timedelta(minutes=7)
     with sqlite_sessions.begin() as session:
         session.add(
             AgentTickRow(
-                tick_id=tick_id,
+                tick_id=tick_reference,
                 account_role="DEVELOPMENT",
                 account_fingerprint=FINGERPRINT,
                 tick_key="terminal-status-guard-fixture",
                 tick_boundary=tick_boundary,
                 actor="SCHEDULER",
                 status="RESERVED",
-                reservation_token=UUID(int=206),
+                reservation_token=uuid5(NAMESPACE_URL, "test-fixture-terminal-reservation-206"),
                 terminal_code=None,
                 decision_id=DECISION_ID,
                 execution_certificate_id=None,
@@ -1102,7 +1346,7 @@ def test_postgres_agent_tick_guard_requires_certificate_for_new_terminal_statuse
                     "code": terminal_code,
                     "proof": "a" * 64,
                     "completed": TERMINAL_AT,
-                    "tick_id": tick_id,
+                    "tick_id": tick_reference,
                 },
             )
     finally:

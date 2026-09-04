@@ -307,25 +307,17 @@ def test_approved_entry_fill_materializes_then_next_tick_holds_without_another_w
         assert result.terminal_code == "HOLD_CERTIFIED"
         assert result.approved_intent_id is None
         assert result.execution_certificate_id is None
-        assert execution.calls == [
-            (INTENT_ID, Actor.SCHEDULER, retained.thesis_frozen_at)
-        ]
+        assert execution.calls == [(INTENT_ID, Actor.SCHEDULER, retained.thesis_frozen_at)]
         with sessions() as session:
             assert session.scalar(select(func.count()).select_from(ExecutionIntentRow)) == 1
+            assert session.scalar(select(func.count()).select_from(ExecutionCertificateRow)) == 1
             assert (
-                session.scalar(select(func.count()).select_from(ExecutionCertificateRow)) == 1
+                session.scalar(select(func.count()).select_from(ManagedLifecyclePositionRow)) == 1
             )
             assert (
-                session.scalar(select(func.count()).select_from(ManagedLifecyclePositionRow))
-                == 1
+                session.scalar(select(func.count()).select_from(ManagedPositionTransitionRow)) == 1
             )
-            assert (
-                session.scalar(select(func.count()).select_from(ManagedPositionTransitionRow))
-                == 1
-            )
-            assert (
-                session.scalar(select(func.count()).select_from(ManagedPositionSnapshotRow)) == 1
-            )
+            assert session.scalar(select(func.count()).select_from(ManagedPositionSnapshotRow)) == 1
             assert (
                 session.scalar(select(func.count()).select_from(LifecycleObservationManifestRow))
                 == 1

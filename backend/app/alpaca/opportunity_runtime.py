@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Protocol
 
 from backend.app.alpaca.opportunity import (
@@ -142,7 +142,7 @@ class OpportunityHaltRuntimeAdapter:
         if (
             type(snapshot) is not HaltAuthoritySnapshot
             or snapshot.symbol != self._symbol
-            or snapshot.observed_at != trusted_at
+            or snapshot.observed_at < trusted_at
             or snapshot.source_hash != halt_authority_snapshot_digest(snapshot)
         ):
             raise OpportunityRuntimeAdapterError("OPPORTUNITY_HALT_AUTHORITY_INVALID")
@@ -274,7 +274,7 @@ def _catalyst_result_valid(
                 result.authority_hash,
             )
         )
-        and result.authority.observed_at <= trusted_at
+        and result.authority.observed_at - trusted_at <= timedelta(seconds=30)
         and trusted_at - result.authority.observed_at <= policy.maximum_catalyst_age
     )
 

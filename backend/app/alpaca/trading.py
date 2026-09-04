@@ -38,6 +38,7 @@ from backend.app.contracts.v1 import (
     PositionListResponse,
     PositionResponse,
 )
+from backend.app.domain.option_contract_symbol import parse_standard_option_contract_symbol
 from backend.app.execution import (
     AmbiguousBrokerResponse,
     BrokerResult,
@@ -88,14 +89,16 @@ class _AccountPayload(_ProviderModel):
 
 
 class _PositionPayload(_ProviderModel):
+    """Alpaca's position object omits contract terms; they are derived from the OCC symbol."""
+
     asset_class: str
     symbol: str
-    underlying_symbol: str
-    expiration_date: date
-    strike_price: Decimal
-    option_type: str
     qty: Decimal
-    multiplier: Decimal
+    underlying_symbol: str | None = None
+    expiration_date: date | None = None
+    strike_price: Decimal | None = None
+    option_type: str | None = None
+    multiplier: Decimal | None = None
 
 
 class _OrderPayload(_ProviderModel):
@@ -198,7 +201,20 @@ class AlpacaTradingReadAdapter:
         return payload
 
     def _normalize_position(self, payload: _PositionPayload) -> PositionResponse:
-        if payload.asset_class != "us_option" or payload.multiplier != Decimal(100):
+        if payload.asset_class != "us_option":
+            raise ValueError("unsupported option position")
+        contract = parse_standard_option_contract_symbol(payload.symbol)
+        underlying = payload.underlying_symbol or contract.root_symbol
+        expiry = payload.expiration_date or contract.expiration_date
+        strike = payload.strike_price if payload.strike_price is not None else contract.strike_price
+        option_type = payload.option_type or ("call" if contract.right == "C" else "put")
+        multiplier = payload.multiplier if payload.multiplier is not None else Decimal(100)
+        if (
+            multiplier != Decimal(100)
+            or underlying != contract.root_symbol
+            or expiry != contract.expiration_date
+            or strike != contract.strike_price
+        ):
             raise ValueError("unsupported option position")
         quantity = _whole_positive_quantity(abs(payload.qty))
         if payload.qty == 0:
@@ -206,15 +222,15 @@ class AlpacaTradingReadAdapter:
         option_right = {
             "call": OptionRight.CALL,
             "put": OptionRight.PUT,
-        }.get(payload.option_type.lower())
-        if option_right is None:
+        }.get(option_type.lower())
+        if option_right is None or option_right.value[0].upper() != contract.right:
             raise ValueError("unknown option type")
         intent = PositionIntent.BUY_TO_OPEN if payload.qty > 0 else PositionIntent.SELL_TO_OPEN
         leg = OptionLeg(
             symbol=payload.symbol,
-            underlying=payload.underlying_symbol,
-            expiry=payload.expiration_date,
-            strike=payload.strike_price,
+            underlying=underlying,
+            expiry=expiry,
+            strike=strike,
             right=option_right,
             intent=intent,
             ratio=1,
@@ -228,7 +244,7 @@ class AlpacaTradingReadAdapter:
         return PositionResponse(
             position_id=uuid5(NAMESPACE_URL, f"alphadecay:{self._account_role}:{payload.symbol}"),
             role=self._account_role,
-            underlying=payload.underlying_symbol,
+            underlying=underlying,
             legs=(leg,),
             current_exposure=None,
             quality=DataQuality.COMPLETE,
@@ -347,6 +363,7 @@ _ALPACA_POSITION_INTENTS = {
     PositionIntent.BUY_TO_CLOSE: AlpacaPositionIntent.BUY_TO_CLOSE,
     PositionIntent.SELL_TO_CLOSE: AlpacaPositionIntent.SELL_TO_CLOSE,
 }
+
 
 def _is_outcome_uncertain(error: APIError) -> bool:
     status = error.status_code

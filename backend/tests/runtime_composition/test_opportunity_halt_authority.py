@@ -444,13 +444,16 @@ def test_trade_must_be_post_ack_fresh_and_well_formed() -> None:
     )
 
     assert _reduce(acknowledged, before_ack).state is HaltAuthorityState.UNKNOWN
-    assert reduce_halt_authority(
-        previous=acknowledged,
-        event=stale,
-        config=_config(),
-        codebook=_codebook(),
-        read_at=stale.event_at + timedelta(seconds=16),
-    ).state is HaltAuthorityState.UNKNOWN
+    assert (
+        reduce_halt_authority(
+            previous=acknowledged,
+            event=stale,
+            config=_config(),
+            codebook=_codebook(),
+            read_at=stale.event_at + timedelta(seconds=16),
+        ).state
+        is HaltAuthorityState.UNKNOWN
+    )
     assert _reduce(acknowledged, missing_id).state is HaltAuthorityState.UNKNOWN
 
 
@@ -471,6 +474,28 @@ def test_read_goes_unknown_when_trade_is_stale_or_session_rolls() -> None:
     assert stale.state is HaltAuthorityState.UNKNOWN
     assert rollover.state is HaltAuthorityState.UNKNOWN
     assert stale.source_hash == halt_authority_snapshot_digest(stale)
+
+
+def test_boundary_read_uses_the_stream_observation_when_it_is_ahead() -> None:
+    open_state = _open_state()
+
+    result = read_halt_authority(
+        previous=open_state,
+        config=_config(),
+        read_at=open_state.last_trade_at - timedelta(seconds=1),  # type: ignore[operator]
+    )
+
+    assert result.state is HaltAuthorityState.OPEN_CONFIRMED
+    assert result.trading_halt_state is TradingHaltState.NOT_HALTED
+    assert result.observed_at == open_state.observed_at
+
+    next_trade = _event(
+        HaltAuthorityEventKind.TRADE,
+        sequence=result.last_sequence + 1,
+        at=open_state.last_trade_at + timedelta(seconds=1),  # type: ignore[operator]
+        trade_id="trade-2",
+    )
+    assert _reduce(result, next_trade).state is HaltAuthorityState.OPEN_CONFIRMED
 
 
 def test_session_close_is_exclusive_for_reads_and_events() -> None:
@@ -508,7 +533,7 @@ def test_read_time_cannot_regress() -> None:
         read_halt_authority(
             previous=state,
             config=_config(),
-            read_at=state.observed_at - timedelta(microseconds=1),
+            read_at=state.observed_at - timedelta(seconds=31),
         )
 
 

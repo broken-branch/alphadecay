@@ -10,7 +10,7 @@ NON_STANDARD_CONTRACT_UNSUPPORTED = "NON_STANDARD_CONTRACT_UNSUPPORTED"
 OPTION_CONTRACT_SYMBOL_MALFORMED = "OPTION_CONTRACT_SYMBOL_MALFORMED"
 
 _SYMBOL = re.compile(
-    r"^(?P<root>[A-Z]{1,6}|[A-Z]{1,5}[0-9])"
+    r"^(?P<root>[A-Z]{1,6}|[A-Z]{1,5}[0-9]|[0-9][A-Z]{1,5})"
     r"(?P<expiration>\d{6})(?P<right>[CP])(?P<strike>\d{8})$"
 )
 
@@ -55,7 +55,7 @@ def parse_option_contract_symbol(symbol: object) -> OptionContractSymbol:
         expiration_date=expiration,
         right=match.group("right"),
         strike_price=Decimal(match.group("strike")) / Decimal(1000),
-        is_adjusted=root[-1].isdigit(),
+        is_adjusted=root[0].isdigit() or root[-1].isdigit(),
     )
 
 

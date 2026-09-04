@@ -42,6 +42,7 @@ from .agent import (
     PersistedAgentDecision,
     RuntimeCompositionPort,
     RuntimeExecutionPort,
+    SubmissionOrderPreview,
 )
 from .development_acquisition import (
     DevelopmentAcquisitionRouter,
@@ -104,6 +105,7 @@ __all__ = [
     "PersistedAgentDecision",
     "RuntimeCompositionPort",
     "RuntimeExecutionPort",
+    "SubmissionOrderPreview",
     "TrustedClockPort",
     "UnderlyingMarketObservation",
     "WholeAccountEvidence",

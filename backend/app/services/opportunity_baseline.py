@@ -11,6 +11,8 @@ from typing import Protocol
 from uuid import UUID
 
 from backend.app.alpaca.execution_evidence import baseline_account_fingerprint
+from backend.app.contracts.v1 import AccountRole
+from backend.app.execution.reconciliation import _cash_within_fee_tolerance
 from backend.app.persistence.opportunity_evidence import (
     OpportunityBaselineSeal,
     OpportunityPlanSpec,
@@ -18,7 +20,7 @@ from backend.app.persistence.opportunity_evidence import (
 )
 from backend.app.services.opportunity_bootstrap import (
     OpportunityBootstrapInput,
-    development_opportunity_bootstrap_payload,
+    opportunity_bootstrap_payload,
 )
 
 _MAX_ITEMS = 10_000
@@ -56,21 +58,54 @@ class OpportunityBaselineProvider(Protocol):
     ) -> ActivityPage: ...
 
 
-def collect_development_opportunity_bootstrap(
+@dataclass(frozen=True)
+class SubmissionReconciliationBinding:
+    account_fingerprint: str
+    expected_cash: Decimal
+    expected_positions: tuple[tuple[str, Decimal], ...]
+
+
+def collect_opportunity_bootstrap(
     plan: OpportunityPlanSpec,
     provider: OpportunityBaselineProvider,
     *,
+    account_role: AccountRole,
     captured_at: datetime,
+    submission_baseline_id: UUID | None = None,
+    submission_reconciliation: SubmissionReconciliationBinding | None = None,
 ) -> dict[str, object]:
     captured_at = _utc(captured_at)
-    if type(plan) is not OpportunityPlanSpec or captured_at < plan.frozen_at:
+    baseline_binding_valid = (
+        account_role is AccountRole.DEVELOPMENT and submission_baseline_id is None
+    ) or (
+        account_role is AccountRole.SUBMISSION
+        and isinstance(submission_baseline_id, UUID)
+        and (
+            submission_reconciliation is None
+            or isinstance(submission_reconciliation, SubmissionReconciliationBinding)
+        )
+    )
+    if (
+        type(account_role) is not AccountRole
+        or account_role not in {AccountRole.DEVELOPMENT, AccountRole.SUBMISSION}
+        or type(plan) is not OpportunityPlanSpec
+        or plan.account_role is not account_role
+        or plan.request_contract.account_role is not account_role
+        or captured_at < plan.frozen_at
+        or not baseline_binding_valid
+    ):
         raise OpportunityBaselineCollectionError("OPPORTUNITY_BASELINE_AUTHORITY_INVALID")
 
     account, account_id, account_fingerprint = _capture_account(provider, plan)
     created_at = _provider_datetime(account.get("created_at"))
     if created_at > captured_at:
         raise OpportunityBaselineCollectionError("OPPORTUNITY_BASELINE_CHRONOLOGY_INVALID")
-    normalized_account = _normalize_account(account)
+    normalized_account = _normalize_account(
+        account,
+        allow_null_pending_transfers=account_role is AccountRole.SUBMISSION,
+    )
+    if account_role is AccountRole.SUBMISSION and submission_reconciliation is None:
+        _validate_submission_account(normalized_account)
 
     positions = _collection(_read(provider.get_all_positions), "POSITION")
     orders = _collection(_read(lambda: provider.get_open_orders(limit=500)), "ORDER")
@@ -83,6 +118,7 @@ def collect_development_opportunity_bootstrap(
         provider,
         account_id=account_id,
         account_fingerprint=account_fingerprint,
+        account_role=account_role,
         created_at=created_at,
         captured_at=captured_at,
     )
@@ -91,24 +127,38 @@ def collect_development_opportunity_bootstrap(
         raise OpportunityBaselineCollectionError("OPPORTUNITY_BASELINE_ORDERS_INCOMPLETE")
     final_positions = _collection(_read(provider.get_all_positions), "POSITION")
     final_account, final_account_id, final_fingerprint = _capture_account(provider, plan)
+    final_normalized_account = _normalize_account(
+        final_account,
+        allow_null_pending_transfers=account_role is AccountRole.SUBMISSION,
+    )
     final_activity, final_page_count = _collect_activity(
         provider,
         account_id=account_id,
         account_fingerprint=account_fingerprint,
+        account_role=account_role,
         created_at=created_at,
         captured_at=captured_at,
     )
     if (
         _normalize_orders(final_orders) != normalized_orders
         or _normalize_positions(final_positions) != normalized_positions
-        or _normalize_account(final_account) != normalized_account
+        or _stable_account_material(final_normalized_account)
+        != _stable_account_material(normalized_account)
         or final_account_id != account_id
         or final_fingerprint != account_fingerprint
     ):
         raise OpportunityBaselineCollectionError("OPPORTUNITY_BASELINE_BOOK_CHANGED")
     if final_activity != activity or final_page_count != page_count:
         raise OpportunityBaselineCollectionError("OPPORTUNITY_BASELINE_HISTORY_CHANGED")
-    if normalized_positions or normalized_orders:
+    if submission_reconciliation is not None:
+        _validate_submission_reconciliation(
+            normalized_account,
+            normalized_positions,
+            normalized_orders,
+            account_fingerprint,
+            submission_reconciliation,
+        )
+    elif normalized_positions or normalized_orders:
         raise OpportunityBaselineCollectionError("OPPORTUNITY_BASELINE_BOOK_NOT_CLEAN")
 
     account_hash = _hash("alphadecay.opportunity-baseline.account-source.v1", normalized_account)
@@ -157,8 +207,24 @@ def collect_development_opportunity_bootstrap(
         book_hash=book_hash,
         history_hash=history_hash,
         captured_at=captured_at,
+        account_role=account_role,
+        submission_baseline_id=submission_baseline_id,
     )
-    return development_opportunity_bootstrap_payload(OpportunityBootstrapInput(plan, seal))
+    return opportunity_bootstrap_payload(OpportunityBootstrapInput(plan, seal))
+
+
+def collect_development_opportunity_bootstrap(
+    plan: OpportunityPlanSpec,
+    provider: OpportunityBaselineProvider,
+    *,
+    captured_at: datetime,
+) -> dict[str, object]:
+    return collect_opportunity_bootstrap(
+        plan,
+        provider,
+        account_role=AccountRole.DEVELOPMENT,
+        captured_at=captured_at,
+    )
 
 
 def _capture_account(
@@ -168,7 +234,12 @@ def _capture_account(
     account_reference = _uuid(account.get("id"), "OPPORTUNITY_BASELINE_ACCOUNT_INVALID")
     account_fingerprint = baseline_account_fingerprint(account_reference)
     if account_fingerprint != plan.request_contract.expected_account_fingerprint:
-        raise OpportunityBaselineCollectionError("DEVELOPMENT_ACCOUNT_MISMATCH")
+        prefix = (
+            "DEVELOPMENT_ACCOUNT"
+            if plan.account_role is AccountRole.DEVELOPMENT
+            else "SUBMISSION_ACCOUNT"
+        )
+        raise OpportunityBaselineCollectionError(f"{prefix}_MISMATCH")
     return account, account_reference, account_fingerprint
 
 
@@ -177,6 +248,7 @@ def _collect_activity(
     *,
     account_id: UUID,
     account_fingerprint: str,
+    account_role: AccountRole,
     created_at: datetime,
     captured_at: datetime,
 ) -> tuple[tuple[dict[str, object], ...], int]:
@@ -213,10 +285,16 @@ def _collect_activity(
                     "OPPORTUNITY_BASELINE_ACTIVITY_NONMONOTONIC"
                 )
             observed_account = row.get("account_id")
-            if observed_account not in {None, ""} and _uuid(
-                observed_account, "OPPORTUNITY_BASELINE_ACTIVITY_INVALID"
-            ) != account_id:
-                raise OpportunityBaselineCollectionError("DEVELOPMENT_ACCOUNT_MISMATCH")
+            if (
+                observed_account not in {None, ""}
+                and _uuid(observed_account, "OPPORTUNITY_BASELINE_ACTIVITY_INVALID") != account_id
+            ):
+                prefix = (
+                    "DEVELOPMENT_ACCOUNT"
+                    if account_role is AccountRole.DEVELOPMENT
+                    else "SUBMISSION_ACCOUNT"
+                )
+                raise OpportunityBaselineCollectionError(f"{prefix}_MISMATCH")
             event_day, exact_time = _activity_time(row)
             if (
                 event_day < created_at.date()
@@ -224,9 +302,7 @@ def _collect_activity(
                 or exact_time is not None
                 and (exact_time < created_at or exact_time > captured_at)
             ):
-                raise OpportunityBaselineCollectionError(
-                    "OPPORTUNITY_BASELINE_CHRONOLOGY_INVALID"
-                )
+                raise OpportunityBaselineCollectionError("OPPORTUNITY_BASELINE_CHRONOLOGY_INVALID")
             if last_event_day is not None and event_day < last_event_day:
                 raise OpportunityBaselineCollectionError(
                     "OPPORTUNITY_BASELINE_ACTIVITY_NONMONOTONIC"
@@ -242,9 +318,7 @@ def _collect_activity(
             seen_ids.add(activity_reference)
             result.append(_normalize_activity(row, account_fingerprint))
             if len(result) > _MAX_ITEMS:
-                raise OpportunityBaselineCollectionError(
-                    "OPPORTUNITY_BASELINE_ACTIVITY_INCOMPLETE"
-                )
+                raise OpportunityBaselineCollectionError("OPPORTUNITY_BASELINE_ACTIVITY_INCOMPLETE")
         if len(page.items) < _ACTIVITY_PAGE_SIZE:
             result.sort(key=_canonical)
             return tuple(result), page_index + 1
@@ -291,7 +365,36 @@ def _record(value: object) -> dict[str, object]:
     return row
 
 
-def _normalize_account(row: Mapping[str, object]) -> dict[str, object]:
+_MARK_DEPENDENT_ACCOUNT_KEYS = frozenset(
+    {
+        "equity",
+        "last_equity",
+        "portfolio_value",
+        "buying_power",
+        "options_buying_power",
+        "regt_buying_power",
+        "daytrading_buying_power",
+        "effective_buying_power",
+        "non_marginable_buying_power",
+        "long_market_value",
+        "short_market_value",
+        "position_market_value",
+        "initial_margin",
+        "maintenance_margin",
+        "sma",
+        "bod_dtbp",
+    }
+)
+
+
+def _stable_account_material(account: Mapping[str, object]) -> dict[str, object]:
+    """Bookend stability ignores fields that move with option marks while positions are open."""
+    return {key: value for key, value in account.items() if key not in _MARK_DEPENDENT_ACCOUNT_KEYS}
+
+
+def _normalize_account(
+    row: Mapping[str, object], *, allow_null_pending_transfers: bool = False
+) -> dict[str, object]:
     blocked = (
         "trading_blocked",
         "transfers_blocked",
@@ -320,12 +423,64 @@ def _normalize_account(row: Mapping[str, object]) -> dict[str, object]:
                 "options_buying_power",
                 "options_approved_level",
                 "options_trading_level",
-                "pending_transfer_in",
-                "pending_transfer_out",
             )
+        },
+        **{
+            key: _pending_transfer(
+                row,
+                key,
+                allow_null=allow_null_pending_transfers,
+            )
+            for key in ("pending_transfer_in", "pending_transfer_out")
         },
         **{key: _boolean(row.get(key)) for key in blocked},
     }
+
+
+def _validate_submission_account(account: Mapping[str, object]) -> None:
+    if any(
+        account.get(key) != "100000" for key in ("equity", "cash", "last_equity", "portfolio_value")
+    ) or any(account.get(key) != "0" for key in ("pending_transfer_in", "pending_transfer_out")):
+        raise OpportunityBaselineCollectionError("CLEAN_SUBMISSION_BASELINE_REQUIRED")
+
+
+def _validate_submission_reconciliation(
+    account: Mapping[str, object],
+    positions: tuple[dict[str, object], ...],
+    orders: tuple[dict[str, object], ...],
+    account_fingerprint: str,
+    binding: SubmissionReconciliationBinding,
+) -> None:
+    observed = tuple(
+        sorted(
+            (
+                str(item["symbol"]),
+                # Alpaca reports short quantities as negative numbers; sign by side.
+                abs(Decimal(str(item["qty"]))) * (1 if item["side"] == "long" else -1),
+            )
+            for item in positions
+        )
+    )
+    if (
+        account_fingerprint != binding.account_fingerprint
+        or not _cash_within_fee_tolerance(Decimal(str(account.get("cash"))), binding.expected_cash)
+        or observed != tuple(sorted(binding.expected_positions))
+        or orders
+        or any(
+            account.get(key) not in (None, "0", 0, "0.00")
+            for key in ("pending_transfer_in", "pending_transfer_out")
+        )
+    ):
+        raise OpportunityBaselineCollectionError("SUBMISSION_RECONCILIATION_STATE_MISMATCH")
+
+
+def _pending_transfer(row: Mapping[str, object], key: str, *, allow_null: bool) -> str:
+    if key not in row:
+        return ""
+    value = row[key]
+    if allow_null and value is None:
+        return "0"
+    return _number(value)
 
 
 def _normalize_positions(rows: Sequence[Mapping[str, object]]) -> tuple[dict[str, object], ...]:
@@ -395,9 +550,7 @@ def _activity_time(row: Mapping[str, object]) -> tuple[date, datetime | None]:
         exact_time = _provider_datetime(transaction_time)
         activity_date = row.get("date")
         if activity_date not in {None, ""} and _activity_date(activity_date) != exact_time.date():
-            raise OpportunityBaselineCollectionError(
-                "OPPORTUNITY_BASELINE_CHRONOLOGY_INVALID"
-            )
+            raise OpportunityBaselineCollectionError("OPPORTUNITY_BASELINE_CHRONOLOGY_INVALID")
         return exact_time.date(), exact_time
     value = row.get("date")
     return _activity_date(value), None
@@ -409,9 +562,7 @@ def _activity_id(value: object) -> str:
     try:
         return _string(value, required=True)
     except OpportunityBaselineCollectionError:
-        raise OpportunityBaselineCollectionError(
-            "OPPORTUNITY_BASELINE_ACTIVITY_INVALID"
-        ) from None
+        raise OpportunityBaselineCollectionError("OPPORTUNITY_BASELINE_ACTIVITY_INVALID") from None
 
 
 def _activity_date(value: object) -> date:
@@ -451,11 +602,7 @@ def _optional_date(value: object) -> str:
 
 
 def _utc(value: datetime) -> datetime:
-    if (
-        not isinstance(value, datetime)
-        or value.tzinfo is None
-        or value.utcoffset() != timedelta(0)
-    ):
+    if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() != timedelta(0):
         raise OpportunityBaselineCollectionError("OPPORTUNITY_BASELINE_CHRONOLOGY_INVALID")
     return value.astimezone(UTC)
 

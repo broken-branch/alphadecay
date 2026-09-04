@@ -397,6 +397,23 @@ def test_assembles_authorized_input_that_existing_policy_approves() -> None:
     assert assembled == _assemble()
 
 
+def test_post_tick_retrieval_within_collector_tolerance_remains_usable() -> None:
+    snapshot = _snapshot()
+    options = tuple(
+        replace(option, retrieved_at=TRUSTED_AT + timedelta(seconds=1), source_hash="")
+        for option in snapshot.options
+    )
+    options = tuple(
+        replace(option, source_hash=opportunity_option_digest(option)) for option in options
+    )
+    snapshot = replace(snapshot, options=options, source_hash="")
+    snapshot = replace(snapshot, source_hash=opportunity_market_snapshot_digest(snapshot))
+
+    assembled = _assemble(snapshot=snapshot)
+
+    assert len(assembled.authority_hash) == 64
+
+
 def test_snapshot_digest_helpers_preserve_the_existing_bytes() -> None:
     request = _request()
     snapshot = _snapshot(request=request)
@@ -635,7 +652,7 @@ def test_stale_and_future_evidence_fail_closed() -> None:
         _signals(snapshot),
         beta=replace(_signals(snapshot).beta, observed_at=TRUSTED_AT - timedelta(minutes=1)),
     )
-    future = replace(_catalyst(), observed_at=TRUSTED_AT + timedelta(microseconds=1))
+    future = replace(_catalyst(), observed_at=TRUSTED_AT + timedelta(seconds=31))
 
     with pytest.raises(OpportunityInputAuthorityError, match="SIGNAL_EVIDENCE_STALE_OR_FUTURE"):
         _assemble(snapshot=snapshot, signals=stale)

@@ -150,6 +150,7 @@ class HardGateInput:
     risk_cap_exceeded: bool = False
     weekend_gate_failed: bool = False
     contest_end_window: bool = False
+    strategy_close_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -427,6 +428,8 @@ def _roll_is_eligible(values: AssessmentInput, components: ScoreResult) -> bool:
 
 
 def _mandatory_close_code(gates: HardGateInput, scores: ScoreInput) -> str | None:
+    if gates.strategy_close_reason is not None:
+        return gates.strategy_close_reason
     if gates.verified_invalidation:
         return "VERIFIED_INVALIDATION"
     if gates.price_confirmation_broken:

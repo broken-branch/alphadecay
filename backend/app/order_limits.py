@@ -9,6 +9,16 @@ MAX_STRUCTURAL_APPROVED_RISK = Decimal("100000")
 MAX_STRUCTURAL_LIFETIME_ENTRIES = 1000
 MAX_STRUCTURAL_LIFETIME_RISK = Decimal("100000")
 
+STRUCTURAL_PILOT_PER_CONTRACT_RISK = Decimal("225")
+SUBMISSION_STRUCTURAL_OPTION_QUANTITY = 5
+SUBMISSION_STRUCTURAL_APPROVED_RISK = (
+    STRUCTURAL_PILOT_PER_CONTRACT_RISK * SUBMISSION_STRUCTURAL_OPTION_QUANTITY
+)
+SUBMISSION_STRUCTURAL_LIFETIME_ENTRIES = 10
+SUBMISSION_STRUCTURAL_LIFETIME_RISK = (
+    SUBMISSION_STRUCTURAL_APPROVED_RISK * SUBMISSION_STRUCTURAL_LIFETIME_ENTRIES
+)
+
 _HASH = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -30,8 +40,7 @@ class EntryBudgetLimits:
         if (
             _HASH.fullmatch(self.policy_hash) is None
             or any(
-                not isinstance(value, Decimal) or not value.is_finite()
-                for value in decimal_values
+                not isinstance(value, Decimal) or not value.is_finite() for value in decimal_values
             )
             or self.equity_floor < 0
             or not 1 <= self.maximum_lifetime_entries <= MAX_STRUCTURAL_LIFETIME_ENTRIES

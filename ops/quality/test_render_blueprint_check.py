@@ -23,9 +23,7 @@ def test_repository_blueprint_matches_the_deployment_contract() -> None:
 def test_public_deployment_is_replay_only_on_starter_compute() -> None:
     value = _blueprint()
     service = value["services"][0]
-    environment = {
-        entry["key"]: entry for entry in service["envVars"]
-    }
+    environment = {entry["key"]: entry for entry in service["envVars"]}
 
     assert service["plan"] == "starter"
     assert environment["APP_RUNTIME_CONFIG_REQUIRED"]["value"] == "false"

@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, fields, is_dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, fields, is_dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from enum import Enum, StrEnum
+from types import MappingProxyType
 
 from backend.app.contracts.v1 import AccountRole, DataQuality, OptionRight, PositionIntent
 from backend.app.order_limits import (
@@ -13,6 +15,8 @@ from backend.app.order_limits import (
     MAX_STRUCTURAL_LIFETIME_ENTRIES,
     MAX_STRUCTURAL_LIFETIME_RISK,
     MAX_STRUCTURAL_OPTION_QUANTITY,
+    STRUCTURAL_PILOT_PER_CONTRACT_RISK,
+    SUBMISSION_STRUCTURAL_OPTION_QUANTITY,
 )
 
 
@@ -110,6 +114,54 @@ class VerticalStrategy(StrEnum):
     BULL_PUT_CREDIT = "BULL_PUT_CREDIT"
     BEAR_PUT_DEBIT = "BEAR_PUT_DEBIT"
     BEAR_CALL_CREDIT = "BEAR_CALL_CREDIT"
+
+
+STRUCTURAL_BULLISH_PILOT_ID = "SPY_STRUCTURAL_BULLISH_BETA_PILOT_V1"
+STRUCTURAL_BULLISH_OTM_PILOT_ID = "SPY_STRUCTURAL_BULLISH_OTM_PILOT_V1"
+STRUCTURAL_BEARISH_OTM_PILOT_ID = "SPY_STRUCTURAL_BEARISH_OTM_PILOT_V1"
+
+
+@dataclass(frozen=True)
+class StructuralBullishPilotProfile:
+    direction: OpportunityDirection = OpportunityDirection.BULLISH
+    target_dte: int = 38
+    minimum_dte: int = 30
+    maximum_dte: int = 45
+    width: Decimal = Decimal("4")
+    minimum_long_delta: Decimal = Decimal("0.55")
+    maximum_long_delta: Decimal = Decimal("0.65")
+    quantity: int = SUBMISSION_STRUCTURAL_OPTION_QUANTITY
+    maximum_debit: Decimal = STRUCTURAL_PILOT_PER_CONTRACT_RISK / 100
+    minimum_reward_to_risk: Decimal = Decimal("0.75")
+    maximum_relative_spread: Decimal = Decimal("0.05")
+    maximum_quote_age: timedelta = timedelta(seconds=20)
+    maximum_quote_skew: timedelta = timedelta(seconds=3)
+
+
+STRUCTURAL_BULLISH_PILOT = StructuralBullishPilotProfile()
+STRUCTURAL_BULLISH_OTM_PILOT = StructuralBullishPilotProfile(
+    minimum_long_delta=Decimal("0.35"),
+    maximum_long_delta=Decimal("0.50"),
+)
+STRUCTURAL_BEARISH_OTM_PILOT = StructuralBullishPilotProfile(
+    direction=OpportunityDirection.BEARISH,
+    minimum_long_delta=Decimal("0.35"),
+    maximum_long_delta=Decimal("0.50"),
+)
+
+STRUCTURAL_PILOT_PROFILES: Mapping[str, StructuralBullishPilotProfile] = MappingProxyType(
+    {
+        STRUCTURAL_BULLISH_PILOT_ID: STRUCTURAL_BULLISH_PILOT,
+        STRUCTURAL_BULLISH_OTM_PILOT_ID: STRUCTURAL_BULLISH_OTM_PILOT,
+        STRUCTURAL_BEARISH_OTM_PILOT_ID: STRUCTURAL_BEARISH_OTM_PILOT,
+    }
+)
+
+
+def structural_pilot_profile(
+    opportunity_key: str,
+) -> StructuralBullishPilotProfile | None:
+    return STRUCTURAL_PILOT_PROFILES.get(opportunity_key)
 
 
 @dataclass(frozen=True)
@@ -235,6 +287,7 @@ class VerticalCandidate:
     candidate_score: int
     selection_rank: int
     buying_power_sufficient: bool
+    maximum_limit: Decimal | None = None
 
 
 @dataclass(frozen=True)
@@ -306,7 +359,13 @@ def evaluate_opportunity(
         if candidate is not None
         else None
     )
-    if values.opportunity_key != policy.opportunity_key or values.underlying != policy.underlying:
+    structural_profile = structural_pilot_profile(policy.opportunity_key)
+    structural_pilot = structural_profile is not None
+    if (
+        values.opportunity_key != policy.opportunity_key
+        or values.underlying != policy.underlying
+        or (structural_pilot and policy.underlying != "SPY")
+    ):
         return _rejected(
             policy_hash,
             input_hash,
@@ -407,7 +466,7 @@ def evaluate_opportunity(
             values,
             OpportunityReason.CATALYST_DATA_STALE,
         )
-    if values.catalyst_quality == CatalystQuality.MISSING:
+    if not structural_pilot and values.catalyst_quality == CatalystQuality.MISSING:
         return _rejected(
             policy_hash,
             input_hash,
@@ -415,7 +474,10 @@ def evaluate_opportunity(
             values,
             OpportunityReason.CATALYST_DATA_MISSING,
         )
-    if values.catalyst_quality == CatalystQuality.AUTHORITATIVE_CONTRADICTION:
+    if (
+        not structural_pilot
+        and values.catalyst_quality == CatalystQuality.AUTHORITATIVE_CONTRADICTION
+    ):
         return _rejected(
             policy_hash,
             input_hash,
@@ -423,7 +485,7 @@ def evaluate_opportunity(
             values,
             OpportunityReason.CATALYST_CONTRADICTED,
         )
-    if values.catalyst_score < policy.minimum_catalyst_score:
+    if not structural_pilot and values.catalyst_score < policy.minimum_catalyst_score:
         return _rejected(
             policy_hash,
             input_hash,
@@ -431,7 +493,7 @@ def evaluate_opportunity(
             values,
             OpportunityReason.CATALYST_SCORE_BELOW_MINIMUM,
         )
-    if not policy.minimum_beta < values.beta <= policy.maximum_beta:
+    if not structural_pilot and not policy.minimum_beta < values.beta <= policy.maximum_beta:
         return _rejected(
             policy_hash,
             input_hash,
@@ -439,7 +501,7 @@ def evaluate_opportunity(
             values,
             OpportunityReason.BETA_OUT_OF_BOUNDS,
         )
-    if values.absolute_first_reaction > policy.maximum_first_reaction:
+    if not structural_pilot and values.absolute_first_reaction > policy.maximum_first_reaction:
         return _rejected(
             policy_hash,
             input_hash,
@@ -524,6 +586,9 @@ def derive_opportunity_direction(
     bull_trend_hits: int,
     bear_trend_hits: int,
 ) -> OpportunityDirection | None:
+    structural_profile = structural_pilot_profile(policy.opportunity_key)
+    if structural_profile is not None and policy.underlying == "SPY":
+        return structural_profile.direction
     vwap_size_passes = (
         abs(vwap_distance) > policy.minimum_vwap_distance
         and abs(vwap_distance) <= policy.maximum_vwap_distance
@@ -546,12 +611,26 @@ def derive_opportunity_direction(
 
 
 def opportunity_policy_hash(policy: OpportunityPolicy) -> str:
-    return _canonical_hash("alphadecay.opportunity.policy.v1", policy)
+    material: object = policy
+    structural_profile = structural_pilot_profile(policy.opportunity_key)
+    if structural_profile is not None:
+        material = {
+            "policy": policy,
+            "strategy_profile": replace(
+                structural_profile,
+                quantity=policy.maximum_quantity,
+            ),
+        }
+    return _canonical_hash("alphadecay.opportunity.policy.v1", material)
+
+
+_FRESHNESS_SKEW_TOLERANCE = timedelta(seconds=30)
 
 
 def _fresh_at(observed_at: datetime, decision_at: datetime, maximum_age: timedelta) -> bool:
+    """Evidence retrieved shortly after the trusted decision time is still fresh, not future."""
     age = decision_at - observed_at
-    return timedelta(0) <= age <= maximum_age
+    return -_FRESHNESS_SKEW_TOLERANCE <= age <= maximum_age
 
 
 def _normalized_input_valid(values: OpportunityInput) -> bool:
@@ -580,9 +659,12 @@ def _option_candidate_failure(
     values: OpportunityInput,
     candidate: VerticalCandidate,
 ) -> OpportunityReason | None:
+    maximum_limit = _candidate_maximum_limit(candidate)
     if (
         not candidate.approved_limit.is_finite()
         or candidate.approved_limit <= 0
+        or not maximum_limit.is_finite()
+        or maximum_limit < candidate.approved_limit
         or not 0 <= candidate.candidate_score <= 100
         or candidate.dte < 0
     ):
@@ -595,11 +677,15 @@ def _option_candidate_failure(
         return OpportunityReason.CANDIDATE_FALLBACK_FORBIDDEN
     if not 1 <= candidate.quantity <= policy.maximum_quantity:
         return OpportunityReason.QUANTITY_OUT_OF_BOUNDS
-    if candidate.candidate_score < policy.minimum_candidate_score:
+    structural_profile = structural_pilot_profile(policy.opportunity_key)
+    structural_pilot = structural_profile is not None
+    if not structural_pilot and candidate.candidate_score < policy.minimum_candidate_score:
         return OpportunityReason.CANDIDATE_SCORE_BELOW_MINIMUM
     if not candidate.buying_power_sufficient:
         return OpportunityReason.BUYING_POWER_INSUFFICIENT
-    if not policy.minimum_dte <= candidate.dte <= policy.maximum_dte:
+    minimum_dte = structural_profile.minimum_dte if structural_profile else policy.minimum_dte
+    maximum_dte = structural_profile.maximum_dte if structural_profile else policy.maximum_dte
+    if not minimum_dte <= candidate.dte <= maximum_dte:
         return OpportunityReason.OPTION_DTE_OUT_OF_RANGE
 
     if any(
@@ -616,19 +702,39 @@ def _option_candidate_failure(
         return OpportunityReason.OPTION_FEED_NOT_INDICATIVE
     if any(not _quote_valid(leg) for leg in candidate.legs):
         return OpportunityReason.OPTION_QUOTE_INVALID
+    maximum_quote_age = (
+        structural_profile.maximum_quote_age
+        if structural_profile
+        else policy.maximum_option_quote_age
+    )
     if any(
-        not _fresh_at(leg.quote_at, values.evaluated_at, policy.maximum_option_quote_age)
+        not _fresh_at(leg.quote_at, values.evaluated_at, maximum_quote_age)
         for leg in candidate.legs
     ):
         return OpportunityReason.OPTION_QUOTE_STALE
     quote_times = tuple(leg.quote_at for leg in candidate.legs)
-    if max(quote_times) - min(quote_times) > policy.maximum_leg_quote_skew:
+    maximum_quote_skew = (
+        structural_profile.maximum_quote_skew
+        if structural_profile
+        else policy.maximum_leg_quote_skew
+    )
+    if max(quote_times) - min(quote_times) > maximum_quote_skew:
         return OpportunityReason.OPTION_QUOTES_UNSYNCHRONIZED
-    if any(_relative_spread(leg) > policy.maximum_relative_spread for leg in candidate.legs):
+    maximum_relative_spread = (
+        structural_profile.maximum_relative_spread
+        if structural_profile
+        else policy.maximum_relative_spread
+    )
+    if any(_relative_spread(leg) > maximum_relative_spread for leg in candidate.legs):
         return OpportunityReason.OPTION_QUOTE_TOO_WIDE
     if any(not leg.greeks_complete or not leg.greek_units_verified for leg in candidate.legs):
         return OpportunityReason.OPTION_GREEKS_MISSING
-    if not _payoff_geometry_valid(policy, candidate):
+    payoff_valid = (
+        _structural_pilot_payoff_valid(policy, candidate, structural_profile)
+        if structural_profile
+        else _payoff_geometry_valid(policy, candidate)
+    )
+    if not payoff_valid:
         return OpportunityReason.OPTION_PAYOFF_INVALID
     return None
 
@@ -686,8 +792,13 @@ def _payoff_geometry_valid(policy: OpportunityPolicy, candidate: VerticalCandida
         VerticalStrategy.BEAR_PUT_DEBIT,
     ):
         natural = bought.ask - sold.bid
-        fractions = (natural / width, candidate.approved_limit / width)
-        return candidate.approved_limit <= natural and all(
+        maximum_limit = _candidate_maximum_limit(candidate)
+        fractions = (
+            natural / width,
+            candidate.approved_limit / width,
+            maximum_limit / width,
+        )
+        return candidate.approved_limit <= maximum_limit <= natural and all(
             policy.minimum_debit_width_fraction <= fraction <= policy.maximum_debit_width_fraction
             for fraction in fractions
         )
@@ -698,14 +809,47 @@ def _payoff_geometry_valid(policy: OpportunityPolicy, candidate: VerticalCandida
     )
 
 
+def _structural_pilot_payoff_valid(
+    policy: OpportunityPolicy,
+    candidate: VerticalCandidate,
+    profile: StructuralBullishPilotProfile,
+) -> bool:
+    expected_strategy = (
+        VerticalStrategy.BULL_CALL_DEBIT
+        if profile.direction is OpportunityDirection.BULLISH
+        else VerticalStrategy.BEAR_PUT_DEBIT
+    )
+    expected_right = (
+        OptionRight.CALL if profile.direction is OpportunityDirection.BULLISH else OptionRight.PUT
+    )
+    if candidate.strategy is not expected_strategy or candidate.quantity != policy.maximum_quantity:
+        return False
+    bought, sold = candidate.legs
+    width = abs(sold.strike - bought.strike)
+    natural = bought.ask - sold.bid
+    maximum_limit = _candidate_maximum_limit(candidate)
+    return (
+        bought.right is expected_right
+        and sold.right is expected_right
+        and width == profile.width
+        and Decimal(0) < candidate.approved_limit <= maximum_limit <= natural
+        and maximum_limit <= profile.maximum_debit
+        and width - maximum_limit >= profile.minimum_reward_to_risk * maximum_limit
+    )
+
+
 def _approved_max_loss(candidate: VerticalCandidate) -> Decimal:
     width = abs(candidate.legs[0].strike - candidate.legs[1].strike)
     if candidate.strategy in (
         VerticalStrategy.BULL_CALL_DEBIT,
         VerticalStrategy.BEAR_PUT_DEBIT,
     ):
-        return candidate.approved_limit * candidate.quantity * 100
+        return _candidate_maximum_limit(candidate) * candidate.quantity * 100
     return (width - candidate.approved_limit) * candidate.quantity * 100
+
+
+def _candidate_maximum_limit(candidate: VerticalCandidate) -> Decimal:
+    return candidate.approved_limit if candidate.maximum_limit is None else candidate.maximum_limit
 
 
 def _account_failure(
@@ -733,12 +877,10 @@ def _account_failure(
         return OpportunityReason.ACCOUNT_STATE_INVALID
     if account.account_role == AccountRole.REPLAY:
         return OpportunityReason.ACCOUNT_ROLE_NOT_EXECUTABLE
-    if not account.baseline_clean:
-        return OpportunityReason.BASELINE_NOT_CLEAN
+    # A book bound to the reconciled state may hold positions; each spread is entered and
+    # managed independently. An open order still blocks a new entry.
     if account.clean_equity <= policy.equity_floor:
         return OpportunityReason.EQUITY_FLOOR_REACHED
-    if account.open_position_count != 0:
-        return OpportunityReason.ACCOUNT_NOT_FLAT
     if account.open_order_count != 0:
         return OpportunityReason.OPEN_ORDER_EXISTS
     if account.entry_reservation_active:
@@ -747,8 +889,8 @@ def _account_failure(
         return OpportunityReason.LIFETIME_ENTRY_LIMIT_REACHED
     if account.lifetime_approved_risk + approved_max_loss > policy.maximum_lifetime_risk:
         return OpportunityReason.LIFETIME_RISK_LIMIT_REACHED
-    if account.event_already_attempted:
-        return OpportunityReason.EVENT_ALREADY_ATTEMPTED
+    # Re-entry on the same event key within a trading day is allowed; the lifetime
+    # entry count, lifetime risk, and per-position risk caps above still bind.
     position_risk_cap = min(
         policy.maximum_position_loss,
         account.clean_equity * policy.maximum_equity_risk_fraction,
@@ -861,7 +1003,11 @@ def _canonical_value(value: object) -> object:
             "microseconds": value.microseconds,
         }
     if is_dataclass(value) and not isinstance(value, type):
-        return {field.name: _canonical_value(getattr(value, field.name)) for field in fields(value)}
+        return {
+            field.name: _canonical_value(getattr(value, field.name))
+            for field in fields(value)
+            if not (field.name == "maximum_limit" and getattr(value, field.name) is None)
+        }
     if isinstance(value, tuple):
         return [_canonical_value(item) for item in value]
     if isinstance(value, list):

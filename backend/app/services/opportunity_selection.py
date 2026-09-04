@@ -4,7 +4,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from decimal import ROUND_FLOOR, Decimal
+from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
 from enum import StrEnum
 
 from backend.app.alpaca.opportunity import (
@@ -25,9 +25,13 @@ from backend.app.policy.opportunity import (
     OpportunityPolicy,
     OptionFeed,
     OptionLeg,
+    StructuralBullishPilotProfile,
     VerticalCandidate,
     VerticalStrategy,
+    structural_pilot_profile,
 )
+
+_RETRIEVAL_SKEW_TOLERANCE = timedelta(seconds=30)
 
 
 class SelectionReason(StrEnum):
@@ -76,7 +80,13 @@ def select_vertical_candidate(
 ) -> CandidateSelectionResult:
     if not _inputs_valid(policy, direction, requested_maximum_quantity, authority):
         return CandidateSelectionResult(None, SelectionReason.INPUT_INVALID)
-    if not _snapshot_valid(snapshot, policy):
+    profile = structural_pilot_profile(policy.opportunity_key)
+    structural_pilot = profile is not None
+    if not _snapshot_valid(
+        snapshot,
+        policy,
+        enforce_policy_eligibility=not structural_pilot,
+    ):
         return CandidateSelectionResult(None, SelectionReason.SNAPSHOT_INVALID)
     if (
         authority.snapshot_request_hash != snapshot.request_hash
@@ -87,6 +97,9 @@ def select_vertical_candidate(
         or authority.available_buying_power > snapshot.account_book.account.buying_power
     ):
         return CandidateSelectionResult(None, SelectionReason.INPUT_INVALID)
+
+    if profile is not None:
+        return _select_structural_pilot(snapshot, policy, authority, profile)
 
     ranked: list[_RankedCandidate] = []
     had_eligible_geometry = False
@@ -144,6 +157,131 @@ def select_vertical_candidate(
     return CandidateSelectionResult(ranked[0].candidate, SelectionReason.SELECTED)
 
 
+def _select_structural_pilot(
+    snapshot: OpportunityMarketSnapshot,
+    policy: OpportunityPolicy,
+    authority: CandidateSelectionAuthority,
+    profile: StructuralBullishPilotProfile,
+) -> CandidateSelectionResult:
+    if policy.underlying != "SPY":
+        return CandidateSelectionResult(None, SelectionReason.INPUT_INVALID)
+
+    ranked: list[_RankedCandidate] = []
+    had_eligible_geometry = False
+    right = "C" if profile.direction is OpportunityDirection.BULLISH else "P"
+    strategy = (
+        VerticalStrategy.BULL_CALL_DEBIT
+        if profile.direction is OpportunityDirection.BULLISH
+        else VerticalStrategy.BEAR_PUT_DEBIT
+    )
+    strike_offset = (
+        profile.width if profile.direction is OpportunityDirection.BULLISH else -profile.width
+    )
+    for bought in snapshot.options:
+        if bought.right != right or not (
+            profile.minimum_long_delta <= abs(bought.delta) <= profile.maximum_long_delta
+        ):
+            continue
+        for sold in snapshot.options:
+            if (
+                sold.right != right
+                or sold.expiry != bought.expiry
+                or sold.strike != bought.strike + strike_offset
+            ):
+                continue
+            terms = _structural_pilot_terms(snapshot, bought, sold, profile)
+            if terms is None:
+                continue
+            initial_limit, maximum_limit, risk_per_contract, score = terms
+            had_eligible_geometry = True
+            if (
+                _quantity(policy, policy.maximum_quantity, authority, risk_per_contract)
+                != policy.maximum_quantity
+            ):
+                continue
+            candidate = VerticalCandidate(
+                strategy=strategy,
+                legs=(
+                    _option_leg(bought, PositionIntent.BUY_TO_OPEN, authority),
+                    _option_leg(sold, PositionIntent.SELL_TO_OPEN, authority),
+                ),
+                quantity=policy.maximum_quantity,
+                dte=(bought.expiry - policy.selected_decision_boundary.date()).days,
+                approved_limit=initial_limit,
+                candidate_score=score,
+                selection_rank=1,
+                buying_power_sufficient=True,
+                maximum_limit=maximum_limit,
+            )
+            ranked.append(_RankedCandidate(candidate, risk_per_contract))
+
+    if not ranked:
+        reason = (
+            SelectionReason.RISK_AUTHORITY_INSUFFICIENT
+            if had_eligible_geometry
+            else SelectionReason.NO_ELIGIBLE_STRUCTURE
+        )
+        return CandidateSelectionResult(None, reason)
+    ranked.sort(key=lambda item: _structural_pilot_rank_key(item, profile))
+    return CandidateSelectionResult(ranked[0].candidate, SelectionReason.SELECTED)
+
+
+def _structural_pilot_terms(
+    snapshot: OpportunityMarketSnapshot,
+    bought: OpportunityOption,
+    sold: OpportunityOption,
+    profile: StructuralBullishPilotProfile,
+) -> tuple[Decimal, Decimal, Decimal, int] | None:
+    dte = (bought.expiry - snapshot.underlying_bar.completed_at.date()).days
+    if (
+        not profile.minimum_dte <= dte <= profile.maximum_dte
+        or snapshot.trusted_at - bought.quote_at > profile.maximum_quote_age
+        or snapshot.trusted_at - sold.quote_at > profile.maximum_quote_age
+        or abs(bought.quote_at - sold.quote_at) > profile.maximum_quote_skew
+        or _relative_spread(bought) > profile.maximum_relative_spread
+        or _relative_spread(sold) > profile.maximum_relative_spread
+    ):
+        return None
+    natural = bought.ask - sold.bid
+    midpoint = ((bought.bid + bought.ask) - (sold.bid + sold.ask)) / 2
+    initial = midpoint.quantize(Decimal("0.01"), rounding=ROUND_CEILING)
+    maximum = natural.quantize(Decimal("0.01"), rounding=ROUND_FLOOR)
+    if (
+        initial <= 0
+        or initial > maximum
+        or maximum > profile.maximum_debit
+        or profile.width - maximum < profile.minimum_reward_to_risk * maximum
+    ):
+        return None
+    worst_spread = max(_relative_spread(bought), _relative_spread(sold))
+    score = int(
+        (
+            Decimal(100)
+            * (profile.maximum_relative_spread - worst_spread)
+            / profile.maximum_relative_spread
+        ).to_integral_value(rounding=ROUND_FLOOR)
+    )
+    return initial, maximum, maximum * 100, score
+
+
+def _structural_pilot_rank_key(
+    item: _RankedCandidate,
+    profile: StructuralBullishPilotProfile,
+) -> tuple[object, ...]:
+    candidate = item.candidate
+    bought, sold = candidate.legs
+    return (
+        abs(candidate.dte - profile.target_dte),
+        -candidate.candidate_score,
+        item.risk_per_contract,
+        candidate.dte,
+        bought.strike,
+        sold.strike,
+        bought.symbol,
+        sold.symbol,
+    )
+
+
 def _inputs_valid(
     policy: OpportunityPolicy,
     direction: OpportunityDirection,
@@ -179,7 +317,12 @@ def _inputs_valid(
     )
 
 
-def _snapshot_valid(snapshot: OpportunityMarketSnapshot, policy: OpportunityPolicy) -> bool:
+def _snapshot_valid(
+    snapshot: OpportunityMarketSnapshot,
+    policy: OpportunityPolicy,
+    *,
+    enforce_policy_eligibility: bool = True,
+) -> bool:
     if (
         type(snapshot) is not OpportunityMarketSnapshot
         or type(snapshot.account_book) is not OpportunityAccountBook
@@ -198,7 +341,7 @@ def _snapshot_valid(snapshot: OpportunityMarketSnapshot, policy: OpportunityPoli
         or snapshot.trusted_at < policy.selected_decision_boundary
         or snapshot.trusted_at - policy.selected_decision_boundary > policy.maximum_decision_delay
         or not snapshot.session.market_open
-        or snapshot.session.clock_at > snapshot.trusted_at
+        or snapshot.session.clock_at - snapshot.trusted_at > _RETRIEVAL_SKEW_TOLERANCE
         or not snapshot.session.open_at <= snapshot.session.clock_at < snapshot.session.close_at
         or not snapshot.session.open_at
         < policy.selected_decision_boundary
@@ -208,7 +351,8 @@ def _snapshot_valid(snapshot: OpportunityMarketSnapshot, policy: OpportunityPoli
         or snapshot.account_book.account.role
         not in {AccountRole.DEVELOPMENT, AccountRole.SUBMISSION}
         or not snapshot.account_book.account.paper
-        or snapshot.account_book.positions.positions
+        # Open positions are allowed: each spread is entered against the reconciled book
+        # and managed independently. An open order still disqualifies the snapshot.
         or snapshot.account_book.open_orders
         or not _snapshot_hashes_valid(snapshot)
         or not snapshot.options
@@ -223,19 +367,29 @@ def _snapshot_valid(snapshot: OpportunityMarketSnapshot, policy: OpportunityPoli
         if (
             option.symbol in symbols
             or identity in identities
-            or not _option_valid(option, snapshot, policy)
+            or not _option_valid(
+                option,
+                snapshot,
+                policy,
+                enforce_policy_eligibility=enforce_policy_eligibility,
+            )
         ):
             return False
         symbols.add(option.symbol)
         identities.add(identity)
     quote_times = tuple(option.quote_at for option in snapshot.options)
-    return max(quote_times) - min(quote_times) <= policy.maximum_leg_quote_skew
+    return (
+        not enforce_policy_eligibility
+        or max(quote_times) - min(quote_times) <= policy.maximum_leg_quote_skew
+    )
 
 
 def _option_valid(
     option: OpportunityOption,
     snapshot: OpportunityMarketSnapshot,
     policy: OpportunityPolicy,
+    *,
+    enforce_policy_eligibility: bool = True,
 ) -> bool:
     decimals = (
         option.strike,
@@ -270,12 +424,19 @@ def _option_valid(
         and Decimal(0) <= option.gamma <= Decimal(10)
         and abs(option.theta_per_day) <= Decimal(1000)
         and Decimal(0) <= option.vega_per_iv_point <= Decimal(1000)
-        and option.quote_at <= option.retrieved_at <= snapshot.trusted_at
-        and timedelta(0) <= age <= policy.maximum_option_quote_age
-        and policy.minimum_dte
-        <= (option.expiry - policy.selected_decision_boundary.date()).days
-        <= policy.maximum_dte
-        and _relative_spread(option) <= policy.maximum_relative_spread
+        and option.quote_at <= option.retrieved_at
+        and option.retrieved_at - snapshot.trusted_at <= _RETRIEVAL_SKEW_TOLERANCE
+        and age >= -_RETRIEVAL_SKEW_TOLERANCE
+        and (
+            not enforce_policy_eligibility
+            or (
+                age <= policy.maximum_option_quote_age
+                and policy.minimum_dte
+                <= (option.expiry - policy.selected_decision_boundary.date()).days
+                <= policy.maximum_dte
+                and _relative_spread(option) <= policy.maximum_relative_spread
+            )
+        )
         and _digest(option.source_hash)
     )
 

@@ -75,7 +75,7 @@ _LOOKUP_POLICIES = {
 
 def broker_lookup_policy(value: str) -> BrokerLookupPolicy:
     state = normalize_broker_order_state(value)
-    if state not in LOOKUP_ONLY_BROKER_ORDER_STATES:
+    if state not in PENDING_BROKER_ORDER_STATES:
         raise ValueError("BROKER_LOOKUP_POLICY_STATE_INVALID")
     return _LOOKUP_POLICIES.get(state, _DEFAULT_LOOKUP_POLICY)
 

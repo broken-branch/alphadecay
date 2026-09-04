@@ -140,6 +140,7 @@ def test_factory_constructs_starts_and_owns_one_pinned_stream() -> None:
         "secret_key": "paper-secret",
         "raw_data": False,
         "feed": DataFeed.IEX,
+        "data_timeout": 15.0,
     }
     assert captured["config"] == _config()
     assert captured["clock"] is clock
@@ -228,9 +229,7 @@ def test_start_and_cleanup_failures_are_both_reported_after_all_cleanup() -> Non
             adapter_factory=adapter_factory,
         )
 
-    assert str(caught.value).startswith(
-        "OPPORTUNITY_HALT_STREAM_STARTUP_AND_CLEANUP_FAILED"
-    )
+    assert str(caught.value).startswith("OPPORTUNITY_HALT_STREAM_STARTUP_AND_CLEANUP_FAILED")
     assert [str(error) for error in caught.value.exceptions] == [
         "start failed",
         "stop failed",

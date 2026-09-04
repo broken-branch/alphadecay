@@ -16,9 +16,7 @@ OPENAPI_TAGS = [
     },
     {
         "name": OWNER_TAG,
-        "description": (
-            "Private controls for the owner of this paper trading deployment."
-        ),
+        "description": ("Private controls for the owner of this paper trading deployment."),
     },
     {
         "name": INTERNAL_TAG,
@@ -28,8 +26,7 @@ OPENAPI_TAGS = [
 
 HEALTH_SUMMARY = "Check the public service"
 HEALTH_DESCRIPTION = (
-    "Public service check. It does not read an account, call a provider, "
-    "or place an order."
+    "Public service check. It does not read an account, call a provider, or place an order."
 )
 
 REPLAY_SUMMARY = "Run a fixed Replay scenario"
@@ -79,8 +76,7 @@ AUTONOMY_ENABLE_DESCRIPTION = (
 )
 AUTONOMY_DISABLE_SUMMARY = "Disable paper account autonomy"
 AUTONOMY_DISABLE_DESCRIPTION = (
-    "The owner can disarm paper autonomy even when a provider "
-    "read is unavailable."
+    "The owner can disarm paper autonomy even when a provider read is unavailable."
 )
 
 PROVIDER_SETTINGS_STATUS_SUMMARY = "Read AI provider settings"
@@ -95,6 +91,38 @@ PROVIDER_SETTINGS_CLEAR_SUMMARY = "Remove AI provider settings"
 PROVIDER_SETTINGS_CLEAR_DESCRIPTION = (
     "Removes the stored provider override. The deployment returns to its configured "
     "default provider."
+)
+
+STRATEGY_DRAFT_CREATE_SUMMARY = "Turn a strategy brief into a review draft"
+STRATEGY_DRAFT_CREATE_DESCRIPTION = (
+    "Accepts pasted text or the contents of a text or Markdown brief. It organizes the idea "
+    "for model curation and owner review, but cannot arm autonomy or place an order."
+)
+
+STRATEGY_CURATION_CREATE_SUMMARY = "Curate a strategy protocol for review"
+STRATEGY_CURATION_CREATE_DESCRIPTION = (
+    "Uses the owner's selected AI provider to classify a supplied strategy brief and editable "
+    "protocol fields. The result remains review-only and cannot arm autonomy or place an order."
+)
+
+EXPERIMENT_CREATE_SUMMARY = "Save a reviewed experiment definition"
+EXPERIMENT_CREATE_DESCRIPTION = (
+    "Stores the exact reviewed thesis and protocol as an immutable version. The saved definition "
+    "remains review-only and cannot arm autonomy, schedule work, or place an order."
+)
+EXPERIMENT_LIST_SUMMARY = "List reviewed experiment definitions"
+EXPERIMENT_LIST_DESCRIPTION = (
+    "Lists immutable owner-reviewed definitions. These records are not execution-ready plans."
+)
+EXPERIMENT_READ_SUMMARY = "Read a reviewed experiment definition"
+EXPERIMENT_READ_DESCRIPTION = (
+    "Reads one immutable owner-reviewed definition. It does not contact a provider or broker."
+)
+PUBLIC_EXPERIMENT_PERFORMANCE_SUMMARY = "Read one published experiment result"
+PUBLIC_EXPERIMENT_WINDOWS_SUMMARY = "Read the frozen paper experiment windows"
+PUBLIC_EXPERIMENT_WINDOWS_DESCRIPTION = (
+    "Lists every frozen competition plan and its recorded paper decision, with private fields "
+    "removed. It does not contact Alpaca or place an order."
 )
 
 SCHEDULER_TICK_SUMMARY = "Run one scheduled paper account review"

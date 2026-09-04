@@ -50,7 +50,7 @@ def _expected_workflow() -> dict[str, Any]:
     return {
         "name": "Scheduler wake",
         "on": {
-            "schedule": [{"cron": "*/15 * * * *"}],
+            "schedule": [{"cron": "*/5 * * * *"}],
             "workflow_dispatch": {
                 "inputs": {
                     "approved_rehearsal": {
@@ -82,9 +82,7 @@ def _expected_workflow() -> dict[str, Any]:
                         "name": "Wake one selector-free agent tick",
                         "run": "python3 ops/deploy/scheduler_tick.py",
                         "env": {
-                            "ALPHADECAY_SCHEDULER_URL": (
-                                "${{ secrets.ALPHADECAY_SCHEDULER_URL }}"
-                            ),
+                            "ALPHADECAY_SCHEDULER_URL": ("${{ secrets.ALPHADECAY_SCHEDULER_URL }}"),
                             "ALPHADECAY_SCHEDULER_TOKEN": (
                                 "${{ secrets.ALPHADECAY_SCHEDULER_TOKEN }}"
                             ),

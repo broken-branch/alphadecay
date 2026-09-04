@@ -84,6 +84,7 @@ from backend.app.services.opportunity_halt_authority import (
     HaltSequenceAuthority,
     halt_authority_config_digest,
 )
+from backend.app.strategy_briefs import StrategyCurationService
 
 from .composition import (
     PAPER_TRADING_ENDPOINT,
@@ -252,6 +253,7 @@ class ProductionAgent:
     resources: ProductionResources
     provider_settings: OwnerProviderSettingsService
     opportunity_halt: RuntimeResource[OpportunityHaltAuthority] | None = None
+    strategy_curation: StrategyCurationService | None = None
 
     def __post_init__(self) -> None:
         self._close_lock = asyncio.Lock()
@@ -339,6 +341,7 @@ async def build_production_agent(
             provider_settings_repository,
             resources.model_transport.value,
         )
+        strategy_curation = StrategyCurationService(selectable_model)
         persistence.repository.register_account(
             role=role,
             fingerprint=resources.account_fingerprint,
@@ -444,13 +447,14 @@ async def build_production_agent(
             server_enabled=settings.app_autonomous_enabled,
         )
         return ProductionAgent(
-            service,
-            autonomy,
-            runtime,
-            persistence,
-            resources,
-            provider_settings,
-            opportunity_halt,
+            service=service,
+            autonomy=autonomy,
+            runtime=runtime,
+            persistence=persistence,
+            resources=resources,
+            provider_settings=provider_settings,
+            opportunity_halt=opportunity_halt,
+            strategy_curation=strategy_curation,
         )
     except BaseException as startup_error:
         cleanup_errors: tuple[BaseException, ...]
@@ -482,11 +486,10 @@ async def build_production_opportunity_wiring(
         build_production_opportunity_halt_resource
     ),
 ) -> ProductionOpportunityWiring:
-    if (
-        _account_role(settings.app_account_role)
-        not in (AccountRole.DEVELOPMENT, AccountRole.SUBMISSION)
-        or not isinstance(authority, ProductionOpportunityAuthority)
-    ):
+    if _account_role(settings.app_account_role) not in (
+        AccountRole.DEVELOPMENT,
+        AccountRole.SUBMISSION,
+    ) or not isinstance(authority, ProductionOpportunityAuthority):
         raise RuntimeCompositionError("OPPORTUNITY_RUNTIME_AUTHORITY_REQUIRED")
     account_role = _account_role(settings.app_account_role)
     authority_repository = SQLAlchemyOpportunityAuthorityRepository(
@@ -495,11 +498,7 @@ async def build_production_opportunity_wiring(
     )
     evidence_repository = persistence.opportunity_evidence_repository
     thesis_repository = persistence.opportunity_thesis_repository
-    if (
-        authority_repository is None
-        or evidence_repository is None
-        or thesis_repository is None
-    ):
+    if authority_repository is None or evidence_repository is None or thesis_repository is None:
         raise RuntimeCompositionError("OPPORTUNITY_PERSISTENCE_REQUIRED")
     plans = authority.plans
     plan = authority.plan
@@ -592,11 +591,7 @@ def _load_production_opportunity_authority(
     authority_repository = persistence.opportunity_authority_repository
     evidence_repository = persistence.opportunity_evidence_repository
     thesis_repository = persistence.opportunity_thesis_repository
-    if (
-        authority_repository is None
-        or evidence_repository is None
-        or thesis_repository is None
-    ):
+    if authority_repository is None or evidence_repository is None or thesis_repository is None:
         raise RuntimeCompositionError("OPPORTUNITY_PERSISTENCE_REQUIRED")
     plans = SQLAlchemyOpportunityPlanAdapter(
         evidence_repository,
@@ -620,9 +615,7 @@ def _halt_config_for_plan(
     if not callable(get_calendar):
         raise RuntimeCompositionError("OPPORTUNITY_CALENDAR_AUTHORITY_UNAVAILABLE")
     try:
-        calendars = get_calendar(
-            GetCalendarRequest(start=signal_session, end=signal_session)
-        )
+        calendars = get_calendar(GetCalendarRequest(start=signal_session, end=signal_session))
     except Exception as error:
         raise RuntimeCompositionError("OPPORTUNITY_CALENDAR_AUTHORITY_UNAVAILABLE") from error
     if (
@@ -686,8 +679,7 @@ def _validate_plan_account_authority(
     if (
         request.account_role is not account_role
         or getattr(plan.plan_spec, "account_role", account_role) is not account_role
-        or getattr(getattr(plan, "plan", None), "account_role", account_role)
-        is not account_role
+        or getattr(getattr(plan, "plan", None), "account_role", account_role) is not account_role
         or getattr(plan.baseline_seal, "account_role", account_role) is not account_role
         or getattr(plan.baseline, "account_role", account_role) is not account_role
         or request.expected_account_fingerprint != account_fingerprint

@@ -32,6 +32,7 @@ from backend.app.execution import (
     order_envelope_hash,
 )
 from backend.app.execution.models import ExecutionIntent, IntentState, OrderAttempt
+from backend.app.experiment_lineage import ExperimentExecutionLineage
 from backend.app.order_limits import EntryBudgetLimits
 from backend.app.persistence import AgentDecisionRepository, SQLAlchemyExecutionRepository
 from backend.app.persistence.agent_authority import (
@@ -75,6 +76,11 @@ DEVELOPMENT_ENTRY_LIMITS = EntryBudgetLimits(
 )
 ROLL_AUTHORIZATION_ID = UUID("00000000-0000-0000-0000-000000000308")
 ROLL_SESSION_ID = UUID("00000000-0000-0000-0000-000000000309")
+EXPERIMENT_LINEAGE = ExperimentExecutionLineage(
+    UUID("00000000-0000-0000-0000-000000000399"),
+    "6" * 64,
+    "7" * 64,
+)
 
 
 def _claim(
@@ -268,6 +274,121 @@ def test_frozen_thesis_payload_round_trips_without_loss() -> None:
     assert thesis.policy_hash == POLICY_HASH
     assert thesis.invalidation_codes == ("TEST_INVALIDATION",)
     assert thesis.thesis_payload == {"frozen": True}
+
+
+def test_direct_entry_approval_rejects_unbound_experiment_lineage_without_write() -> None:
+    repo = repository()
+    order = envelope()
+    approval = EntryApprovalAuthorization(
+        approval_id=AUTH_ID,
+        thesis_version_id=UUID("ffffffff-ffff-ffff-ffff-ffffffffffff"),
+        account_role=AccountRole.SUBMISSION,
+        policy_hash=order.policy_hash,
+        book_fingerprint=order.position_or_book_fingerprint,
+        envelope_hash=order_envelope_hash(order),
+        approved_max_loss=order.approved_max_loss,
+        quantity=order.quantity,
+        valid_from=datetime(2020, 1, 1, tzinfo=UTC),
+        expires_at=datetime(2030, 1, 1, tzinfo=UTC),
+        experiment_lineage=EXPERIMENT_LINEAGE,
+    )
+
+    with pytest.raises(
+        ExecutionBlocked,
+        match="EXPERIMENT_EXECUTION_LINEAGE_REQUIRES_AGENT_DECISION",
+    ):
+        repo.add_entry_approval(approval)
+
+    with repo._sessions() as session:
+        assert session.get(EntryApprovalCertificateRow, approval.approval_id) is None
+
+
+def test_direct_assessment_rejects_unbound_experiment_lineage_without_write() -> None:
+    repo = repository()
+    order = lifecycle_envelope()
+    certificate = AssessmentCertificate(
+        certificate_id=order.authorization_certificate_id,
+        assessment_id=uuid4(),
+        thesis_version_id=UUID("ffffffff-ffff-ffff-ffff-ffffffffffff"),
+        account_role=AccountRole.SUBMISSION,
+        action=order.action,
+        position_fingerprint=order.position_or_book_fingerprint,
+        envelope_hash=order_envelope_hash(order),
+        approved_max_loss=order.approved_max_loss,
+        quantity=order.quantity,
+        expected_after_exposure=None,
+        policy_hash=order.policy_hash,
+        created_at=datetime(2020, 1, 1, tzinfo=UTC),
+        expires_at=datetime(2030, 1, 1, tzinfo=UTC),
+        experiment_lineage=EXPERIMENT_LINEAGE,
+    )
+
+    with pytest.raises(
+        ExecutionBlocked,
+        match="EXPERIMENT_EXECUTION_LINEAGE_REQUIRES_AGENT_DECISION",
+    ):
+        repo.add_assessment_certificate(certificate)
+
+    with repo._sessions() as session:
+        assert session.get(AssessmentCertificateRow, certificate.certificate_id) is None
+
+
+def test_direct_legacy_authorizations_round_trip_with_explicit_null_lineage() -> None:
+    repo = repository()
+    order = envelope()
+    repo.register_account(
+        role=AccountRole.SUBMISSION,
+        fingerprint=order.account_fingerprint,
+        equity=Decimal("100000"),
+        autonomous_enabled=False,
+    )
+    add_test_thesis(repo, order.policy_hash)
+    approval = EntryApprovalAuthorization(
+        approval_id=AUTH_ID,
+        thesis_version_id=UUID("ffffffff-ffff-ffff-ffff-ffffffffffff"),
+        account_role=AccountRole.SUBMISSION,
+        policy_hash=order.policy_hash,
+        book_fingerprint=order.position_or_book_fingerprint,
+        envelope_hash=order_envelope_hash(order),
+        approved_max_loss=order.approved_max_loss,
+        quantity=order.quantity,
+        valid_from=datetime(2020, 1, 1, tzinfo=UTC),
+        expires_at=datetime(2030, 1, 1, tzinfo=UTC),
+    )
+    lifecycle_order = lifecycle_envelope()
+    assessment = AssessmentCertificate(
+        certificate_id=lifecycle_order.authorization_certificate_id,
+        assessment_id=uuid4(),
+        thesis_version_id=approval.thesis_version_id,
+        account_role=AccountRole.SUBMISSION,
+        action=lifecycle_order.action,
+        position_fingerprint=lifecycle_order.position_or_book_fingerprint,
+        envelope_hash=order_envelope_hash(lifecycle_order),
+        approved_max_loss=lifecycle_order.approved_max_loss,
+        quantity=lifecycle_order.quantity,
+        expected_after_exposure=None,
+        policy_hash=lifecycle_order.policy_hash,
+        created_at=datetime(2020, 1, 1, tzinfo=UTC),
+        expires_at=datetime(2030, 1, 1, tzinfo=UTC),
+    )
+
+    repo.add_entry_approval(approval)
+    repo.add_assessment_certificate(assessment)
+
+    assert repo.get_assessment_certificate(assessment.certificate_id) == assessment
+    with repo._sessions() as session:
+        entry = session.get(EntryApprovalCertificateRow, approval.approval_id)
+        stored_assessment = session.get(
+            AssessmentCertificateRow,
+            assessment.certificate_id,
+        )
+        assert entry is not None and stored_assessment is not None
+        assert entry.experiment_id is None
+        assert entry.experiment_source_definition_hash is None
+        assert entry.experiment_protocol_hash is None
+        assert stored_assessment.experiment_id is None
+        assert stored_assessment.experiment_source_definition_hash is None
+        assert stored_assessment.experiment_protocol_hash is None
 
 
 def prepare_entry(
@@ -944,18 +1065,21 @@ def test_terminal_roll_attempt_still_consumes_the_position_session_fence(
     assert terminal_outcome in {"CANCELED", "REJECTED", "EXPIRED"}
     repo = repository()
     _, first_intent, _, first_order = prepare_lifecycle_pair(repo)
+    attempt_reference = uuid5(NAMESPACE_URL, f"test-fixture-roll-attempt-{terminal_outcome}")
+    client_reference = f"fixture-roll-{terminal_outcome.lower()}"
+    provider_reference = f"fixture-provider-{terminal_outcome.lower()}"
     with repo._sessions.begin() as session:
         row = session.get(ExecutionIntentRow, first_intent.intent_id)
         assert row is not None
         row.state = IntentState.TERMINAL.value
         session.add(
             OrderAttemptRow(
-                attempt_id=uuid4(),
+                attempt_id=attempt_reference,
                 broker_permit_id=None,
                 execution_intent_id=first_intent.intent_id,
                 attempt_ordinal=0,
-                client_order_id=f"roll-{terminal_outcome.lower()}-{uuid4().hex[:12]}",
-                provider_order_id=f"provider-{uuid4().hex}",
+                client_order_id=client_reference,
+                provider_order_id=provider_reference,
                 state=terminal_outcome,
                 request_hash="e" * 64,
                 limit_price=Decimal("1.00"),

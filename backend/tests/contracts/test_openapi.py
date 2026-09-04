@@ -72,6 +72,14 @@ def test_every_operation_has_stable_public_copy_and_grouping() -> None:
             "owner_provider_settings_clear",
             "Owner",
         ),
+        ("/api/owner/strategy-drafts", "post"): (
+            "owner_strategy_draft_create",
+            "Owner",
+        ),
+        ("/api/owner/strategy-curations", "post"): (
+            "owner_strategy_curation_create",
+            "Owner",
+        ),
         ("/api/internal/scheduler/tick", "post"): ("internal_scheduler_tick", "Internal"),
     }
 

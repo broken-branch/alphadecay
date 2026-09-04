@@ -35,7 +35,15 @@ from backend.app.execution import (
     SweepObservation,
 )
 from backend.app.lifecycle import LifecycleLaunchAuthority
+from backend.app.lifecycle.structural_pilot import (
+    STRUCTURAL_MANDATORY_BOUNDARY_CLOSE,
+    structural_pilot_lifecycle,
+)
 from backend.app.policy import ExecutionDecision, ThesisStatus, VolatilityView, evaluate_assessment
+from backend.app.policy.opportunity import (
+    STRUCTURAL_BEARISH_OTM_PILOT_ID,
+    STRUCTURAL_BULLISH_OTM_PILOT_ID,
+)
 from backend.app.services import (
     AcquisitionFailure,
     AlpacaMarketSession,
@@ -186,6 +194,9 @@ def context(**changes: object) -> RetainedLifecycleContext:
         "target_at": NOW + timedelta(days=5),
         "position_fingerprint": fingerprint(positions),
         "expected_positions": positions,
+        "account_expected_positions": positions,
+        "account_activity_hashes": (),
+        "account_lifecycle_origin_at": BASELINE - timedelta(days=1),
         "delta_low": Decimal("20"),
         "delta_high": Decimal("40"),
         "vega_low": Decimal("3"),
@@ -222,7 +233,68 @@ def context(**changes: object) -> RetainedLifecycleContext:
         ),
     }
     values.update(changes)
+    if "account_activity_hashes" not in changes:
+        values["account_activity_hashes"] = tuple(
+            sorted(
+                {
+                    value
+                    for transition in values["lifecycle_transitions"]
+                    for value in transition.activity_hashes
+                }
+            )
+        )
     return RetainedLifecycleContext(**values)
+
+
+@pytest.mark.parametrize(
+    ("strategy_id", "long_symbol", "short_symbol"),
+    (
+        (
+            STRUCTURAL_BULLISH_OTM_PILOT_ID,
+            "SPY261009C00750000",
+            "SPY261009C00754000",
+        ),
+        (
+            STRUCTURAL_BEARISH_OTM_PILOT_ID,
+            "SPY261009P00750000",
+            "SPY261009P00746000",
+        ),
+    ),
+)
+def test_registered_structural_lifecycle_matches_exact_vertical_geometry(
+    strategy_id: str,
+    long_symbol: str,
+    short_symbol: str,
+) -> None:
+    positions = retained_positions(long_symbol, short_symbol)
+    pilot_thesis = thesis().model_copy(
+        update={
+            "thesis": thesis().thesis.model_copy(
+                update={"underlying": "SPY", "thesis_code": strategy_id}
+            )
+        }
+    )
+    target_at = NOW + timedelta(days=1)
+    retained = context(
+        account_role=AccountRole.SUBMISSION,
+        thesis=pilot_thesis,
+        target_at=target_at,
+        expected_positions=positions,
+        position_fingerprint=fingerprint(positions),
+        approved_max_loss=Decimal("225"),
+    )
+
+    lifecycle = structural_pilot_lifecycle(retained)
+
+    assert lifecycle is not None
+    assert (
+        lifecycle.close_reason(
+            retained,
+            executable_value=Decimal("500"),
+            trusted_at=target_at,
+        )
+        == STRUCTURAL_MANDATORY_BOUNDARY_CLOSE
+    )
 
 
 def account(observed_at: datetime, **changes: object) -> AccountObservation:

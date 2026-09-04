@@ -139,7 +139,7 @@ def test_fill_activity_requires_exact_order_lineage() -> None:
         )
 
 
-def test_activity_collection_rejects_window_shorter_than_visibility_horizon() -> None:
+def test_activity_collection_reports_honest_visibility_for_short_windows() -> None:
     until = datetime(2026, 8, 28, 15, 30, tzinfo=UTC)
     adapter = AccountActivitiesAdapter(
         httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(200, json=[]))),
@@ -149,12 +149,18 @@ def test_activity_collection_rejects_window_shorter_than_visibility_horizon() ->
         clock=lambda: until,
     )
 
-    with pytest.raises(ActivityReadError, match="ACTIVITY_VISIBILITY_HORIZON_INCOMPLETE"):
-        adapter.collect(
-            since=until - timedelta(hours=23),
-            until=until,
-            provider_to_client={},
-        )
+    items, pagination = adapter.collect(
+        since=until - timedelta(hours=23),
+        until=until,
+        provider_to_client={},
+    )
+
+    assert items == ()
+    assert pagination.requested_start == until - timedelta(hours=23)
+    # Nothing inside a window shorter than the horizon is guaranteed visible yet; the
+    # watermark stays honest and precedes the requested start.
+    assert pagination.visibility_complete_through == until - timedelta(hours=24)
+    assert pagination.visibility_complete_through < pagination.requested_start
 
 
 def test_activity_collection_normalizes_domain_validation_failure() -> None:

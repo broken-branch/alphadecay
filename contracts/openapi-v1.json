@@ -212,6 +212,24 @@
         "title": "BaselineStatus",
         "type": "string"
       },
+      "BriefSourceKind": {
+        "enum": [
+          "PASTED_TEXT",
+          "TEXT_FILE",
+          "MARKDOWN_FILE"
+        ],
+        "title": "BriefSourceKind",
+        "type": "string"
+      },
+      "CandidateStructureFamily": {
+        "enum": [
+          "BULL_CALL_DEBIT_SPREAD",
+          "BEAR_PUT_DEBIT_SPREAD",
+          "IRON_CONDOR"
+        ],
+        "title": "CandidateStructureFamily",
+        "type": "string"
+      },
       "CertificateResponse": {
         "additionalProperties": false,
         "properties": {
@@ -289,6 +307,17 @@
         ],
         "title": "CertificateResponse",
         "type": "object"
+      },
+      "ComparisonOperator": {
+        "enum": [
+          "LESS_THAN",
+          "LESS_THAN_OR_EQUAL",
+          "EQUAL",
+          "GREATER_THAN_OR_EQUAL",
+          "GREATER_THAN"
+        ],
+        "title": "ComparisonOperator",
+        "type": "string"
       },
       "CompetitionAssessmentEvent": {
         "additionalProperties": false,
@@ -975,6 +1004,430 @@
         "title": "CompetitionThesisProjection",
         "type": "object"
       },
+      "CompileExperimentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "$ref": "#/components/schemas/ReviewedProtocolDefinition-Input"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/ReviewedProtocolRules"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_definition_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Definition Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_definition_hash",
+          "definition",
+          "rules"
+        ],
+        "title": "CompileExperimentRequest",
+        "type": "object"
+      },
+      "CompiledExperimentVersion": {
+        "additionalProperties": false,
+        "properties": {
+          "arm_state": {
+            "const": "NOT_ARMED",
+            "default": "NOT_ARMED",
+            "title": "Arm State",
+            "type": "string"
+          },
+          "automation_state": {
+            "const": "OFF",
+            "default": "OFF",
+            "title": "Automation State",
+            "type": "string"
+          },
+          "compiled_protocol": {
+            "$ref": "#/components/schemas/CompiledStrategyProtocol"
+          },
+          "compiled_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Compiled Version",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "execution_eligible": {
+            "const": false,
+            "default": false,
+            "title": "Execution Eligible",
+            "type": "boolean"
+          },
+          "experiment_id": {
+            "format": "uuid",
+            "title": "Experiment Id",
+            "type": "string"
+          },
+          "lifecycle_state": {
+            "const": "COMPILED",
+            "default": "COMPILED",
+            "title": "Lifecycle State",
+            "type": "string"
+          },
+          "paper_trading_only": {
+            "const": true,
+            "default": true,
+            "title": "Paper Trading Only",
+            "type": "boolean"
+          },
+          "protocol_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Protocol Hash",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_definition_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Definition Hash",
+            "type": "string"
+          },
+          "source_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Source Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "experiment_id",
+          "source_definition_hash",
+          "protocol_hash",
+          "compiled_protocol",
+          "created_at"
+        ],
+        "title": "CompiledExperimentVersion",
+        "type": "object"
+      },
+      "CompiledMachineRule": {
+        "additionalProperties": false,
+        "properties": {
+          "match": {
+            "$ref": "#/components/schemas/RuleMatchMode"
+          },
+          "predicates": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "FACT": "#/components/schemas/ProtocolFactPredicate",
+                  "NUMERIC": "#/components/schemas/ProtocolNumericPredicate-Output"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ProtocolNumericPredicate-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/ProtocolFactPredicate"
+                }
+              ]
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Predicates",
+            "type": "array"
+          },
+          "source_rule_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Rule Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_rule_hash",
+          "match",
+          "predicates"
+        ],
+        "title": "CompiledMachineRule",
+        "type": "object"
+      },
+      "CompiledProtocolRules": {
+        "additionalProperties": false,
+        "properties": {
+          "entry_rule": {
+            "$ref": "#/components/schemas/CompiledMachineRule"
+          },
+          "invalidation_rules": {
+            "items": {
+              "$ref": "#/components/schemas/CompiledMachineRule"
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Invalidation Rules",
+            "type": "array"
+          },
+          "loss_exit_rule": {
+            "$ref": "#/components/schemas/CompiledMachineRule"
+          },
+          "no_trade_rule": {
+            "$ref": "#/components/schemas/CompiledMachineRule"
+          },
+          "profit_exit_rule": {
+            "$ref": "#/components/schemas/CompiledMachineRule"
+          },
+          "time_exit_rule": {
+            "$ref": "#/components/schemas/CompiledMachineRule"
+          }
+        },
+        "required": [
+          "entry_rule",
+          "no_trade_rule",
+          "profit_exit_rule",
+          "loss_exit_rule",
+          "time_exit_rule",
+          "invalidation_rules"
+        ],
+        "title": "CompiledProtocolRules",
+        "type": "object"
+      },
+      "CompiledStrategyProtocol": {
+        "additionalProperties": false,
+        "properties": {
+          "arm_state": {
+            "const": "NOT_ARMED",
+            "default": "NOT_ARMED",
+            "title": "Arm State",
+            "type": "string"
+          },
+          "automation_state": {
+            "const": "OFF",
+            "default": "OFF",
+            "title": "Automation State",
+            "type": "string"
+          },
+          "compile_status": {
+            "const": "COMPILABLE",
+            "default": "COMPILABLE",
+            "title": "Compile Status",
+            "type": "string"
+          },
+          "compiler_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Compiler Hash",
+            "type": "string"
+          },
+          "defined_risk_required": {
+            "const": true,
+            "default": true,
+            "title": "Defined Risk Required",
+            "type": "boolean"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/ReviewedProtocolDefinition-Output"
+          },
+          "definition_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Definition Hash",
+            "type": "string"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/StrategyDirection"
+          },
+          "execution_eligible": {
+            "const": false,
+            "default": false,
+            "title": "Execution Eligible",
+            "type": "boolean"
+          },
+          "leg_count": {
+            "const": 2,
+            "default": 2,
+            "title": "Leg Count",
+            "type": "integer"
+          },
+          "mandatory_safety_facts": {
+            "items": {
+              "$ref": "#/components/schemas/ProtocolFact"
+            },
+            "title": "Mandatory Safety Facts",
+            "type": "array"
+          },
+          "net_premium": {
+            "const": "DEBIT",
+            "default": "DEBIT",
+            "title": "Net Premium",
+            "type": "string"
+          },
+          "options_required": {
+            "const": true,
+            "default": true,
+            "title": "Options Required",
+            "type": "boolean"
+          },
+          "paper_trading_only": {
+            "const": true,
+            "default": true,
+            "title": "Paper Trading Only",
+            "type": "boolean"
+          },
+          "protocol_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Protocol Hash",
+            "type": "string"
+          },
+          "recipe": {
+            "const": "TWO_LEG_DEBIT_VERTICAL",
+            "default": "TWO_LEG_DEBIT_VERTICAL",
+            "title": "Recipe",
+            "type": "string"
+          },
+          "review_state": {
+            "const": "REVIEWED",
+            "default": "REVIEWED",
+            "title": "Review State",
+            "type": "string"
+          },
+          "risk_budget": {
+            "$ref": "#/components/schemas/StrategyRiskBudget-Output"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/CompiledProtocolRules"
+          },
+          "source_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Hash",
+            "type": "string"
+          },
+          "structure": {
+            "$ref": "#/components/schemas/CuratedStructure"
+          },
+          "symbol": {
+            "pattern": "^[A-Z]{1,6}$",
+            "title": "Symbol",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol",
+          "direction",
+          "structure",
+          "risk_budget",
+          "definition",
+          "rules",
+          "mandatory_safety_facts",
+          "source_hash",
+          "compiler_hash",
+          "definition_hash",
+          "protocol_hash"
+        ],
+        "title": "CompiledStrategyProtocol",
+        "type": "object"
+      },
+      "ConstantOperand-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "CONSTANT",
+            "default": "CONSTANT",
+            "title": "Kind",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,22}0*$)\\d{0,12}\\.\\d{0,9}0*$)",
+                "type": "string"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "ConstantOperand",
+        "type": "object"
+      },
+      "ConstantOperand-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "CONSTANT",
+            "default": "CONSTANT",
+            "title": "Kind",
+            "type": "string"
+          },
+          "value": {
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,9})?$",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "ConstantOperand",
+        "type": "object"
+      },
+      "CuratedStructure": {
+        "enum": [
+          "BULL_CALL_DEBIT_SPREAD",
+          "BEAR_PUT_DEBIT_SPREAD",
+          "IRON_CONDOR",
+          "REVIEW_REQUIRED"
+        ],
+        "title": "CuratedStructure",
+        "type": "string"
+      },
+      "CurationBlockingQuestion": {
+        "enum": [
+          "MARKET_SCOPE_REQUIRED",
+          "DIRECTION_REVIEW_REQUIRED",
+          "HORIZON_REQUIRED",
+          "EVIDENCE_REQUIRED",
+          "RISK_BUDGET_REQUIRED",
+          "ENTRY_RULE_REQUIRED",
+          "NO_TRADE_RULE_REQUIRED",
+          "PROFIT_EXIT_REQUIRED",
+          "LOSS_EXIT_REQUIRED",
+          "TIME_EXIT_REQUIRED",
+          "INVALIDATION_REQUIRED",
+          "STRUCTURE_REVIEW_REQUIRED"
+        ],
+        "title": "CurationBlockingQuestion",
+        "type": "string"
+      },
+      "CurationConfidence": {
+        "enum": [
+          "LOW",
+          "MEDIUM",
+          "HIGH"
+        ],
+        "title": "CurationConfidence",
+        "type": "string"
+      },
+      "CurationReadiness": {
+        "enum": [
+          "READY",
+          "NEEDS_INPUT",
+          "CONFLICT_REVIEW"
+        ],
+        "title": "CurationReadiness",
+        "type": "string"
+      },
       "DataQuality": {
         "enum": [
           "COMPLETE",
@@ -984,6 +1437,218 @@
         ],
         "title": "DataQuality",
         "type": "string"
+      },
+      "DebitVerticalSelection-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "maximum_contracts_considered": {
+            "maximum": 128.0,
+            "minimum": 1.0,
+            "title": "Maximum Contracts Considered",
+            "type": "integer"
+          },
+          "maximum_debit_per_share": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,19}0*$)\\d{0,12}\\.\\d{0,6}0*$)",
+                "type": "string"
+              }
+            ],
+            "title": "Maximum Debit Per Share"
+          },
+          "maximum_dte": {
+            "maximum": 730.0,
+            "minimum": 1.0,
+            "title": "Maximum Dte",
+            "type": "integer"
+          },
+          "maximum_expiry": {
+            "format": "date",
+            "title": "Maximum Expiry",
+            "type": "string"
+          },
+          "maximum_loss_dollars": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,19}0*$)\\d{0,12}\\.\\d{0,6}0*$)",
+                "type": "string"
+              }
+            ],
+            "title": "Maximum Loss Dollars"
+          },
+          "maximum_strike": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,19}0*$)\\d{0,12}\\.\\d{0,6}0*$)",
+                "type": "string"
+              }
+            ],
+            "title": "Maximum Strike"
+          },
+          "minimum_dte": {
+            "maximum": 730.0,
+            "minimum": 1.0,
+            "title": "Minimum Dte",
+            "type": "integer"
+          },
+          "minimum_expiry": {
+            "format": "date",
+            "title": "Minimum Expiry",
+            "type": "string"
+          },
+          "minimum_strike": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,19}0*$)\\d{0,12}\\.\\d{0,6}0*$)",
+                "type": "string"
+              }
+            ],
+            "title": "Minimum Strike"
+          },
+          "quantity": {
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "target_dte": {
+            "maximum": 730.0,
+            "minimum": 1.0,
+            "title": "Target Dte",
+            "type": "integer"
+          },
+          "width_dollars": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,19}0*$)\\d{0,12}\\.\\d{0,6}0*$)",
+                "type": "string"
+              }
+            ],
+            "title": "Width Dollars"
+          }
+        },
+        "required": [
+          "minimum_expiry",
+          "maximum_expiry",
+          "minimum_dte",
+          "target_dte",
+          "maximum_dte",
+          "minimum_strike",
+          "maximum_strike",
+          "width_dollars",
+          "quantity",
+          "maximum_debit_per_share",
+          "maximum_loss_dollars",
+          "maximum_contracts_considered"
+        ],
+        "title": "DebitVerticalSelection",
+        "type": "object"
+      },
+      "DebitVerticalSelection-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "maximum_contracts_considered": {
+            "maximum": 128.0,
+            "minimum": 1.0,
+            "title": "Maximum Contracts Considered",
+            "type": "integer"
+          },
+          "maximum_debit_per_share": {
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+            "title": "Maximum Debit Per Share",
+            "type": "string"
+          },
+          "maximum_dte": {
+            "maximum": 730.0,
+            "minimum": 1.0,
+            "title": "Maximum Dte",
+            "type": "integer"
+          },
+          "maximum_expiry": {
+            "format": "date",
+            "title": "Maximum Expiry",
+            "type": "string"
+          },
+          "maximum_loss_dollars": {
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+            "title": "Maximum Loss Dollars",
+            "type": "string"
+          },
+          "maximum_strike": {
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+            "title": "Maximum Strike",
+            "type": "string"
+          },
+          "minimum_dte": {
+            "maximum": 730.0,
+            "minimum": 1.0,
+            "title": "Minimum Dte",
+            "type": "integer"
+          },
+          "minimum_expiry": {
+            "format": "date",
+            "title": "Minimum Expiry",
+            "type": "string"
+          },
+          "minimum_strike": {
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+            "title": "Minimum Strike",
+            "type": "string"
+          },
+          "quantity": {
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "target_dte": {
+            "maximum": 730.0,
+            "minimum": 1.0,
+            "title": "Target Dte",
+            "type": "integer"
+          },
+          "width_dollars": {
+            "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+            "title": "Width Dollars",
+            "type": "string"
+          }
+        },
+        "required": [
+          "minimum_expiry",
+          "maximum_expiry",
+          "minimum_dte",
+          "target_dte",
+          "maximum_dte",
+          "minimum_strike",
+          "maximum_strike",
+          "width_dollars",
+          "quantity",
+          "maximum_debit_per_share",
+          "maximum_loss_dollars",
+          "maximum_contracts_considered"
+        ],
+        "title": "DebitVerticalSelection",
+        "type": "object"
       },
       "DriftComponents": {
         "additionalProperties": false,
@@ -1047,6 +1712,16 @@
         ],
         "title": "DriftComponents",
         "type": "object"
+      },
+      "EvidenceCheck": {
+        "enum": [
+          "VERIFY_THESIS_CLAIMS",
+          "CHECK_MARKET_DATA_RECENCY",
+          "CHECK_OPTION_LIQUIDITY",
+          "CHECK_INVALIDATION_STATE"
+        ],
+        "title": "EvidenceCheck",
+        "type": "string"
       },
       "EvidenceClassification": {
         "additionalProperties": false,
@@ -1136,6 +1811,31 @@
         "title": "EvidenceClassification",
         "type": "object"
       },
+      "EvidencePlan": {
+        "additionalProperties": false,
+        "properties": {
+          "required_checks": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceCheck"
+            },
+            "title": "Required Checks",
+            "type": "array"
+          },
+          "submitted_evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Submitted Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "submitted_evidence",
+          "required_checks"
+        ],
+        "title": "EvidencePlan",
+        "type": "object"
+      },
       "EvidenceRelation": {
         "enum": [
           "SUPPORTS",
@@ -1205,6 +1905,684 @@
         ],
         "title": "ExecutionDecision",
         "type": "string"
+      },
+      "ExitRequirement": {
+        "enum": [
+          "PROFIT_EXIT_REQUIRED",
+          "LOSS_EXIT_REQUIRED",
+          "TIME_EXIT_REQUIRED"
+        ],
+        "title": "ExitRequirement",
+        "type": "string"
+      },
+      "ExitRules": {
+        "additionalProperties": false,
+        "properties": {
+          "invalidation": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Invalidation",
+            "type": "array"
+          },
+          "required_before_promotion": {
+            "items": {
+              "$ref": "#/components/schemas/ExitRequirement"
+            },
+            "title": "Required Before Promotion",
+            "type": "array"
+          }
+        },
+        "required": [
+          "invalidation",
+          "required_before_promotion"
+        ],
+        "title": "ExitRules",
+        "type": "object"
+      },
+      "ExperimentAuthorizationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "protocol_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Protocol Hash",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_definition_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Definition Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_definition_hash",
+          "protocol_hash",
+          "expected_revision"
+        ],
+        "title": "ExperimentAuthorizationRequest",
+        "type": "object"
+      },
+      "ExperimentAuthorizationStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "authorization_event_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorization Event Hash"
+          },
+          "authorization_revision": {
+            "minimum": 0.0,
+            "title": "Authorization Revision",
+            "type": "integer"
+          },
+          "authorization_state": {
+            "enum": [
+              "NOT_ARMED",
+              "ARMED",
+              "DISARMED"
+            ],
+            "title": "Authorization State",
+            "type": "string"
+          },
+          "entry_authorized": {
+            "title": "Entry Authorized",
+            "type": "boolean"
+          },
+          "execution_eligible": {
+            "const": false,
+            "default": false,
+            "title": "Execution Eligible",
+            "type": "boolean"
+          },
+          "existing_position_risk_management_preserved": {
+            "const": true,
+            "default": true,
+            "title": "Existing Position Risk Management Preserved",
+            "type": "boolean"
+          },
+          "experiment_id": {
+            "format": "uuid",
+            "title": "Experiment Id",
+            "type": "string"
+          },
+          "paper_trading_only": {
+            "const": true,
+            "default": true,
+            "title": "Paper Trading Only",
+            "type": "boolean"
+          },
+          "protocol_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Protocol Hash",
+            "type": "string"
+          },
+          "runtime_state": {
+            "const": "NOT_CONNECTED",
+            "default": "NOT_CONNECTED",
+            "title": "Runtime State",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_definition_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Definition Hash",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "experiment_id",
+          "source_definition_hash",
+          "protocol_hash",
+          "authorization_revision",
+          "authorization_state",
+          "entry_authorized"
+        ],
+        "title": "ExperimentAuthorizationStatus",
+        "type": "object"
+      },
+      "ExperimentCountMetric": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "unavailable_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "NO_OPENED_TRADES",
+                  "NO_CLOSED_TRADES"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Reason"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "unavailable_reason"
+        ],
+        "title": "ExperimentCountMetric",
+        "type": "object"
+      },
+      "ExperimentMoneyMetric": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "unavailable_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "NO_OPENED_TRADES",
+                  "NO_CLOSED_TRADES"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Reason"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value",
+          "unavailable_reason"
+        ],
+        "title": "ExperimentMoneyMetric",
+        "type": "object"
+      },
+      "ExperimentPerformanceLineage": {
+        "additionalProperties": false,
+        "properties": {
+          "experiment_id": {
+            "format": "uuid",
+            "title": "Experiment Id",
+            "type": "string"
+          },
+          "protocol_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Protocol Hash",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_definition_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Definition Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "experiment_id",
+          "source_definition_hash",
+          "protocol_hash"
+        ],
+        "title": "ExperimentPerformanceLineage",
+        "type": "object"
+      },
+      "ExperimentPerformanceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "breakeven_count": {
+            "$ref": "#/components/schemas/ExperimentCountMetric"
+          },
+          "closed_trade_count": {
+            "minimum": 0.0,
+            "title": "Closed Trade Count",
+            "type": "integer"
+          },
+          "decision_count": {
+            "minimum": 0.0,
+            "title": "Decision Count",
+            "type": "integer"
+          },
+          "entry_cash_flow": {
+            "$ref": "#/components/schemas/ExperimentMoneyMetric"
+          },
+          "exit_cash_flow": {
+            "$ref": "#/components/schemas/ExperimentMoneyMetric"
+          },
+          "lineage": {
+            "$ref": "#/components/schemas/ExperimentPerformanceLineage"
+          },
+          "loss_count": {
+            "$ref": "#/components/schemas/ExperimentCountMetric"
+          },
+          "management_cash_flow": {
+            "$ref": "#/components/schemas/ExperimentMoneyMetric"
+          },
+          "opened_trade_count": {
+            "minimum": 0.0,
+            "title": "Opened Trade Count",
+            "type": "integer"
+          },
+          "realized_strategy_pnl": {
+            "$ref": "#/components/schemas/ExperimentMoneyMetric"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "terminal_state": {
+            "enum": [
+              "NO_POSITION",
+              "OPEN",
+              "CLOSED"
+            ],
+            "title": "Terminal State",
+            "type": "string"
+          },
+          "total_defined_maximum_risk_at_entry": {
+            "$ref": "#/components/schemas/ExperimentMoneyMetric"
+          },
+          "win_count": {
+            "$ref": "#/components/schemas/ExperimentCountMetric"
+          }
+        },
+        "required": [
+          "lineage",
+          "decision_count",
+          "opened_trade_count",
+          "closed_trade_count",
+          "terminal_state",
+          "total_defined_maximum_risk_at_entry",
+          "entry_cash_flow",
+          "management_cash_flow",
+          "exit_cash_flow",
+          "realized_strategy_pnl",
+          "win_count",
+          "loss_count",
+          "breakeven_count"
+        ],
+        "title": "ExperimentPerformanceResponse",
+        "type": "object"
+      },
+      "ExperimentWindow": {
+        "additionalProperties": false,
+        "properties": {
+          "aborted_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aborted Reason"
+          },
+          "collapsed_versions": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Collapsed Versions",
+            "type": "array"
+          },
+          "decision_boundary": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Decision Boundary",
+            "type": "string"
+          },
+          "entry_window": {
+            "$ref": "#/components/schemas/ExperimentWindowInterval"
+          },
+          "frozen_at": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Frozen At",
+            "type": "string"
+          },
+          "lifecycle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExperimentWindowLifecycle"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "plan_version": {
+            "exclusiveMinimum": 0.0,
+            "title": "Plan Version",
+            "type": "integer"
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/ExperimentWindowProtocol"
+          },
+          "schema_version": {
+            "const": "v2",
+            "default": "v2",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "OPEN",
+              "DECIDED",
+              "ABORTED"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "terminal_decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExperimentWindowDecision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tick_outcome_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tick Outcome Code"
+          },
+          "tick_outcome_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tick Outcome Text"
+          }
+        },
+        "required": [
+          "plan_version",
+          "protocol",
+          "frozen_at",
+          "decision_boundary",
+          "entry_window",
+          "terminal_decision",
+          "lifecycle",
+          "status",
+          "aborted_reason",
+          "tick_outcome_code",
+          "tick_outcome_text",
+          "collapsed_versions"
+        ],
+        "title": "ExperimentWindow",
+        "type": "object"
+      },
+      "ExperimentWindowDecision": {
+        "additionalProperties": false,
+        "properties": {
+          "decided_at": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Decided At",
+            "type": "string"
+          },
+          "outcome_code": {
+            "enum": [
+              "ENTRY_APPROVED",
+              "NO_TRADE",
+              "PROVIDER_FAILURE_NO_TRADE"
+            ],
+            "title": "Outcome Code",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v2",
+            "default": "v2",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome_code",
+          "reason",
+          "decided_at"
+        ],
+        "title": "ExperimentWindowDecision",
+        "type": "object"
+      },
+      "ExperimentWindowInterval": {
+        "additionalProperties": false,
+        "properties": {
+          "closes_at": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Closes At",
+            "type": "string"
+          },
+          "opens_at": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Opens At",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v2",
+            "default": "v2",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "opens_at",
+          "closes_at"
+        ],
+        "title": "ExperimentWindowInterval",
+        "type": "object"
+      },
+      "ExperimentWindowLifecycle": {
+        "additionalProperties": false,
+        "properties": {
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "exit_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Reason"
+          },
+          "opened_at": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Opened At",
+            "type": "string"
+          },
+          "realized_paper_pnl": {
+            "anyOf": [
+              {
+                "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Realized Paper Pnl"
+          },
+          "schema_version": {
+            "const": "v2",
+            "default": "v2",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "OPEN",
+              "CLOSED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "opened_at",
+          "closed_at",
+          "exit_reason",
+          "realized_paper_pnl"
+        ],
+        "title": "ExperimentWindowLifecycle",
+        "type": "object"
+      },
+      "ExperimentWindowListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": {
+            "const": "v2",
+            "default": "v2",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "windows": {
+            "items": {
+              "$ref": "#/components/schemas/ExperimentWindow"
+            },
+            "title": "Windows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "windows"
+        ],
+        "title": "ExperimentWindowListResponse",
+        "type": "object"
+      },
+      "ExperimentWindowProtocol": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "v2",
+            "default": "v2",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "summary": {
+            "maxLength": 320,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "summary"
+        ],
+        "title": "ExperimentWindowProtocol",
+        "type": "object"
       },
       "GreekExposure": {
         "additionalProperties": false,
@@ -1297,6 +2675,56 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "MachineRule": {
+        "additionalProperties": false,
+        "properties": {
+          "mapping_state": {
+            "const": "FULLY_MAPPED",
+            "title": "Mapping State",
+            "type": "string"
+          },
+          "match": {
+            "$ref": "#/components/schemas/RuleMatchMode",
+            "default": "ALL"
+          },
+          "predicates": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "FACT": "#/components/schemas/ProtocolFactPredicate",
+                  "NUMERIC": "#/components/schemas/ProtocolNumericPredicate-Input"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ProtocolNumericPredicate-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/ProtocolFactPredicate"
+                }
+              ]
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Predicates",
+            "type": "array"
+          },
+          "source_text": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Source Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_text",
+          "mapping_state",
+          "predicates"
+        ],
+        "title": "MachineRule",
+        "type": "object"
+      },
       "MeasurementStatus": {
         "enum": [
           "COMPLETE",
@@ -1305,6 +2733,25 @@
         ],
         "title": "MeasurementStatus",
         "type": "string"
+      },
+      "MetricOperand": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "METRIC",
+            "default": "METRIC",
+            "title": "Kind",
+            "type": "string"
+          },
+          "metric": {
+            "$ref": "#/components/schemas/ProtocolMetric"
+          }
+        },
+        "required": [
+          "metric"
+        ],
+        "title": "MetricOperand",
+        "type": "object"
       },
       "OwnerModelProvider": {
         "enum": [
@@ -1453,6 +2900,436 @@
           "simulator_limitations_code"
         ],
         "title": "PerformancePoint",
+        "type": "object"
+      },
+      "PromotionRequirement": {
+        "enum": [
+          "MODEL_CURATION_REQUIRED",
+          "EVIDENCE_REVIEW_REQUIRED",
+          "RISK_REVIEW_REQUIRED",
+          "OWNER_REVIEW_REQUIRED"
+        ],
+        "title": "PromotionRequirement",
+        "type": "string"
+      },
+      "ProtocolAssumption": {
+        "enum": [
+          "USER_BRIEF_UNVERIFIED",
+          "OPTIONS_ONLY",
+          "PAPER_ONLY",
+          "DEFINED_RISK_ONLY"
+        ],
+        "title": "ProtocolAssumption",
+        "type": "string"
+      },
+      "ProtocolFact": {
+        "enum": [
+          "PAPER_ACCOUNT_CONFIRMED",
+          "BASELINE_CLEAN",
+          "ACCOUNT_FLAT",
+          "NO_OPEN_ORDER",
+          "BUYING_POWER_SUFFICIENT",
+          "NO_PRIOR_ENTRY_ATTEMPT",
+          "MARKET_OPEN",
+          "TRADING_NOT_HALTED",
+          "MARKET_DATA_COMPLETE",
+          "OPTION_QUOTES_FRESH",
+          "OPTION_QUOTES_SYNCHRONIZED",
+          "OPTION_LIQUIDITY_ACCEPTABLE",
+          "RISK_WITHIN_REVIEWED_BUDGET"
+        ],
+        "title": "ProtocolFact",
+        "type": "string"
+      },
+      "ProtocolFactPredicate": {
+        "additionalProperties": false,
+        "properties": {
+          "expected": {
+            "title": "Expected",
+            "type": "boolean"
+          },
+          "fact": {
+            "$ref": "#/components/schemas/ProtocolFact"
+          },
+          "kind": {
+            "const": "FACT",
+            "default": "FACT",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fact",
+          "expected"
+        ],
+        "title": "ProtocolFactPredicate",
+        "type": "object"
+      },
+      "ProtocolMarketQuality-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "maximum_leg_quote_skew_seconds": {
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Maximum Leg Quote Skew Seconds",
+            "type": "integer"
+          },
+          "maximum_option_quote_age_seconds": {
+            "maximum": 120.0,
+            "minimum": 1.0,
+            "title": "Maximum Option Quote Age Seconds",
+            "type": "integer"
+          },
+          "maximum_relative_spread_percent": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 100.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,9}|(?=[\\d.]{1,19}0*$)\\d{0,9}\\.\\d{0,9}0*$)",
+                "type": "string"
+              }
+            ],
+            "title": "Maximum Relative Spread Percent"
+          },
+          "maximum_underlying_age_seconds": {
+            "maximum": 3600.0,
+            "minimum": 1.0,
+            "title": "Maximum Underlying Age Seconds",
+            "type": "integer"
+          },
+          "minimum_leg_ask_size": {
+            "maximum": 1000000.0,
+            "minimum": 1.0,
+            "title": "Minimum Leg Ask Size",
+            "type": "integer"
+          },
+          "minimum_leg_bid_size": {
+            "maximum": 1000000.0,
+            "minimum": 1.0,
+            "title": "Minimum Leg Bid Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "maximum_underlying_age_seconds",
+          "maximum_option_quote_age_seconds",
+          "maximum_leg_quote_skew_seconds",
+          "maximum_relative_spread_percent",
+          "minimum_leg_bid_size",
+          "minimum_leg_ask_size"
+        ],
+        "title": "ProtocolMarketQuality",
+        "type": "object"
+      },
+      "ProtocolMarketQuality-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "maximum_leg_quote_skew_seconds": {
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Maximum Leg Quote Skew Seconds",
+            "type": "integer"
+          },
+          "maximum_option_quote_age_seconds": {
+            "maximum": 120.0,
+            "minimum": 1.0,
+            "title": "Maximum Option Quote Age Seconds",
+            "type": "integer"
+          },
+          "maximum_relative_spread_percent": {
+            "pattern": "^[+-]?\\d{1,9}(?:\\.\\d{1,9})?$",
+            "title": "Maximum Relative Spread Percent",
+            "type": "string"
+          },
+          "maximum_underlying_age_seconds": {
+            "maximum": 3600.0,
+            "minimum": 1.0,
+            "title": "Maximum Underlying Age Seconds",
+            "type": "integer"
+          },
+          "minimum_leg_ask_size": {
+            "maximum": 1000000.0,
+            "minimum": 1.0,
+            "title": "Minimum Leg Ask Size",
+            "type": "integer"
+          },
+          "minimum_leg_bid_size": {
+            "maximum": 1000000.0,
+            "minimum": 1.0,
+            "title": "Minimum Leg Bid Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "maximum_underlying_age_seconds",
+          "maximum_option_quote_age_seconds",
+          "maximum_leg_quote_skew_seconds",
+          "maximum_relative_spread_percent",
+          "minimum_leg_bid_size",
+          "minimum_leg_ask_size"
+        ],
+        "title": "ProtocolMarketQuality",
+        "type": "object"
+      },
+      "ProtocolMetric": {
+        "enum": [
+          "UNDERLYING_LAST_PRICE",
+          "UNDERLYING_SESSION_CLOSE",
+          "UNDERLYING_SESSION_VWAP",
+          "UNDERLYING_SMA_20",
+          "UNDERLYING_SMA_50",
+          "UNDERLYING_RETURN_PERCENT",
+          "OPTION_RELATIVE_SPREAD_PERCENT",
+          "OPTION_QUOTE_AGE_SECONDS",
+          "DAYS_TO_EXPIRY",
+          "POSITION_RETURN_ON_MAX_RISK_PERCENT",
+          "TRADING_SESSIONS_HELD",
+          "MINUTES_TO_SESSION_CLOSE"
+        ],
+        "title": "ProtocolMetric",
+        "type": "string"
+      },
+      "ProtocolNumericPredicate-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "NUMERIC",
+            "default": "NUMERIC",
+            "title": "Kind",
+            "type": "string"
+          },
+          "left": {
+            "$ref": "#/components/schemas/MetricOperand"
+          },
+          "operator": {
+            "$ref": "#/components/schemas/ComparisonOperator"
+          },
+          "right": {
+            "discriminator": {
+              "mapping": {
+                "CONSTANT": "#/components/schemas/ConstantOperand-Input",
+                "METRIC": "#/components/schemas/MetricOperand"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/MetricOperand"
+              },
+              {
+                "$ref": "#/components/schemas/ConstantOperand-Input"
+              }
+            ],
+            "title": "Right"
+          }
+        },
+        "required": [
+          "left",
+          "operator",
+          "right"
+        ],
+        "title": "ProtocolNumericPredicate",
+        "type": "object"
+      },
+      "ProtocolNumericPredicate-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "NUMERIC",
+            "default": "NUMERIC",
+            "title": "Kind",
+            "type": "string"
+          },
+          "left": {
+            "$ref": "#/components/schemas/MetricOperand"
+          },
+          "operator": {
+            "$ref": "#/components/schemas/ComparisonOperator"
+          },
+          "right": {
+            "discriminator": {
+              "mapping": {
+                "CONSTANT": "#/components/schemas/ConstantOperand-Output",
+                "METRIC": "#/components/schemas/MetricOperand"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/MetricOperand"
+              },
+              {
+                "$ref": "#/components/schemas/ConstantOperand-Output"
+              }
+            ],
+            "title": "Right"
+          }
+        },
+        "required": [
+          "left",
+          "operator",
+          "right"
+        ],
+        "title": "ProtocolNumericPredicate",
+        "type": "object"
+      },
+      "ProtocolQuestion": {
+        "enum": [
+          "MARKET_SCOPE_REQUIRED",
+          "DIRECTION_REQUIRED",
+          "HORIZON_REQUIRED",
+          "EVIDENCE_REQUIRED",
+          "INVALIDATION_REQUIRED",
+          "RISK_BUDGET_REQUIRED",
+          "DIRECTION_REVIEW_REQUIRED"
+        ],
+        "title": "ProtocolQuestion",
+        "type": "string"
+      },
+      "ProtocolSchedule-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "daily_start_session": {
+            "format": "date",
+            "title": "Daily Start Session",
+            "type": "string"
+          },
+          "decision_boundary": {
+            "format": "date-time",
+            "title": "Decision Boundary",
+            "type": "string"
+          },
+          "entry_window_end": {
+            "format": "date-time",
+            "title": "Entry Window End",
+            "type": "string"
+          },
+          "entry_window_start": {
+            "format": "date-time",
+            "title": "Entry Window Start",
+            "type": "string"
+          },
+          "event_session": {
+            "format": "date",
+            "title": "Event Session",
+            "type": "string"
+          },
+          "evidence_window_end": {
+            "format": "date-time",
+            "title": "Evidence Window End",
+            "type": "string"
+          },
+          "evidence_window_start": {
+            "format": "date-time",
+            "title": "Evidence Window Start",
+            "type": "string"
+          },
+          "pre_event_session": {
+            "format": "date",
+            "title": "Pre Event Session",
+            "type": "string"
+          },
+          "reaction_session": {
+            "format": "date",
+            "title": "Reaction Session",
+            "type": "string"
+          },
+          "signal_session": {
+            "format": "date",
+            "title": "Signal Session",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_session",
+          "pre_event_session",
+          "reaction_session",
+          "signal_session",
+          "daily_start_session",
+          "evidence_window_start",
+          "evidence_window_end",
+          "entry_window_start",
+          "decision_boundary",
+          "entry_window_end"
+        ],
+        "title": "ProtocolSchedule",
+        "type": "object"
+      },
+      "ProtocolSchedule-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "daily_start_session": {
+            "format": "date",
+            "title": "Daily Start Session",
+            "type": "string"
+          },
+          "decision_boundary": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Decision Boundary",
+            "type": "string"
+          },
+          "entry_window_end": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Entry Window End",
+            "type": "string"
+          },
+          "entry_window_start": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Entry Window Start",
+            "type": "string"
+          },
+          "event_session": {
+            "format": "date",
+            "title": "Event Session",
+            "type": "string"
+          },
+          "evidence_window_end": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Evidence Window End",
+            "type": "string"
+          },
+          "evidence_window_start": {
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
+            "title": "Evidence Window Start",
+            "type": "string"
+          },
+          "pre_event_session": {
+            "format": "date",
+            "title": "Pre Event Session",
+            "type": "string"
+          },
+          "reaction_session": {
+            "format": "date",
+            "title": "Reaction Session",
+            "type": "string"
+          },
+          "signal_session": {
+            "format": "date",
+            "title": "Signal Session",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_session",
+          "pre_event_session",
+          "reaction_session",
+          "signal_session",
+          "daily_start_session",
+          "evidence_window_start",
+          "evidence_window_end",
+          "entry_window_start",
+          "decision_boundary",
+          "entry_window_end"
+        ],
+        "title": "ProtocolSchedule",
         "type": "object"
       },
       "ProviderSettingsResponse": {
@@ -2191,6 +4068,458 @@
         "title": "ReplayScenario",
         "type": "string"
       },
+      "ReviewedExperimentCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "curation": {
+            "$ref": "#/components/schemas/ReviewedStrategyCurationInput"
+          },
+          "original_thesis": {
+            "$ref": "#/components/schemas/StrategyBriefRequest-Input"
+          },
+          "reviewed_protocol": {
+            "$ref": "#/components/schemas/StrategyProtocolFields"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "original_thesis",
+          "reviewed_protocol",
+          "curation"
+        ],
+        "title": "ReviewedExperimentCreateRequest",
+        "type": "object"
+      },
+      "ReviewedExperimentDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "automation_state": {
+            "const": "OFF",
+            "default": "OFF",
+            "title": "Automation State",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "curation": {
+            "$ref": "#/components/schemas/StrategyCurationResponse"
+          },
+          "definition_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Definition Hash",
+            "type": "string"
+          },
+          "execution_eligible": {
+            "const": false,
+            "default": false,
+            "title": "Execution Eligible",
+            "type": "boolean"
+          },
+          "experiment_id": {
+            "format": "uuid",
+            "title": "Experiment Id",
+            "type": "string"
+          },
+          "lifecycle_state": {
+            "const": "REVIEWED",
+            "default": "REVIEWED",
+            "title": "Lifecycle State",
+            "type": "string"
+          },
+          "original_thesis": {
+            "$ref": "#/components/schemas/StrategyBriefRequest-Output"
+          },
+          "paper_trading_only": {
+            "const": true,
+            "default": true,
+            "title": "Paper Trading Only",
+            "type": "boolean"
+          },
+          "reviewed_protocol": {
+            "$ref": "#/components/schemas/StrategyProtocolFields"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "experiment_id",
+          "definition_hash",
+          "original_thesis",
+          "reviewed_protocol",
+          "curation",
+          "created_at"
+        ],
+        "title": "ReviewedExperimentDefinition",
+        "type": "object"
+      },
+      "ReviewedExperimentListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "experiments": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewedExperimentDefinition"
+            },
+            "title": "Experiments",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "experiments"
+        ],
+        "title": "ReviewedExperimentListResponse",
+        "type": "object"
+      },
+      "ReviewedProtocolDefinition-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_event_codes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Allowed Event Codes",
+            "type": "array"
+          },
+          "benchmark_symbol": {
+            "pattern": "^[A-Z][A-Z0-9.-]{0,9}$",
+            "title": "Benchmark Symbol",
+            "type": "string"
+          },
+          "definition_version": {
+            "maximum": 1000000.0,
+            "minimum": 1.0,
+            "title": "Definition Version",
+            "type": "integer"
+          },
+          "invalidation_codes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Invalidation Codes",
+            "type": "array"
+          },
+          "market_quality": {
+            "$ref": "#/components/schemas/ProtocolMarketQuality-Input"
+          },
+          "maximum_account_risk_percent": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 100.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,9}|(?=[\\d.]{1,19}0*$)\\d{0,9}\\.\\d{0,9}0*$)",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum Account Risk Percent"
+          },
+          "opportunity_key": {
+            "pattern": "^[A-Z][A-Z0-9_]{0,63}$",
+            "title": "Opportunity Key",
+            "type": "string"
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/ProtocolSchedule-Input"
+          },
+          "selection": {
+            "$ref": "#/components/schemas/DebitVerticalSelection-Input"
+          },
+          "thesis_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{0,63}$",
+            "title": "Thesis Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "opportunity_key",
+          "definition_version",
+          "benchmark_symbol",
+          "allowed_event_codes",
+          "thesis_code",
+          "invalidation_codes",
+          "schedule",
+          "selection",
+          "market_quality"
+        ],
+        "title": "ReviewedProtocolDefinition",
+        "type": "object"
+      },
+      "ReviewedProtocolDefinition-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_event_codes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Allowed Event Codes",
+            "type": "array"
+          },
+          "benchmark_symbol": {
+            "pattern": "^[A-Z][A-Z0-9.-]{0,9}$",
+            "title": "Benchmark Symbol",
+            "type": "string"
+          },
+          "definition_version": {
+            "maximum": 1000000.0,
+            "minimum": 1.0,
+            "title": "Definition Version",
+            "type": "integer"
+          },
+          "invalidation_codes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Invalidation Codes",
+            "type": "array"
+          },
+          "market_quality": {
+            "$ref": "#/components/schemas/ProtocolMarketQuality-Output"
+          },
+          "maximum_account_risk_percent": {
+            "anyOf": [
+              {
+                "pattern": "^[+-]?\\d{1,9}(?:\\.\\d{1,9})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum Account Risk Percent"
+          },
+          "opportunity_key": {
+            "pattern": "^[A-Z][A-Z0-9_]{0,63}$",
+            "title": "Opportunity Key",
+            "type": "string"
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/ProtocolSchedule-Output"
+          },
+          "selection": {
+            "$ref": "#/components/schemas/DebitVerticalSelection-Output"
+          },
+          "thesis_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{0,63}$",
+            "title": "Thesis Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "opportunity_key",
+          "definition_version",
+          "benchmark_symbol",
+          "allowed_event_codes",
+          "thesis_code",
+          "invalidation_codes",
+          "schedule",
+          "selection",
+          "market_quality"
+        ],
+        "title": "ReviewedProtocolDefinition",
+        "type": "object"
+      },
+      "ReviewedProtocolRules": {
+        "additionalProperties": false,
+        "properties": {
+          "entry_rule": {
+            "$ref": "#/components/schemas/MachineRule"
+          },
+          "invalidation_rules": {
+            "items": {
+              "$ref": "#/components/schemas/MachineRule"
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Invalidation Rules",
+            "type": "array"
+          },
+          "loss_exit_rule": {
+            "$ref": "#/components/schemas/MachineRule"
+          },
+          "no_trade_rule": {
+            "$ref": "#/components/schemas/MachineRule"
+          },
+          "profit_exit_rule": {
+            "$ref": "#/components/schemas/MachineRule"
+          },
+          "time_exit_rule": {
+            "$ref": "#/components/schemas/MachineRule"
+          }
+        },
+        "required": [
+          "entry_rule",
+          "no_trade_rule",
+          "profit_exit_rule",
+          "loss_exit_rule",
+          "time_exit_rule",
+          "invalidation_rules"
+        ],
+        "title": "ReviewedProtocolRules",
+        "type": "object"
+      },
+      "ReviewedStrategyCurationInput": {
+        "additionalProperties": false,
+        "properties": {
+          "automation_state": {
+            "const": "OFF",
+            "default": "OFF",
+            "title": "Automation State",
+            "type": "string"
+          },
+          "blocking_questions": {
+            "items": {
+              "$ref": "#/components/schemas/CurationBlockingQuestion"
+            },
+            "maxItems": 12,
+            "title": "Blocking Questions",
+            "type": "array"
+          },
+          "classifications": {
+            "$ref": "#/components/schemas/StrategyCurationClassifications"
+          },
+          "curation_status": {
+            "const": "MODEL_CURATED",
+            "default": "MODEL_CURATED",
+            "title": "Curation Status",
+            "type": "string"
+          },
+          "defined_risk_required": {
+            "const": true,
+            "default": true,
+            "title": "Defined Risk Required",
+            "type": "boolean"
+          },
+          "execution_eligible": {
+            "const": false,
+            "default": false,
+            "title": "Execution Eligible",
+            "type": "boolean"
+          },
+          "intake": {
+            "$ref": "#/components/schemas/StrategyBriefRequest-Input"
+          },
+          "options_required": {
+            "const": true,
+            "default": true,
+            "title": "Options Required",
+            "type": "boolean"
+          },
+          "paper_trading_only": {
+            "const": true,
+            "default": true,
+            "title": "Paper Trading Only",
+            "type": "boolean"
+          },
+          "protocol_fields": {
+            "$ref": "#/components/schemas/StrategyProtocolFields"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "const": "CURATED_REVIEW_REQUIRED",
+            "default": "CURATED_REVIEW_REQUIRED",
+            "title": "Status",
+            "type": "string"
+          },
+          "supporting_evidence": {
+            "items": {
+              "$ref": "#/components/schemas/SupportingEvidenceExcerpt"
+            },
+            "maxItems": 12,
+            "title": "Supporting Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "intake",
+          "protocol_fields",
+          "classifications",
+          "blocking_questions",
+          "supporting_evidence"
+        ],
+        "title": "ReviewedStrategyCurationInput",
+        "type": "object"
+      },
+      "RiskRules": {
+        "additionalProperties": false,
+        "properties": {
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StrategyRiskBudget-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "loss_must_be_bounded": {
+            "const": true,
+            "default": true,
+            "title": "Loss Must Be Bounded",
+            "type": "boolean"
+          },
+          "size_must_fit_budget": {
+            "const": true,
+            "default": true,
+            "title": "Size Must Fit Budget",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "budget"
+        ],
+        "title": "RiskRules",
+        "type": "object"
+      },
+      "RuleMatchMode": {
+        "enum": [
+          "ALL",
+          "ANY"
+        ],
+        "title": "RuleMatchMode",
+        "type": "string"
+      },
       "SchedulerTickResponse": {
         "additionalProperties": false,
         "properties": {
@@ -2274,6 +4603,682 @@
           "authenticated"
         ],
         "title": "SessionResponse",
+        "type": "object"
+      },
+      "StrategyBriefRequest-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StrategyDirection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence": {
+            "default": [],
+            "items": {
+              "maxLength": 1000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "horizon": {
+            "anyOf": [
+              {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Horizon"
+          },
+          "invalidation": {
+            "default": [],
+            "items": {
+              "maxLength": 1000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Invalidation",
+            "type": "array"
+          },
+          "market_scope": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market Scope"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "risk_budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StrategyRiskBudget-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source": {
+            "$ref": "#/components/schemas/StrategyBriefSource"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "title": "StrategyBriefRequest",
+        "type": "object"
+      },
+      "StrategyBriefRequest-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StrategyDirection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence": {
+            "default": [],
+            "items": {
+              "maxLength": 1000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "horizon": {
+            "anyOf": [
+              {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Horizon"
+          },
+          "invalidation": {
+            "default": [],
+            "items": {
+              "maxLength": 1000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Invalidation",
+            "type": "array"
+          },
+          "market_scope": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market Scope"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "risk_budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StrategyRiskBudget-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source": {
+            "$ref": "#/components/schemas/StrategyBriefSource"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "title": "StrategyBriefRequest",
+        "type": "object"
+      },
+      "StrategyBriefSource": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "maxLength": 20000,
+            "minLength": 20,
+            "title": "Content",
+            "type": "string"
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/BriefSourceKind"
+          }
+        },
+        "required": [
+          "kind",
+          "content"
+        ],
+        "title": "StrategyBriefSource",
+        "type": "object"
+      },
+      "StrategyCurationClassifications": {
+        "additionalProperties": false,
+        "properties": {
+          "clarity": {
+            "$ref": "#/components/schemas/CurationReadiness"
+          },
+          "confidence": {
+            "$ref": "#/components/schemas/CurationConfidence"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/StrategyDirection"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/CurationReadiness"
+          },
+          "exit": {
+            "$ref": "#/components/schemas/CurationReadiness"
+          },
+          "risk": {
+            "$ref": "#/components/schemas/CurationReadiness"
+          },
+          "structure": {
+            "$ref": "#/components/schemas/CuratedStructure"
+          }
+        },
+        "required": [
+          "direction",
+          "structure",
+          "clarity",
+          "evidence",
+          "risk",
+          "exit",
+          "confidence"
+        ],
+        "title": "StrategyCurationClassifications",
+        "type": "object"
+      },
+      "StrategyCurationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "brief": {
+            "$ref": "#/components/schemas/StrategyBriefRequest-Input"
+          },
+          "protocol_fields": {
+            "$ref": "#/components/schemas/StrategyProtocolFields"
+          }
+        },
+        "required": [
+          "brief"
+        ],
+        "title": "StrategyCurationRequest",
+        "type": "object"
+      },
+      "StrategyCurationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "automation_state": {
+            "const": "OFF",
+            "default": "OFF",
+            "title": "Automation State",
+            "type": "string"
+          },
+          "blocking_questions": {
+            "items": {
+              "$ref": "#/components/schemas/CurationBlockingQuestion"
+            },
+            "maxItems": 12,
+            "title": "Blocking Questions",
+            "type": "array"
+          },
+          "classifications": {
+            "$ref": "#/components/schemas/StrategyCurationClassifications"
+          },
+          "curation_status": {
+            "const": "MODEL_CURATED",
+            "default": "MODEL_CURATED",
+            "title": "Curation Status",
+            "type": "string"
+          },
+          "defined_risk_required": {
+            "const": true,
+            "default": true,
+            "title": "Defined Risk Required",
+            "type": "boolean"
+          },
+          "execution_eligible": {
+            "const": false,
+            "default": false,
+            "title": "Execution Eligible",
+            "type": "boolean"
+          },
+          "intake": {
+            "$ref": "#/components/schemas/StrategyBriefRequest-Output"
+          },
+          "options_required": {
+            "const": true,
+            "default": true,
+            "title": "Options Required",
+            "type": "boolean"
+          },
+          "paper_trading_only": {
+            "const": true,
+            "default": true,
+            "title": "Paper Trading Only",
+            "type": "boolean"
+          },
+          "protocol_fields": {
+            "$ref": "#/components/schemas/StrategyProtocolFields"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "const": "CURATED_REVIEW_REQUIRED",
+            "default": "CURATED_REVIEW_REQUIRED",
+            "title": "Status",
+            "type": "string"
+          },
+          "supporting_evidence": {
+            "items": {
+              "$ref": "#/components/schemas/SupportingEvidenceExcerpt"
+            },
+            "maxItems": 12,
+            "title": "Supporting Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "intake",
+          "protocol_fields",
+          "classifications",
+          "blocking_questions",
+          "supporting_evidence"
+        ],
+        "title": "StrategyCurationResponse",
+        "type": "object"
+      },
+      "StrategyDirection": {
+        "enum": [
+          "BULLISH",
+          "BEARISH",
+          "NEUTRAL",
+          "UNSURE"
+        ],
+        "title": "StrategyDirection",
+        "type": "string"
+      },
+      "StrategyProtocolDraftResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assumptions": {
+            "items": {
+              "$ref": "#/components/schemas/ProtocolAssumption"
+            },
+            "title": "Assumptions",
+            "type": "array"
+          },
+          "automation_state": {
+            "const": "OFF",
+            "default": "OFF",
+            "title": "Automation State",
+            "type": "string"
+          },
+          "curation_status": {
+            "const": "NOT_CURATED",
+            "default": "NOT_CURATED",
+            "title": "Curation Status",
+            "type": "string"
+          },
+          "evidence_plan": {
+            "$ref": "#/components/schemas/EvidencePlan"
+          },
+          "execution_eligible": {
+            "const": false,
+            "default": false,
+            "title": "Execution Eligible",
+            "type": "boolean"
+          },
+          "exit_rules": {
+            "$ref": "#/components/schemas/ExitRules"
+          },
+          "intake": {
+            "$ref": "#/components/schemas/StrategyBriefRequest-Output"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/ProtocolQuestion"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "required_before_promotion": {
+            "items": {
+              "$ref": "#/components/schemas/PromotionRequirement"
+            },
+            "title": "Required Before Promotion",
+            "type": "array"
+          },
+          "risk_rules": {
+            "$ref": "#/components/schemas/RiskRules"
+          },
+          "schema_version": {
+            "const": "v1",
+            "default": "v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "const": "DRAFT_REVIEW_REQUIRED",
+            "default": "DRAFT_REVIEW_REQUIRED",
+            "title": "Status",
+            "type": "string"
+          },
+          "structure_constraints": {
+            "$ref": "#/components/schemas/StructureConstraints"
+          }
+        },
+        "required": [
+          "intake",
+          "assumptions",
+          "questions",
+          "required_before_promotion",
+          "structure_constraints",
+          "evidence_plan",
+          "risk_rules",
+          "exit_rules"
+        ],
+        "title": "StrategyProtocolDraftResponse",
+        "type": "object"
+      },
+      "StrategyProtocolFields": {
+        "additionalProperties": false,
+        "properties": {
+          "entry_rule": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Rule"
+          },
+          "invalidation_rules": {
+            "default": [],
+            "items": {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 12,
+            "title": "Invalidation Rules",
+            "type": "array"
+          },
+          "loss_exit_rule": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Loss Exit Rule"
+          },
+          "no_trade_rule": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Trade Rule"
+          },
+          "profit_exit_rule": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profit Exit Rule"
+          },
+          "time_exit_rule": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Exit Rule"
+          }
+        },
+        "title": "StrategyProtocolFields",
+        "type": "object"
+      },
+      "StrategyRiskBudget-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "max_account_percent": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 100.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,9}|(?=[\\d.]{1,19}0*$)\\d{0,9}\\.\\d{0,9}0*$)",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Account Percent"
+          },
+          "max_loss_dollars": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,12}|(?=[\\d.]{1,19}0*$)\\d{0,12}\\.\\d{0,6}0*$)",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Loss Dollars"
+          }
+        },
+        "title": "StrategyRiskBudget",
+        "type": "object"
+      },
+      "StrategyRiskBudget-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "max_account_percent": {
+            "anyOf": [
+              {
+                "pattern": "^[+-]?\\d{1,9}(?:\\.\\d{1,9})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Account Percent"
+          },
+          "max_loss_dollars": {
+            "anyOf": [
+              {
+                "pattern": "^[+-]?\\d{1,12}(?:\\.\\d{1,6})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Loss Dollars"
+          }
+        },
+        "title": "StrategyRiskBudget",
+        "type": "object"
+      },
+      "StructureConstraints": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_families": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateStructureFamily"
+            },
+            "title": "Candidate Families",
+            "type": "array"
+          },
+          "defined_risk_required": {
+            "const": true,
+            "default": true,
+            "title": "Defined Risk Required",
+            "type": "boolean"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StrategyDirection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "naked_short_options_allowed": {
+            "const": false,
+            "default": false,
+            "title": "Naked Short Options Allowed",
+            "type": "boolean"
+          },
+          "options_required": {
+            "const": true,
+            "default": true,
+            "title": "Options Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "direction",
+          "candidate_families"
+        ],
+        "title": "StructureConstraints",
+        "type": "object"
+      },
+      "SupportingEvidenceExcerpt": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_id": {
+            "pattern": "^evidence-(?:[1-9]|1[0-2])$",
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "excerpt": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Excerpt",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "excerpt"
+        ],
+        "title": "SupportingEvidenceExcerpt",
         "type": "object"
       },
       "ThesisCreateRequest": {
@@ -2431,6 +5436,77 @@
           }
         },
         "summary": "Read the competition record",
+        "tags": [
+          "Anonymous"
+        ]
+      }
+    },
+    "/api/experiments/windows": {
+      "get": {
+        "description": "Lists every frozen competition plan and its recorded paper decision, with private fields removed. It does not contact Alpaca or place an order.",
+        "operationId": "anonymous_experiment_windows_read",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentWindowListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "description": "EXPERIMENT_WINDOWS_UNAVAILABLE"
+          }
+        },
+        "summary": "Read the frozen paper experiment windows",
+        "tags": [
+          "Anonymous"
+        ]
+      }
+    },
+    "/api/experiments/{experiment_id}/performance": {
+      "get": {
+        "operationId": "anonymous_published_experiment_performance_read",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentPerformanceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "description": "EXPERIMENT_PERFORMANCE_NOT_PUBLISHED"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read one published experiment result",
         "tags": [
           "Anonymous"
         ]
@@ -2734,6 +5810,951 @@
           }
         },
         "summary": "Enable paper account autonomy",
+        "tags": [
+          "Owner"
+        ]
+      }
+    },
+    "/api/owner/experiments": {
+      "get": {
+        "description": "Lists immutable owner-reviewed definitions. These records are not execution-ready plans.",
+        "operationId": "owner_experiment_list",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Csrf-Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "origin",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Origin"
+            }
+          },
+          {
+            "in": "header",
+            "name": "referer",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Referer"
+            }
+          },
+          {
+            "description": "Signed owner cookie. It expires with the short session.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_session",
+            "required": true,
+            "schema": {
+              "description": "Signed owner cookie. It expires with the short session.",
+              "title": "Owner session",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_csrf",
+            "required": true,
+            "schema": {
+              "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+              "title": "CSRF cookie",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewedExperimentListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "OWNER_REQUEST_REJECTED"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "OWNER_SESSION_UNAVAILABLE"
+          }
+        },
+        "summary": "List reviewed experiment definitions",
+        "tags": [
+          "Owner"
+        ]
+      },
+      "post": {
+        "description": "Stores the exact reviewed thesis and protocol as an immutable version. The saved definition remains review-only and cannot arm autonomy, schedule work, or place an order.",
+        "operationId": "owner_experiment_create",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "origin",
+            "required": true,
+            "schema": {
+              "title": "Origin",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Csrf-Token",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Signed owner cookie. It expires with the short session.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_session",
+            "required": true,
+            "schema": {
+              "description": "Signed owner cookie. It expires with the short session.",
+              "title": "Owner session",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_csrf",
+            "required": true,
+            "schema": {
+              "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+              "title": "CSRF cookie",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewedExperimentCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewedExperimentDefinition"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "OWNER_REQUEST_REJECTED"
+          },
+          "422": {
+            "description": "EXPERIMENT_DEFINITION_INPUT_REJECTED"
+          },
+          "503": {
+            "description": "EXPERIMENT_REGISTRY_UNAVAILABLE"
+          }
+        },
+        "summary": "Save a reviewed experiment definition",
+        "tags": [
+          "Owner"
+        ]
+      }
+    },
+    "/api/owner/experiments/{experiment_id}": {
+      "get": {
+        "description": "Reads one immutable owner-reviewed definition. It does not contact a provider or broker.",
+        "operationId": "owner_experiment_read",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Csrf-Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "origin",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Origin"
+            }
+          },
+          {
+            "in": "header",
+            "name": "referer",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Referer"
+            }
+          },
+          {
+            "description": "Signed owner cookie. It expires with the short session.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_session",
+            "required": true,
+            "schema": {
+              "description": "Signed owner cookie. It expires with the short session.",
+              "title": "Owner session",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_csrf",
+            "required": true,
+            "schema": {
+              "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+              "title": "CSRF cookie",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewedExperimentDefinition"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "OWNER_REQUEST_REJECTED"
+          },
+          "404": {
+            "description": "EXPERIMENT_NOT_FOUND"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "OWNER_SESSION_UNAVAILABLE"
+          }
+        },
+        "summary": "Read a reviewed experiment definition",
+        "tags": [
+          "Owner"
+        ]
+      }
+    },
+    "/api/owner/experiments/{experiment_id}/arm": {
+      "post": {
+        "description": "Records experiment-scoped entry authorization for one exact compiled paper-options protocol. ARMED is authorization only: runtime stays NOT_CONNECTED, execution_eligible stays false, and this route does not schedule work, call a provider, access an account, or create an order.",
+        "operationId": "owner_experiment_arm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "origin",
+            "required": true,
+            "schema": {
+              "title": "Origin",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Csrf-Token",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Signed owner cookie. It expires with the short session.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_session",
+            "required": true,
+            "schema": {
+              "description": "Signed owner cookie. It expires with the short session.",
+              "title": "Owner session",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_csrf",
+            "required": true,
+            "schema": {
+              "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+              "title": "CSRF cookie",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExperimentAuthorizationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentAuthorizationStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "OWNER_REQUEST_REJECTED"
+          },
+          "404": {
+            "description": "EXPERIMENT_NOT_FOUND"
+          },
+          "409": {
+            "description": "EXPERIMENT_AUTHORIZATION_CONFLICT"
+          },
+          "422": {
+            "description": "EXPERIMENT_AUTHORIZATION_INPUT_REJECTED"
+          },
+          "503": {
+            "description": "OWNER_SESSION_UNAVAILABLE"
+          }
+        },
+        "summary": "Arm Experiment",
+        "tags": [
+          "Owner"
+        ]
+      }
+    },
+    "/api/owner/experiments/{experiment_id}/authorization": {
+      "get": {
+        "description": "Reads hash-bound experiment authorization only. It does not report runtime readiness: runtime is NOT_CONNECTED and execution_eligible is false.",
+        "operationId": "owner_experiment_authorization_read",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Csrf-Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "origin",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Origin"
+            }
+          },
+          {
+            "in": "header",
+            "name": "referer",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Referer"
+            }
+          },
+          {
+            "description": "Signed owner cookie. It expires with the short session.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_session",
+            "required": true,
+            "schema": {
+              "description": "Signed owner cookie. It expires with the short session.",
+              "title": "Owner session",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_csrf",
+            "required": true,
+            "schema": {
+              "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+              "title": "CSRF cookie",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentAuthorizationStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "OWNER_REQUEST_REJECTED"
+          },
+          "404": {
+            "description": "EXPERIMENT_NOT_FOUND"
+          },
+          "409": {
+            "description": "EXPERIMENT_NOT_COMPILED"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "OWNER_SESSION_UNAVAILABLE"
+          }
+        },
+        "summary": "Read Experiment Authorization",
+        "tags": [
+          "Owner"
+        ]
+      }
+    },
+    "/api/owner/experiments/{experiment_id}/compile": {
+      "post": {
+        "operationId": "owner_experiment_compile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "origin",
+            "required": true,
+            "schema": {
+              "title": "Origin",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Csrf-Token",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Signed owner cookie. It expires with the short session.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_session",
+            "required": true,
+            "schema": {
+              "description": "Signed owner cookie. It expires with the short session.",
+              "title": "Owner session",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_csrf",
+            "required": true,
+            "schema": {
+              "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+              "title": "CSRF cookie",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompileExperimentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompiledExperimentVersion"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "OWNER_REQUEST_REJECTED"
+          },
+          "404": {
+            "description": "EXPERIMENT_NOT_FOUND"
+          },
+          "409": {
+            "description": "EXPERIMENT_COMPILE_CONFLICT"
+          },
+          "422": {
+            "description": "EXPERIMENT_COMPILE_INPUT_REJECTED"
+          },
+          "503": {
+            "description": "OWNER_SESSION_UNAVAILABLE"
+          }
+        },
+        "summary": "Compile Reviewed Experiment",
+        "tags": [
+          "Owner"
+        ]
+      }
+    },
+    "/api/owner/experiments/{experiment_id}/compiled": {
+      "get": {
+        "operationId": "owner_experiment_compiled_read",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Csrf-Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "origin",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Origin"
+            }
+          },
+          {
+            "in": "header",
+            "name": "referer",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Referer"
+            }
+          },
+          {
+            "description": "Signed owner cookie. It expires with the short session.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_session",
+            "required": true,
+            "schema": {
+              "description": "Signed owner cookie. It expires with the short session.",
+              "title": "Owner session",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_csrf",
+            "required": true,
+            "schema": {
+              "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+              "title": "CSRF cookie",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompiledExperimentVersion"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "OWNER_REQUEST_REJECTED"
+          },
+          "404": {
+            "description": "EXPERIMENT_NOT_FOUND"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "OWNER_SESSION_UNAVAILABLE"
+          }
+        },
+        "summary": "Read Compiled Experiment",
+        "tags": [
+          "Owner"
+        ]
+      }
+    },
+    "/api/owner/experiments/{experiment_id}/disarm": {
+      "post": {
+        "description": "Stops future entry authorization for the exact compiled experiment. Disarming never disables risk-reducing management of an already-open position; runtime remains NOT_CONNECTED and execution_eligible remains false.",
+        "operationId": "owner_experiment_disarm",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "origin",
+            "required": true,
+            "schema": {
+              "title": "Origin",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Csrf-Token",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Signed owner cookie. It expires with the short session.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_session",
+            "required": true,
+            "schema": {
+              "description": "Signed owner cookie. It expires with the short session.",
+              "title": "Owner session",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_csrf",
+            "required": true,
+            "schema": {
+              "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+              "title": "CSRF cookie",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExperimentAuthorizationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentAuthorizationStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "OWNER_REQUEST_REJECTED"
+          },
+          "404": {
+            "description": "EXPERIMENT_NOT_FOUND"
+          },
+          "409": {
+            "description": "EXPERIMENT_AUTHORIZATION_CONFLICT"
+          },
+          "422": {
+            "description": "EXPERIMENT_AUTHORIZATION_INPUT_REJECTED"
+          },
+          "503": {
+            "description": "OWNER_SESSION_UNAVAILABLE"
+          }
+        },
+        "summary": "Disarm Experiment",
+        "tags": [
+          "Owner"
+        ]
+      }
+    },
+    "/api/owner/experiments/{experiment_id}/performance": {
+      "get": {
+        "operationId": "owner_experiment_performance_read",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Csrf-Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "origin",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Origin"
+            }
+          },
+          {
+            "in": "header",
+            "name": "referer",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Referer"
+            }
+          },
+          {
+            "description": "Signed owner cookie. It expires with the short session.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_session",
+            "required": true,
+            "schema": {
+              "description": "Signed owner cookie. It expires with the short session.",
+              "title": "Owner session",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_csrf",
+            "required": true,
+            "schema": {
+              "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+              "title": "CSRF cookie",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentPerformanceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "OWNER_REQUEST_REJECTED"
+          },
+          "404": {
+            "description": "EXPERIMENT_NOT_FOUND"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "description": "OWNER_SESSION_UNAVAILABLE"
+          }
+        },
+        "summary": "Read Experiment Performance",
         "tags": [
           "Owner"
         ]
@@ -3138,6 +7159,172 @@
           }
         },
         "summary": "Run one agent review as the owner",
+        "tags": [
+          "Owner"
+        ]
+      }
+    },
+    "/api/owner/strategy-curations": {
+      "post": {
+        "description": "Uses the owner's selected AI provider to classify a supplied strategy brief and editable protocol fields. The result remains review-only and cannot arm autonomy or place an order.",
+        "operationId": "owner_strategy_curation_create",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "origin",
+            "required": true,
+            "schema": {
+              "title": "Origin",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Csrf-Token",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Signed owner cookie. It expires with the short session.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_session",
+            "required": true,
+            "schema": {
+              "description": "Signed owner cookie. It expires with the short session.",
+              "title": "Owner session",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_csrf",
+            "required": true,
+            "schema": {
+              "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+              "title": "CSRF cookie",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StrategyCurationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StrategyCurationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "OWNER_REQUEST_REJECTED"
+          },
+          "422": {
+            "description": "STRATEGY_CURATION_INPUT_REJECTED"
+          },
+          "503": {
+            "description": "STRATEGY_CURATION_UNAVAILABLE"
+          }
+        },
+        "summary": "Curate a strategy protocol for review",
+        "tags": [
+          "Owner"
+        ]
+      }
+    },
+    "/api/owner/strategy-drafts": {
+      "post": {
+        "description": "Accepts pasted text or the contents of a text or Markdown brief. It organizes the idea for model curation and owner review, but cannot arm autonomy or place an order.",
+        "operationId": "owner_strategy_draft_create",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "origin",
+            "required": true,
+            "schema": {
+              "title": "Origin",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Csrf-Token",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Signed owner cookie. It expires with the short session.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_session",
+            "required": true,
+            "schema": {
+              "description": "Signed owner cookie. It expires with the short session.",
+              "title": "Owner session",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+            "in": "cookie",
+            "name": "__Host-alphadecay_csrf",
+            "required": true,
+            "schema": {
+              "description": "Cookie used to verify requests. It pairs with the X-CSRF-Token header.",
+              "title": "CSRF cookie",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StrategyBriefRequest-Input"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StrategyProtocolDraftResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "OWNER_REQUEST_REJECTED"
+          },
+          "422": {
+            "description": "STRATEGY_BRIEF_INPUT_REJECTED"
+          },
+          "503": {
+            "description": "OWNER_SESSION_UNAVAILABLE"
+          }
+        },
+        "summary": "Turn a strategy brief into a review draft",
         "tags": [
           "Owner"
         ]

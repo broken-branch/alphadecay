@@ -43,6 +43,7 @@ from .contracts import LifecycleLaunchAuthority
 from .fingerprint import option_position_fingerprint
 
 _HASH = re.compile(r"^[0-9a-f]{64}$")
+_EXECUTABLE_ACCOUNT_ROLES = frozenset({"DEVELOPMENT", "SUBMISSION"})
 _FINALIZATION_CHECKS = (
     "TERMINAL",
     "REMAINDER_ABSENT",
@@ -112,20 +113,21 @@ class SQLAlchemyEntryMaterializer:
                     or account is None
                     or intent.action != "ENTRY"
                     or intent.state != "APPROVED"
-                    or intent.account_role != "DEVELOPMENT"
+                    or intent.account_role not in _EXECUTABLE_ACCOUNT_ROLES
                     or intent.assessment_certificate_id is not None
-                    or approval.account_role != "DEVELOPMENT"
+                    or approval.account_role != intent.account_role
                     or decision is None
                     or snapshot is None
                     or thesis is None
                     or decision.decision_kind != "OPPORTUNITY"
                     or decision.outcome != "ENTRY_APPROVED"
                     or not decision.autonomy_authorized
-                    or decision.account_role != "DEVELOPMENT"
+                    or decision.account_role != intent.account_role
                     or decision.account_fingerprint != account.account_fingerprint
                     or decision.thesis_version_id != thesis.thesis_version_id
+                    or thesis.account_role != intent.account_role
                     or snapshot.thesis_version_id != thesis.thesis_version_id
-                    or snapshot.account_role != "DEVELOPMENT"
+                    or snapshot.account_role != intent.account_role
                     or snapshot.account_fingerprint != account.account_fingerprint
                     or snapshot.decision_kind != "OPPORTUNITY"
                     or _utc(decision.decision_boundary) > _utc(thesis.frozen_at)
@@ -133,12 +135,13 @@ class SQLAlchemyEntryMaterializer:
                     or _utc(thesis.frozen_at) > _utc(decision.created_at)
                     or approval.policy_hash != launch_authority.entry_policy_hash
                     or intent.policy_hash != launch_authority.entry_policy_hash
+                    or _experiment_lineage_values(approval) != _experiment_lineage_values(decision)
                     or prepared_at < _utc(launch_authority.entry_boundary_at)
                 ):
                     raise EntryMaterializationError("ENTRY_MATERIALIZATION_PREPARATION_INVALID")
                 values.update(
                     entry_approval_id=approval.approval_id,
-                    account_role="DEVELOPMENT",
+                    account_role=intent.account_role,
                     account_fingerprint=account.account_fingerprint,
                 )
                 values["job_hash"] = _materialization_job_hash(session, values)
@@ -222,6 +225,11 @@ class SQLAlchemyEntryMaterializer:
                         ExecutionCertificateRow.execution_intent_id
                         == EntryMaterializationJobRow.execution_intent_id,
                     )
+                    .join(
+                        ExecutionIntentRow,
+                        ExecutionIntentRow.intent_id
+                        == EntryMaterializationJobRow.execution_intent_id,
+                    )
                     .where(
                         EntryMaterializationJobRow.account_role == account_role,
                         EntryMaterializationJobRow.account_fingerprint == account_fingerprint,
@@ -233,16 +241,30 @@ class SQLAlchemyEntryMaterializer:
                 .scalars()
                 .all()
             )
-            if len(rows) > 1 or any(not _job_hash_valid(session, row) for row in rows):
+            if any(not _job_hash_valid(session, row) for row in rows):
                 raise EntryMaterializationError("ENTRY_MATERIALIZATION_JOB_INVALID")
-            return tuple(row.execution_intent_id for row in rows)
+            # Jobs whose intent expired or was resolved without an order stay on the
+            # table as history; only jobs with a live intent can be pending.
+            pending_ids: list[UUID] = []
+            for row in rows:
+                intent = session.get(ExecutionIntentRow, row.execution_intent_id)
+                if intent is None:
+                    raise EntryMaterializationError("ENTRY_MATERIALIZATION_JOB_INVALID")
+                if intent.state != "TERMINAL":
+                    pending_ids.append(row.execution_intent_id)
+            if len(pending_ids) > 1:
+                raise EntryMaterializationError("ENTRY_MATERIALIZATION_JOB_INVALID")
+            return tuple(pending_ids)
 
     def _validate_recovery_authority(
         self,
         account_role: str,
         account_fingerprint: str,
     ) -> None:
-        if account_role != "DEVELOPMENT" or _HASH.fullmatch(account_fingerprint) is None:
+        if (
+            account_role not in _EXECUTABLE_ACCOUNT_ROLES
+            or _HASH.fullmatch(account_fingerprint) is None
+        ):
             raise EntryMaterializationError("ENTRY_MATERIALIZATION_RECOVERY_AUTHORITY_INVALID")
         with self._sessions() as session:
             account = session.get(AccountRoleRow, account_role)
@@ -277,7 +299,8 @@ class SQLAlchemyEntryMaterializer:
                 or certificate.assessment_certificate_id is not None
                 or intent.entry_approval_id != job.entry_approval_id
                 or intent.assessment_certificate_id is not None
-                or job.account_role != "DEVELOPMENT"
+                or intent.account_role not in _EXECUTABLE_ACCOUNT_ROLES
+                or job.account_role != intent.account_role
             ):
                 raise EntryMaterializationError("ENTRY_MATERIALIZATION_JOB_INVALID")
             if job.completed_at is not None:
@@ -420,7 +443,7 @@ class SQLAlchemyEntryMaterializer:
                 )
                 if (
                     job.entry_approval_id != approval.approval_id
-                    or job.account_role != "DEVELOPMENT"
+                    or job.account_role != intent.account_role
                     or job.account_fingerprint != account.account_fingerprint
                 ):
                     raise EntryMaterializationError("ENTRY_MATERIALIZATION_JOB_INVALID")
@@ -433,7 +456,7 @@ class SQLAlchemyEntryMaterializer:
                             == certificate.certificate_id
                         )
                         | (
-                            (ManagedLifecyclePositionRow.account_role == "DEVELOPMENT")
+                            (ManagedLifecyclePositionRow.account_role == intent.account_role)
                             & (ManagedLifecyclePositionRow.closed_at.is_(None))
                         )
                     )
@@ -499,12 +522,17 @@ class SQLAlchemyEntryMaterializer:
                 session.add(
                     ManagedLifecyclePositionRow(
                         managed_position_id=ids.position,
-                        account_role="DEVELOPMENT",
+                        account_role=intent.account_role,
                         account_fingerprint=account.account_fingerprint,
                         entry_execution_certificate_id=certificate.certificate_id,
                         entry_intent_id=intent.intent_id,
                         entry_approval_id=approval.approval_id,
                         thesis_version_id=thesis.thesis_version_id,
+                        experiment_id=approval.experiment_id,
+                        experiment_source_definition_hash=(
+                            approval.experiment_source_definition_hash
+                        ),
+                        experiment_protocol_hash=approval.experiment_protocol_hash,
                         entry_reconciliation_id=reconciliation.reconciliation_id,
                         current_reconciliation_state_id=state.state_id,
                         current_snapshot_id=ids.snapshot,
@@ -680,9 +708,9 @@ def _validate_lineage(
         intent.action != "ENTRY"
         or intent.state != "TERMINAL"
         or not intent.first_fill_consumed
-        or intent.account_role != "DEVELOPMENT"
+        or intent.account_role not in _EXECUTABLE_ACCOUNT_ROLES
         or account is None
-        or account.role != "DEVELOPMENT"
+        or account.role != intent.account_role
         or approval is None
         or thesis is None
         or decision is None
@@ -704,9 +732,10 @@ def _validate_lineage(
         or intent.quantity != approval.quantity
         or approval.thesis_version_id != thesis.thesis_version_id
         or approval.agent_decision_id != decision.decision_id
+        or _experiment_lineage_values(approval) != _experiment_lineage_values(decision)
         or not approval.valid
         or any(
-            value != "DEVELOPMENT"
+            value != intent.account_role
             for value in (
                 approval.account_role,
                 thesis.account_role,
@@ -790,7 +819,12 @@ def _validate_lineage(
         permit is None
         or observation is None
         or reconciliation.attempt_ordinal != final_attempt.attempt_ordinal
-        or reconciliation.request_hash != final_attempt.request_hash
+        or reconciliation.request_hash
+        != _final_reconciliation_request_hash(
+            intent.intent_digest,
+            final_attempt.attempt_ordinal,
+            observation.observation_hash,
+        )
         or reconciliation.purpose != permit.mutation_kind
         or permit.execution_intent_id != intent.intent_id
         or permit.intent_digest != intent.intent_digest
@@ -996,12 +1030,15 @@ def _validate_existing(session, **values) -> None:
     }
     expected = (
         ids.position,
-        "DEVELOPMENT",
+        values["intent"].account_role,
         values["reconciliation"].account_fingerprint,
         values["certificate"].certificate_id,
         values["intent"].intent_id,
         values["approval"].approval_id,
         values["thesis"].thesis_version_id,
+        values["approval"].experiment_id,
+        values["approval"].experiment_source_definition_hash,
+        values["approval"].experiment_protocol_hash,
         values["reconciliation"].reconciliation_id,
         values["state"].state_id,
         ids.snapshot,
@@ -1017,6 +1054,9 @@ def _validate_existing(session, **values) -> None:
         existing.entry_intent_id,
         existing.entry_approval_id,
         existing.thesis_version_id,
+        existing.experiment_id,
+        existing.experiment_source_definition_hash,
+        existing.experiment_protocol_hash,
         existing.entry_reconciliation_id,
         existing.current_reconciliation_state_id,
         existing.current_snapshot_id,
@@ -1069,11 +1109,39 @@ def _validate_existing(session, **values) -> None:
         raise EntryMaterializationError("ENTRY_MATERIALIZATION_CONFLICT")
 
 
+def _experiment_lineage_values(row) -> tuple[object | None, object | None, object | None]:
+    return (
+        row.experiment_id,
+        row.experiment_source_definition_hash,
+        row.experiment_protocol_hash,
+    )
+
+
 def _json_hash(session, value) -> str:
     if session.bind is not None and session.bind.dialect.name == "postgresql":
         return session.scalar(select(func.lifecycle_json_hash(literal(value, JSONB))))
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def _final_reconciliation_request_hash(
+    intent_digest: str,
+    attempt_ordinal: int,
+    observation_hash: str,
+) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            {
+                "domain": "alphadecay.final-reconciliation.v1",
+                "intent_digest": intent_digest,
+                "attempt_ordinal": attempt_ordinal,
+                "last_observation_hash": observation_hash,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        ).encode()
     ).hexdigest()
 
 

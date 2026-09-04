@@ -104,6 +104,21 @@ ROLL_LEGS = [
 CLOSE_LEGS = ROLL_LEGS[:2]
 
 
+def _final_reconciliation_hash(intent: str) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            {
+                "domain": "alphadecay.final-reconciliation.v1",
+                "intent_digest": intent,
+                "attempt_ordinal": 0,
+                "last_observation_hash": "e" * 64,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+
+
 def _envelope(action: ExecutionAction, certificate_id: UUID, legs: list[dict[str, object]]):
     return OrderEnvelope(
         action=action,
@@ -641,6 +656,8 @@ def _seed_transition_authority(engine, *, reconciliation_fingerprint: str, thesi
     roll_legs = json.dumps(ROLL_LEGS, separators=(",", ":"))
     entry_payload = json.dumps(_envelope_payload(ENTRY_ENVELOPE), separators=(",", ":"))
     roll_payload = json.dumps(_envelope_payload(ROLL_ENVELOPE), separators=(",", ":"))
+    roll_intent_digest = intent_digest(ROLL_ENVELOPE)
+    final_reconciliation_hash = _final_reconciliation_hash(roll_intent_digest)
     entry_fingerprint = option_position_fingerprint(
         ((ENTRY_LONG, Decimal("1"), 100), (ENTRY_SHORT, Decimal("-1"), 100))
     )
@@ -713,13 +730,13 @@ def _seed_transition_authority(engine, *, reconciliation_fingerprint: str, thesi
               purpose,attempt_ordinal,request_hash,accepted_at,expectation_payload,sweep_payload,
               positions_manifest_hash,orders_manifest_hash,activities_manifest_hash,safe,block_codes)
               VALUES ('60000000-0000-0000-0000-000000000002',repeat('ab',32),repeat('7',64),
-              '40000000-0000-0000-0000-000000000002','{intent_digest(ROLL_ENVELOPE)}','DEVELOPMENT',
-              '{reconciliation_fingerprint}','REPLACE',0,repeat('5',64),
+              '40000000-0000-0000-0000-000000000002','{roll_intent_digest}','DEVELOPMENT',
+              '{reconciliation_fingerprint}','REPLACE',0,'{final_reconciliation_hash}',
               '2026-08-30 15:00+00','{{"purpose":"REPLACE","intent_id":
               "40000000-0000-0000-0000-000000000002","intent_digest":
-              "{intent_digest(ROLL_ENVELOPE)}",
+              "{roll_intent_digest}",
               "attempt_ordinal":0,"request_hash":
-              "5555555555555555555555555555555555555555555555555555555555555555",
+              "{final_reconciliation_hash}",
               "expected_cash":10,"expected_open_orders":[]}}',
               '{{"final_positions":{roll_inventory},"activities":{all_roll_activities},"retrieval_started_at":
               "2026-08-30T15:00:00+00:00","retrieval_completed_at":
@@ -830,6 +847,7 @@ def _seed_transition_authority(engine, *, reconciliation_fingerprint: str, thesi
 
 def _configure_close_authority(connection) -> None:
     close_digest = intent_digest(CLOSE_ENVELOPE)
+    final_reconciliation_hash = _final_reconciliation_hash(close_digest)
     close_hash = order_envelope_hash(CLOSE_ENVELOPE)
     close_payload = json.dumps(_envelope_payload(CLOSE_ENVELOPE), separators=(",", ":"))
     close_legs = json.dumps(CLOSE_LEGS, separators=(",", ":"))
@@ -862,13 +880,18 @@ def _configure_close_authority(connection) -> None:
     connection.execute(
         text(
             "UPDATE whole_account_reconciliations SET intent_digest=:digest,"
-            "expectation_payload=jsonb_set(expectation_payload,'{intent_digest}',"
-            "to_jsonb(CAST(:digest AS text))),sweep_payload=jsonb_set("
+            "request_hash=:request_hash,expectation_payload=jsonb_set(jsonb_set("
+            "expectation_payload,'{intent_digest}',to_jsonb(CAST(:digest AS text))),"
+            "'{request_hash}',to_jsonb(CAST(:request_hash AS text))),sweep_payload=jsonb_set("
             "jsonb_set(sweep_payload,'{final_positions}','[]'::jsonb),'{activities}',"
             "CAST(:activities AS jsonb)) "
             "WHERE reconciliation_id='60000000-0000-0000-0000-000000000002'"
         ),
-        {"digest": close_digest, "activities": close_activities},
+        {
+            "digest": close_digest,
+            "request_hash": final_reconciliation_hash,
+            "activities": close_activities,
+        },
     )
     connection.execute(
         text(

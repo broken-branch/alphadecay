@@ -843,9 +843,7 @@ class TradingBoundary:
             order_ids.update(identities)
         normalized_activities = _normalize_collection(activities, _normalize_activity, ("id",))
         try:
-            observed_account_value = UUID(
-                _bounded_string(account_row.get("id"), required=True)
-            )
+            observed_account_value = UUID(_bounded_string(account_row.get("id"), required=True))
         except ValueError:
             raise RehearsalError("PROVIDER_ACCOUNT_ID_INVALID") from None
         fingerprint = hashlib.sha256(f"{observed_account_value}\n".encode()).hexdigest()

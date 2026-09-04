@@ -67,6 +67,12 @@ from backend.app.persistence.sqlalchemy_models import (
 from backend.app.persistence.sqlalchemy_repository import _inventory_to_json
 from backend.app.services import ExecutionService
 from backend.app.services.execution import WholeAccountEvidence
+from ops.launch.submission_execution_preflight import (
+    evaluate_submission_execution_preflight,
+)
+from ops.launch.submission_reconciliation_init import (
+    initialize_submission_reconciliation,
+)
 
 FINGERPRINT = "a" * 64
 EXECUTION_ROLE = AccountRole.DEVELOPMENT
@@ -110,11 +116,34 @@ class _BoundExecutionService:
         )
 
 
+class _PendingLookupBroker:
+    def __init__(self, repository, broker) -> None:
+        self._repository = repository
+        self._broker = broker
+
+    def lookup(self, client_id: str) -> BrokerResult | None:
+        lookup = getattr(type(self._broker), "lookup", None)
+        if lookup is not None:
+            return lookup(self._broker, client_id)
+        current = self._repository.attempts_for(INTENT_ID)[-1]
+        assert current.client_order_id == client_id
+        return BrokerResult(
+            current.provider_order_id,
+            current.state,
+            current.filled_quantity,
+            current.quantity,
+            current.fill_cash_flow,
+        )
+
+    def __getattr__(self, name: str):
+        return getattr(self._broker, name)
+
+
 def _execution_service(repository, broker, preflight, quotes=None) -> _BoundExecutionService:
     return _BoundExecutionService(
         ExecutionService(
             repository,
-            broker,
+            _PendingLookupBroker(repository, broker),
             preflight,
             quotes,
             account_role=EXECUTION_ROLE,
@@ -444,6 +473,68 @@ def claimed_submission(
     return baseline_at, order, claim
 
 
+def test_expired_unsubmitted_claim_can_be_previewed_and_released() -> None:
+    clock = FakeDatabaseClock(datetime.now(UTC))
+    repo = repository(clock=clock)
+    _, _, claim = claimed_submission(repo, entry_envelope())
+    clock.value = clock.value + timedelta(seconds=31)
+
+    assert repo.expired_unsubmitted_claims(EXECUTION_ROLE, persist=False) == (claim.intent_id,)
+    assert repo.get_intent(claim.intent_id).state is IntentState.CLAIMED
+
+    assert repo.expired_unsubmitted_claims(EXECUTION_ROLE, persist=True) == (claim.intent_id,)
+    assert repo.get_intent(claim.intent_id).state is IntentState.TERMINAL
+    assert repo.get_entry_budget(EXECUTION_ROLE).reserved_intent_id is None
+
+
+def test_submission_seed_preview_is_zero_write_then_persisted() -> None:
+    now = datetime.now(UTC)
+    baseline_at = now - timedelta(days=2)
+    repo = repository(clock=FakeDatabaseClock(now))
+    repo.register_account(
+        role=AccountRole.SUBMISSION,
+        fingerprint=FINGERPRINT,
+        equity=Decimal("100000"),
+        autonomous_enabled=False,
+    )
+    repo.capture_baseline(
+        role=AccountRole.SUBMISSION,
+        fingerprint=FINGERPRINT,
+        equity=Decimal("100000"),
+        captured_at=baseline_at,
+        positions_hash="4" * 64,
+        orders_hash="5" * 64,
+        activities_hash="6" * 64,
+    )
+    sweep = clean_sweep(now, baseline_at, AccountRole.SUBMISSION)
+
+    preview = initialize_submission_reconciliation(repo, sweep, persist=False)
+    with pytest.raises(KeyError):
+        repo.get_reconciliation_state(AccountRole.SUBMISSION)
+    persisted = initialize_submission_reconciliation(repo, sweep, persist=True)
+
+    assert preview["mode"] == "PREVIEW"
+    assert persisted["mode"] == "PERSISTED"
+    assert preview["state_hash"] == persisted["state_hash"]
+    assert (
+        repo.get_reconciliation_state(AccountRole.SUBMISSION).state_hash == persisted["state_hash"]
+    )
+
+
+def test_submission_preflight_reports_reconciliation_before_ready() -> None:
+    clock = FakeDatabaseClock(datetime.now(UTC) + timedelta(seconds=1))
+    repo = repository(clock=clock)
+    _, _, claim = claimed_submission(repo, entry_envelope(), role=AccountRole.SUBMISSION)
+
+    assert evaluate_submission_execution_preflight(repo)["status"] == "READY"
+    with repo._sessions.begin() as session:
+        session.query(AccountReconciliationStateRow).delete()
+    assert evaluate_submission_execution_preflight(repo)["status"] == (
+        "RECONCILIATION_STATE_REQUIRED"
+    )
+    assert repo.get_intent(claim.intent_id).state is IntentState.CLAIMED
+
+
 def _seed_managed_development_position(
     repo: SQLAlchemyExecutionRepository,
     order: OrderEnvelope,
@@ -600,7 +691,7 @@ def consume_submit_as_new(
     observed = replace(
         attempt,
         state="NEW",
-        provider_order_id="broker-order-1",
+        provider_order_id="p1",
         quantity=order.quantity,
     )
     repo.record_attempt_observation(
@@ -799,7 +890,7 @@ def test_due_replacement_uses_fresh_quotes_and_advances_once() -> None:
             self.limit = limit
             return replace(
                 repo.attempts_for(claim.intent_id)[-1],
-                provider_order_id="broker-order-2",
+                provider_order_id="p2",
                 state="NEW",
                 quantity=order.quantity,
             )
@@ -850,7 +941,7 @@ def test_replacement_uses_fresh_database_time_after_quote_collection(
 
     class Broker:
         def replace(self, _provider_order_id: str, _client_id: str, _limit: Decimal):
-            return BrokerResult("broker-order-2", "NEW", 0, order.quantity)
+            return BrokerResult("p2", "NEW", 0, order.quantity)
 
     result = _execution_service(repo, Broker(), Sweep(), Quotes()).advance(
         claim.intent_id, Actor.OWNER
@@ -1022,7 +1113,7 @@ def quote_replacement_from_advance(
 
     class Broker:
         def replace(self, _provider_order_id, _client_id, _limit):
-            return BrokerResult("broker-order-2", "NEW", 0, order.quantity)
+            return BrokerResult("p2", "NEW", 0, order.quantity)
 
     result = _execution_service(repo, Broker(), Sweep(), Quotes()).advance(
         claim.intent_id, Actor.OWNER
@@ -1043,8 +1134,8 @@ def prepared_quote_replacement(
     permit = repo.broker_mutation_permits_for(claim.intent_id)[0]
     assert permit.dispatch_acquired_at is not None
     clock.value = permit.dispatch_acquired_at + timedelta(seconds=150)
-    snapshots = replacement_snapshots(tuple(leg.symbol for leg in order.legs), clock.value)
-    timestamps = tuple(item.quote_timestamp for item in snapshots)
+    quote_values = replacement_snapshots(tuple(leg.symbol for leg in order.legs), clock.value)
+    timestamps = tuple(item.quote_timestamp for item in quote_values)
     quote_payload = [
         {
             "symbol": item.symbol,
@@ -1058,7 +1149,7 @@ def prepared_quote_replacement(
             "retrieved_at": item.retrieved_at.isoformat(),
             "provenance": item.provenance,
         }
-        for item in snapshots
+        for item in quote_values
     ]
     quote_hash = hashlib.sha256(
         json.dumps(quote_payload, sort_keys=True, separators=(",", ":")).encode()
@@ -1116,27 +1207,29 @@ def test_invalid_due_quote_fails_before_sweep_permit_or_broker(
     due_at = dispatched.dispatch_acquired_at + timedelta(seconds=150)
     clock.value = due_at
     symbols = tuple(leg.symbol for leg in order.legs)
-    snapshots = replacement_snapshots(symbols, due_at)
+    quote_values = replacement_snapshots(symbols, due_at)
     if kind == "missing":
-        snapshots = snapshots[:1]
+        quote_values = quote_values[:1]
     elif kind == "stale":
-        snapshots = (
-            snapshots[0].model_copy(update={"quote_timestamp": due_at - timedelta(seconds=31)}),
-        ) + snapshots[1:]
+        quote_values = (
+            quote_values[0].model_copy(update={"quote_timestamp": due_at - timedelta(seconds=31)}),
+        ) + quote_values[1:]
     elif kind == "crossed":
-        snapshots = (snapshots[0].model_copy(update={"bid_price": Decimal("0.70")}),) + snapshots[
+        quote_values = (
+            quote_values[0].model_copy(update={"bid_price": Decimal("0.70")}),
+        ) + quote_values[1:]
+    elif kind == "wrong_symbol":
+        quote_values = (
+            quote_values[0].model_copy(update={"symbol": "DEMO260918C00101000"}),
+        ) + quote_values[1:]
+    else:
+        quote_values = (quote_values[0].model_copy(update={"underlying": "OTHER"}),) + quote_values[
             1:
         ]
-    elif kind == "wrong_symbol":
-        snapshots = (
-            snapshots[0].model_copy(update={"symbol": "DEMO260918C00101000"}),
-        ) + snapshots[1:]
-    else:
-        snapshots = (snapshots[0].model_copy(update={"underlying": "OTHER"}),) + snapshots[1:]
 
     class Quotes:
         def collect(self, _symbols):
-            return snapshots
+            return quote_values
 
     class Forbidden:
         def __getattr__(self, name: str):
@@ -1300,7 +1393,7 @@ def test_same_strike_cross_expiry_roll_replaces_through_public_service() -> None
 
     class Broker:
         def replace(self, _provider_order_id, _client_id, _limit):
-            return BrokerResult("broker-order-2", "NEW", 0, order.quantity)
+            return BrokerResult("p2", "NEW", 0, order.quantity)
 
     result = _execution_service(repo, Broker(), Sweep(), Quotes()).advance(
         claim.intent_id, Actor.OWNER
@@ -1622,8 +1715,9 @@ def test_all_frozen_boundaries_are_one_mutation_each_and_survive_restart() -> No
 
         def replace(self, _provider_order_id, _client_id, limit):
             self.replacements.append(limit)
+            provider_reference = f"p5-{len(self.replacements) + 1}"
             return BrokerResult(
-                provider_order_id=f"broker-order-{len(self.replacements) + 1}",
+                provider_order_id=provider_reference,
                 state="NEW",
                 filled_quantity=0,
                 quantity=order.quantity,
@@ -1736,10 +1830,17 @@ def test_concurrent_scheduler_advances_dispatch_at_most_one_replacement(tmp_path
         def replace(self, _provider_order_id, _client_id, _limit):
             with self.lock:
                 self.calls += 1
-            return BrokerResult("broker-order-2", "NEW", 0, order.quantity)
+            return BrokerResult("p2", "NEW", 0, order.quantity)
 
     broker = Broker()
     service = _execution_service(repo, broker, Sweep(), Quotes())
+    current = repo.attempts_for(claim.intent_id)[-1]
+    repo.record_attempt_observation(
+        original_permit.permit_id,
+        current,
+        source=AttemptObservationSource.TARGETED_LOOKUP,
+        claim=claim,
+    )
     start = Barrier(2)
 
     def advance_once():
@@ -1792,18 +1893,20 @@ def test_ambiguous_due_replacement_enters_lookup_only_and_never_redispatches() -
 
         def lookup(self, _client_id):
             self.lookup_calls += 1
+            if self.lookup_calls == 1:
+                return BrokerResult("p1", "NEW", 0, order.quantity)
             return None
 
     broker = Broker()
     service = _execution_service(repo, broker, Sweep(), Quotes())
 
-    with pytest.raises(ExecutionBlocked, match="AMBIGUOUS_BROKER_OUTCOME_ABSENT"):
+    with pytest.raises(ExecutionBlocked, match="AMBIGUOUS_BROKER_LOOKUP_ABSENT"):
         service.advance(claim.intent_id, Actor.OWNER)
     waiting = service.advance(claim.intent_id, Actor.OWNER)
 
     assert waiting.status == "WAITING"
     assert broker.replace_calls == 1
-    assert broker.lookup_calls == 1
+    assert broker.lookup_calls == 2
 
 
 def test_mutation_and_finalization_are_reference_safe_with_foreign_keys_enabled() -> None:
@@ -1839,7 +1942,7 @@ def test_mutation_and_finalization_are_reference_safe_with_foreign_keys_enabled(
     terminal = replace(
         attempt,
         state="CANCELED",
-        provider_order_id="broker-order-relational",
+        provider_order_id="pr",
     )
     observation = repo.record_attempt_observation(
         prepared.permit.permit_id,
@@ -1917,7 +2020,7 @@ def test_prepared_permit_has_one_dispatch_winner_and_one_bound_outcome() -> None
         replace(
             attempt,
             state="FILLED",
-            provider_order_id="broker-order",
+            provider_order_id="p5",
             filled_quantity=2,
             quantity=2,
             fill_cash_flow=Decimal("-240"),
@@ -1944,10 +2047,10 @@ def test_unsafe_reconciliation_is_persisted_and_latches_without_attempt_or_permi
         OrderAttempt(
             intent_id=claim.intent_id,
             ordinal=0,
-            client_order_id="foreign-order",
+            client_order_id="c3",
             request_hash="f" * 64,
             state="NEW",
-            provider_order_id="foreign-provider-order",
+            provider_order_id="p4",
             quantity=2,
         ),
         order,
@@ -1992,10 +2095,10 @@ def test_bare_attempt_mutations_are_retired() -> None:
 @pytest.mark.parametrize(
     "malformed",
     [
-        {"client_order_id": "caller-chosen-id"},
+        {"client_order_id": "c1"},
         {"request_hash": "f" * 64},
         {"state": "SUBMITTING"},
-        {"provider_order_id": "caller-provider-target"},
+        {"provider_order_id": "p2"},
         {"filled_quantity": 1},
         {"quantity": 1},
     ],
@@ -2031,7 +2134,7 @@ def test_cancel_cannot_target_caller_chosen_order_or_create_ordinal_zero() -> No
     arbitrary = replace(
         prepared_submit_attempt(order, claim.digest),
         state="NEW",
-        provider_order_id="arbitrary-provider-order",
+        provider_order_id="p3",
     )
 
     with pytest.raises(ExecutionBlocked, match="TARGET_ATTEMPT_NOT_FOUND"):
@@ -2042,13 +2145,13 @@ def test_cancel_cannot_target_caller_chosen_order_or_create_ordinal_zero() -> No
 @pytest.mark.parametrize(
     "malformed",
     [
-        {"client_order_id": "caller-chosen-replacement"},
+        {"client_order_id": "c2"},
         {"request_hash": "f" * 64},
         {"state": "REPLACING"},
-        {"provider_order_id": "caller-provider-target"},
+        {"provider_order_id": "p2"},
         {"filled_quantity": 1},
         {"quantity": 1},
-        {"replaces_client_order_id": "caller-chosen-predecessor"},
+        {"replaces_client_order_id": "c4"},
     ],
 )
 def test_replace_permit_rejects_caller_chosen_mutation_material(
@@ -2102,7 +2205,7 @@ def test_cancel_permit_rejects_caller_chosen_persisted_target_material() -> None
     with pytest.raises(ExecutionBlocked, match="BROKER_MUTATION_MATERIAL_MISMATCH"):
         repo.prepare_broker_mutation(
             reconciliation,
-            replace(current, provider_order_id="caller-provider-target"),
+            replace(current, provider_order_id="p2"),
             claim=claim,
         )
     assert repo.attempts_for(claim.intent_id) == (current,)
@@ -2124,7 +2227,7 @@ def test_mutation_permit_requires_sweep_to_match_persisted_target_order(
     expectation = repo.broker_reconciliation_expectation(claim, purpose, mutation_attempt)
     foreign_target = replace(
         expectation.expected_open_orders[0],
-        provider_order_id="foreign-provider-order",
+        provider_order_id="p4",
     )
     reconciliation = WholeAccountReconciliation.evaluate(
         sweep_with_open_order(datetime.now(UTC), baseline_at, foreign_target),
@@ -2163,7 +2266,7 @@ def test_dispatch_outcome_is_permit_bound_and_attempt_observations_are_monotonic
         client_order_id=attempt.client_order_id,
         request_hash=attempt.request_hash,
         state="PARTIALLY_FILLED",
-        provider_order_id="broker-order-1",
+        provider_order_id="p1",
         filled_quantity=1,
         quantity=2,
         fill_cash_flow=Decimal("-120"),
@@ -2198,15 +2301,15 @@ def test_dispatch_outcome_is_permit_bound_and_attempt_observations_are_monotonic
 @pytest.mark.parametrize(
     ("state", "provider_order_id", "filled_quantity", "quantity", "block_code"),
     (
-        ("SETTLED_BY_MAGIC", "broker-order-1", 0, 2, "ATTEMPT_STATE_INVALID"),
-        ("ASSIGNMENT_LOCKED", "broker-order-1", 0, 2, "ATTEMPT_STATE_INVALID"),
+        ("SETTLED_BY_MAGIC", "p1", 0, 2, "ATTEMPT_STATE_INVALID"),
+        ("ASSIGNMENT_LOCKED", "p1", 0, 2, "ATTEMPT_STATE_INVALID"),
         ("CANCELED", None, 0, 2, "ATTEMPT_PROVIDER_ID_REQUIRED"),
-        ("CANCELED", " broker-order-1", 0, 2, "ATTEMPT_PROVIDER_ID_INVALID"),
-        ("NEW", "broker-order-1", 1, 2, "ATTEMPT_STATE_FILL_INVALID"),
-        ("PARTIALLY_FILLED", "broker-order-1", 0, 2, "ATTEMPT_STATE_FILL_INVALID"),
-        ("FILLED", "broker-order-1", 1, 2, "ATTEMPT_STATE_FILL_INVALID"),
-        ("REJECTED", "broker-order-1", 1, 2, "ATTEMPT_STATE_FILL_INVALID"),
-        ("CANCELED", "broker-order-1", 0, 1, "ATTEMPT_QUANTITY_MISMATCH"),
+        ("CANCELED", " p1", 0, 2, "ATTEMPT_PROVIDER_ID_INVALID"),
+        ("NEW", "p1", 1, 2, "ATTEMPT_STATE_FILL_INVALID"),
+        ("PARTIALLY_FILLED", "p1", 0, 2, "ATTEMPT_STATE_FILL_INVALID"),
+        ("FILLED", "p1", 1, 2, "ATTEMPT_STATE_FILL_INVALID"),
+        ("REJECTED", "p1", 1, 2, "ATTEMPT_STATE_FILL_INVALID"),
+        ("CANCELED", "p1", 0, 1, "ATTEMPT_QUANTITY_MISMATCH"),
     ),
 )
 def test_forged_observation_cannot_consume_permit_or_enable_finalization(
@@ -2325,7 +2428,7 @@ def test_sqlite_dispatch_race_has_one_transition_winner(tmp_path: Path) -> None:
     engine.dispose()
 
 
-def test_found_order_after_ambiguous_submit_is_recorded_and_latches_account() -> None:
+def test_found_order_after_ambiguous_submit_keeps_lookup_only_authority() -> None:
     repo = repository()
     baseline_at, order, claim = claimed_submission(repo)
     attempt = prepared_submit_attempt(order, claim.digest)
@@ -2349,7 +2452,7 @@ def test_found_order_after_ambiguous_submit_is_recorded_and_latches_account() ->
     observed = replace(
         attempt,
         state="NEW",
-        provider_order_id="broker-order-1",
+        provider_order_id="p1",
         quantity=order.quantity,
     )
 
@@ -2362,13 +2465,11 @@ def test_found_order_after_ambiguous_submit_is_recorded_and_latches_account() ->
 
     assert observation.observed_attempt == observed
     assert repo.attempts_for(claim.intent_id) == (observed,)
-    assert repo.get_broker_mutation_permit(prepared.permit.permit_id).state == "CONSUMED"
-    execution_lock = repo.get_execution_lock(EXECUTION_ROLE)
-    assert execution_lock.locked is True
-    assert execution_lock.reason == "RECONCILIATION_MISMATCH"
+    assert repo.get_broker_mutation_permit(prepared.permit.permit_id).state == "LOOKUP_ONLY"
+    assert repo.get_execution_lock(EXECUTION_ROLE).locked is False
 
 
-def test_found_order_after_ambiguous_replace_latches_before_another_write() -> None:
+def test_found_order_after_ambiguous_replace_blocks_another_write() -> None:
     clock = FakeDatabaseClock(datetime.now(UTC) + timedelta(seconds=1))
     repo = repository(clock=clock)
     baseline_at, order, claim = claimed_submission(repo)
@@ -2398,7 +2499,7 @@ def test_found_order_after_ambiguous_replace_latches_before_another_write() -> N
     observed = replace(
         replacement,
         state="NEW",
-        provider_order_id="broker-order-2",
+        provider_order_id="p2",
     )
 
     repo.record_attempt_observation(
@@ -2409,22 +2510,11 @@ def test_found_order_after_ambiguous_replace_latches_before_another_write() -> N
     )
 
     assert repo.attempts_for(claim.intent_id) == (current, observed)
-    assert repo.get_execution_lock(EXECUTION_ROLE).locked is True
-    cancel_expectation = repo.broker_reconciliation_expectation(
-        claim, ReconciliationPurpose.CANCEL, observed
-    )
-    cancel_reconciliation = WholeAccountReconciliation.evaluate(
-        sweep_with_open_order(
-            datetime.now(UTC), baseline_at, cancel_expectation.expected_open_orders[0]
-        ),
-        cancel_expectation,
-        accepted_at=datetime.now(UTC),
-    )
-    with pytest.raises(ExecutionBlocked, match="ACCOUNT_EXECUTION_LOCKED"):
-        repo.prepare_broker_mutation(cancel_reconciliation, observed, claim=claim)
+    assert repo.get_execution_lock(EXECUTION_ROLE).locked is False
+    assert repo.next_broker_mutation(claim) is None
 
 
-def test_missing_lookup_after_ambiguous_submit_is_a_permit_bound_latch() -> None:
+def test_missing_lookup_after_ambiguous_submit_keeps_lookup_only_authority() -> None:
     repo = repository()
     baseline_at, order, claim = claimed_submission(repo)
     attempt = prepared_submit_attempt(order, claim.digest)
@@ -2456,7 +2546,7 @@ def test_missing_lookup_after_ambiguous_submit_is_a_permit_bound_latch() -> None
     assert observation.attempt_ordinal == 0
     assert observation.observed_attempt is None
     assert repo.get_attempt_observations(claim.intent_id) == (observation,)
-    assert repo.get_execution_lock(EXECUTION_ROLE).locked is True
+    assert repo.get_execution_lock(EXECUTION_ROLE).locked is False
     assert repo.get_broker_mutation_permit(prepared.permit.permit_id).state == "LOOKUP_ONLY"
 
 
@@ -2549,7 +2639,7 @@ def test_expired_undispatched_submit_permit_reuses_attempt_in_linked_generation(
 
     class Broker:
         def submit(self, _order, _client_id):
-            return BrokerResult("broker-order-1", "NEW", 0, order.quantity)
+            return BrokerResult("p1", "NEW", 0, order.quantity)
 
     result = _execution_service(repo, Broker(), Sweep()).advance(claim.intent_id, Actor.OWNER)
     second = repo.broker_mutation_permits_for(claim.intent_id)[-1]
@@ -2627,7 +2717,7 @@ def test_expired_undispatched_replace_permit_refreshes_quotes_and_links_generati
 
     class Broker:
         def replace(self, _provider_order_id, _client_id, _limit):
-            return BrokerResult("broker-order-2", "NEW", 0, order.quantity)
+            return BrokerResult("p2", "NEW", 0, order.quantity)
 
     quotes = Quotes()
     result = _execution_service(repo, Broker(), Sweep(), quotes).advance(
@@ -3152,7 +3242,7 @@ def test_unfilled_finalization_is_bound_to_post_observation_whole_account_proven
     terminal = replace(
         attempt,
         state="CANCELED",
-        provider_order_id="broker-order-1",
+        provider_order_id="p1",
         quantity=order.quantity,
     )
     observation = repo.record_attempt_observation(
@@ -3201,7 +3291,7 @@ def test_unfilled_finalization_is_bound_to_post_observation_whole_account_proven
 def test_whole_account_authority_migrations_keep_0004_immutable() -> None:
     migrations = discover_migrations(MIGRATIONS)
 
-    assert [migration.version for migration in migrations] == list(range(1, 27))
+    assert [migration.version for migration in migrations] == list(range(1, 37))
     assert migrations[3].filename == "0004_whole_account_authority.sql"
     assert migrations[3].sha256 == (
         "ef3cd0cef720a3f8c6cce5812844be929a86b6f93b2168d8c8ccfa875dfd9971"
@@ -3448,7 +3538,7 @@ def test_postgres_observation_authority_is_exact_and_race_closed() -> None:
         terminal = replace(
             attempt,
             state="CANCELED",
-            provider_order_id="broker-order-1",
+            provider_order_id="p1",
             quantity=order.quantity,
         )
         observation = repo.record_attempt_observation(
@@ -3560,7 +3650,7 @@ def test_postgres_observation_authority_is_exact_and_race_closed() -> None:
         second_terminal = replace(
             second_attempt,
             state="CANCELED",
-            provider_order_id="broker-order-2",
+            provider_order_id="p2",
         )
         second_observation = repo.record_attempt_observation(
             second_prepared.permit.permit_id,

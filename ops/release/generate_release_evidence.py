@@ -40,7 +40,7 @@ if TYPE_CHECKING:
         verify_and_generate,
     )
 
-_LICENSE_PROVENANCE_SHA256 = "da483e3fdb1b0469cb994c3982d46219da6bd52ed5dbd0102b81b82c050cd91c"
+_LICENSE_PROVENANCE_SHA256 = "3952f5078f17795ae43e0b498c106d01204be1d8d3a94093c0b35e0808d62f11"
 _AUTHORITY_NAMES = (
     "OciSnapshot",
     "_archive_conclusion",

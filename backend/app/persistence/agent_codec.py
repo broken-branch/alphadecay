@@ -10,13 +10,21 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from backend.app import experiment_lineage
 from backend.app.contracts.v1 import models as contract_models
 from backend.app.policy import evaluation, opportunity
 from backend.app.services import acquisition
 from backend.app.services import agent as agent_service
 
 _CODEC = "alphadecay.agent-value.v1"
-_MODULES = (contract_models, evaluation, opportunity, acquisition, agent_service)
+_MODULES = (
+    contract_models,
+    experiment_lineage,
+    evaluation,
+    opportunity,
+    acquisition,
+    agent_service,
+)
 
 
 def encode_agent_value(value: object) -> dict[str, object]:
@@ -42,6 +50,7 @@ def _encode(value: object) -> object:
             "fields": {
                 field.name: _encode(getattr(value, field.name))
                 for field in dataclasses.fields(value)
+                if not (field.name == "experiment_lineage" and getattr(value, field.name) is None)
             },
         }
     if isinstance(value, BaseModel):

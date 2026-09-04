@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Callable
 from datetime import datetime, timedelta
@@ -20,6 +21,8 @@ from backend.app.services.acquisition import (
     LifecycleProviderObservation,
     RetainedLifecycleContext,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class LifecycleObservationError(RuntimeError):
@@ -83,7 +86,9 @@ class AlpacaLifecycleObservationAdapter:
         context: RetainedLifecycleContext,
         trusted_at: datetime,
     ) -> LifecycleProviderObservation:
-        if context.account_role is not AccountRole.DEVELOPMENT:
+        if context.account_role is not AccountRole.DEVELOPMENT and not _structural_submission(
+            context
+        ):
             raise LifecycleObservationError("DEVELOPMENT_AUTHORITY_REQUIRED")
         account = _call(self._accounts.collect, context=context, trusted_at=trusted_at)
         _validate_account_evidence(context, account)
@@ -112,6 +117,15 @@ class AlpacaLifecycleObservationAdapter:
         )
 
 
+def _structural_submission(context: RetainedLifecycleContext) -> bool:
+    """The judged account observes its lifecycle only under a registered structural pilot."""
+    if context.account_role is not AccountRole.SUBMISSION:
+        return False
+    from backend.app.lifecycle.structural_pilot import structural_pilot_lifecycle
+
+    return structural_pilot_lifecycle(context) is not None
+
+
 def _validate_account_evidence(
     context: RetainedLifecycleContext,
     evidence: LifecycleAccountEvidence,
@@ -119,17 +133,11 @@ def _validate_account_evidence(
     sweep = evidence.sweep
     expected = tuple(
         InventoryItem(InventoryKind.OPTION, item.symbol, item.signed_quantity, item.multiplier)
-        for item in context.expected_positions
+        for item in context.account_expected_positions
     )
     first_material = _account_material(sweep.first_account)
     final_material = _account_material(sweep.final_account)
-    known_activity_hashes = tuple(
-        sorted(
-            value
-            for transition in context.lifecycle_transitions
-            for value in transition.activity_hashes
-        )
-    )
+    known_activity_hashes = tuple(sorted(value for value in context.account_activity_hashes))
     observed_activity_hashes = tuple(
         sorted(
             item.activity_id_hash
@@ -138,7 +146,7 @@ def _validate_account_evidence(
         )
     )
     if any(
-        account.role is not AccountRole.DEVELOPMENT
+        account.role is not context.account_role
         or account.account_fingerprint != context.account_fingerprint
         or account.paper is not True
         for account in (sweep.first_account, sweep.final_account)
@@ -171,7 +179,7 @@ def _validate_account_evidence(
         raise LifecycleObservationError("ACCOUNT_SWEEP_INCOMPLETE")
     if (
         not sweep.activity_pagination.complete
-        or sweep.activity_pagination.requested_start != context.lifecycle_origin_at
+        or sweep.activity_pagination.requested_start != context.account_lifecycle_origin_at
         or sweep.activity_pagination.visibility_complete_through
         < sweep.activity_pagination.requested_end - sweep.activity_pagination.visibility_horizon
     ):
@@ -256,15 +264,19 @@ def _validate_market_evidence(
         or evidence.underlying.benchmark_symbol != context.launch_authority.benchmark_symbol
         or evidence.atm_iv.observed_at > evidence.atm_iv.retrieved_at
         or evidence.underlying.quote_observed_at > evidence.underlying.quote_retrieved_at
-        or evidence.boundaries.market_session.retrieved_at > trusted_at
+        # Provider retrieval may complete shortly after the trusted tick time.
+        or evidence.boundaries.market_session.retrieved_at > trusted_at + timedelta(seconds=30)
     ):
         raise LifecycleObservationError("MARKET_EVIDENCE_INVALID")
     if (
         trusted_at - evidence.atm_iv.observed_at > timedelta(seconds=30)
         or trusted_at - evidence.underlying.quote_observed_at > timedelta(seconds=30)
-        or trusted_at - evidence.underlying.completed_bar_at > timedelta(seconds=120)
+        # The bar that closes at the tick boundary is published seconds after it; until then
+        # the latest completed bar is the previous five-minute bar, so allow one full
+        # cadence plus the publication delay.
+        or trusted_at - evidence.underlying.completed_bar_at > timedelta(seconds=420)
         or any(
-            trusted_at - item.completed_bar_at > timedelta(seconds=120)
+            trusted_at - item.completed_bar_at > timedelta(seconds=420)
             for item in evidence.boundaries.price_confirmation
         )
     ):
@@ -280,8 +292,8 @@ def _account_material(account: AccountObservation) -> tuple[object, ...]:
         account.account_blocked,
         account.trading_blocked,
         account.options_trading_blocked,
-        account.equity,
-        account.buying_power,
+        # Equity and buying power move with option marks between the two bookend reads;
+        # cash and the authority fields are what must hold still.
         account.cash,
     )
 
@@ -297,5 +309,12 @@ def _call[T](operation: Callable[..., T], **kwargs: object) -> T:
             candidate
             if isinstance(candidate, str) and _ERROR_CODE.fullmatch(candidate)
             else "PROVIDER_EVIDENCE_FAILED"
+        )
+        _LOGGER.warning(
+            "lifecycle observation %s failed: %s: %s -> %s",
+            getattr(operation, "__qualname__", repr(operation)),
+            type(error).__name__,
+            error,
+            code,
         )
         raise LifecycleObservationError(code) from error

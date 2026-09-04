@@ -25,6 +25,7 @@ def test_replay_only_publication_routes_return_clean_empty_states(monkeypatch) -
 
     proof = client.get("/api/proof")
     record = client.get("/api/competition-record")
+    windows = client.get("/api/experiments/windows")
 
     assert proof.status_code == 200
     assert proof.json()["publication_status"] == "NOT_PUBLISHED"
@@ -34,6 +35,8 @@ def test_replay_only_publication_routes_return_clean_empty_states(monkeypatch) -
         "publication_status": "NOT_PUBLISHED",
         "records": [],
     }
+    assert windows.status_code == 200
+    assert windows.json() == {"schema_version": "v2", "windows": []}
 
 
 def test_replay_only_openapi_lists_only_anonymous_operations(monkeypatch) -> None:
@@ -41,18 +44,21 @@ def test_replay_only_openapi_lists_only_anonymous_operations(monkeypatch) -> Non
 
     schema = client.get("/openapi.json").json()
     operations = [
-        operation
-        for path_item in schema["paths"].values()
-        for operation in path_item.values()
+        operation for path_item in schema["paths"].values() for operation in path_item.values()
     ]
 
     assert set(schema["paths"]) == {
         "/api/competition-record",
+        "/api/experiments/windows",
+        "/api/experiments/{experiment_id}/performance",
         "/api/health",
         "/api/proof",
         "/api/replays/{scenario}",
     }
     assert all(operation["tags"] == ["Anonymous"] for operation in operations)
+    assert schema["paths"]["/api/experiments/{experiment_id}/performance"]["get"]["summary"] == (
+        "Read one published experiment result"
+    )
     assert "/api/owner/runs" not in schema["paths"]
     assert "/api/internal/scheduler/tick" not in schema["paths"]
     assert "OwnerModelProvider" not in schema["components"]["schemas"]

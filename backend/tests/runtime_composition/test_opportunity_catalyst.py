@@ -415,9 +415,7 @@ def test_rejects_fresh_retrieval_of_stale_source_and_duplicate_result() -> None:
         stale_source,
         source_hash=catalyst_source_evidence_digest(stale_source),
     )
-    stale_cluster = valid.clusters[0].model_copy(
-        update={"observed_at": stale_source.observed_at}
-    )
+    stale_cluster = valid.clusters[0].model_copy(update={"observed_at": stale_source.observed_at})
     stale_bundle = _rehash_bundle(
         replace(valid, sources=(stale_source,), clusters=(stale_cluster,))
     )
@@ -460,7 +458,6 @@ def test_rejects_classification_that_omits_or_rewrites_plan_bound_evidence() -> 
     invalid = (
         (),
         (valid, valid),
-        (valid.model_copy(update={"event_code": "PRODUCT"}),),
         (valid.model_copy(update={"source_ids": ("unknown-source",)}),),
         (valid.model_copy(update={"source_tier": EvidenceTier.SECONDARY}),),
         (
@@ -631,9 +628,7 @@ def test_clear_score_applies_application_owned_source_tier_weight() -> None:
         update={"source_tier": EvidenceTier.SECONDARY}
     )
     bundle = _rehash_bundle(replace(bundle, clusters=(secondary_cluster,)))
-    secondary = _classification().model_copy(
-        update={"source_tier": EvidenceTier.SECONDARY}
-    )
+    secondary = _classification().model_copy(update={"source_tier": EvidenceTier.SECONDARY})
 
     result = asyncio.run(
         BoundedOpportunityCatalystAuthority(

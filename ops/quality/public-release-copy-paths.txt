@@ -3,7 +3,11 @@
 README.md
 index.html
 backend/app/contracts/v1/openapi_copy.py
+backend/app/experiments/windows.py
+backend/app/submission_story/*.py
+ops/launch/submission_story.py
 docs/public/*.md
+docs/public/reviewers/*.md
 frontend/src/content/public-copy.json
 fixtures/replay/*.json
 submission/architecture.svg

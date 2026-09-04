@@ -11,8 +11,14 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from backend.app.contracts.v1 import AccountRole, GreekExposure
-from backend.app.execution import ExecutionBlocked, intent_digest, order_envelope_hash
+from backend.app.contracts.v1 import AccountRole, GreekExposure, PositionIntent
+from backend.app.execution import (
+    Actor,
+    ExecutionBlocked,
+    OrderLegIntent,
+    intent_digest,
+    order_envelope_hash,
+)
 from backend.app.execution.models import (
     AssessmentCertificate,
     EntryApprovalAuthorization,
@@ -22,6 +28,12 @@ from backend.app.execution.models import (
     IntentState,
     OrderEnvelope,
 )
+from backend.app.experiment_lineage import (
+    ExperimentExecutionLineage,
+    optional_experiment_execution_lineage,
+)
+from backend.app.lifecycle.structural_pilot import STRUCTURAL_CLOSE_REASONS
+from backend.app.policy.opportunity import structural_pilot_profile
 
 from .agent_authority import agent_input_material, agent_result_material, canonical_agent_hash
 from .authorization import AuthorizationValues, validate_authorization
@@ -31,6 +43,7 @@ from .sqlalchemy_models import (
     AgentInputSnapshotRow,
     AgentTickRow,
     AssessmentCertificateRow,
+    CompiledExperimentVersionRow,
     EntryApprovalCertificateRow,
     ExecutionCertificateRow,
     ExecutionIntentRow,
@@ -41,6 +54,10 @@ from .sqlalchemy_models import (
 )
 
 _HASH = re.compile(r"^[0-9a-f]{64}$")
+_NON_POLICY_OUTCOMES = {
+    "OPPORTUNITY": {"OPPORTUNITY_DECISION_PENDING", "PROVIDER_FAILURE_NO_TRADE"},
+    "ASSESSMENT": {"PROVIDER_FAILURE_NO_ACTION"},
+}
 
 
 class TrustedDatabaseClock(Protocol):
@@ -73,6 +90,7 @@ class PersistedAgentDecision:
     input_hash: str
     result_hash: str
     autonomy_authorized: bool
+    experiment_lineage: ExperimentExecutionLineage | None
     intent_id: UUID | None
     created_at: datetime
 
@@ -108,6 +126,31 @@ class PersistedAccountAuthority:
     execution_epoch: int
     claim_generation: int
     recovery_pending: bool
+
+
+@dataclass(frozen=True)
+class PersistedSubmissionOrderPreview:
+    intent_id: UUID
+    intent_digest: str
+    legs: tuple[OrderLegIntent, ...]
+    quantity: int
+    limit_price: Decimal
+    maximum_loss: Decimal
+    decision_id: UUID
+    thesis_version_id: UUID
+    thesis_code: str
+    thesis_risk_cap: Decimal
+    reason_code: str
+    result_payload: dict[str, object]
+    account_fingerprint: str
+    book_fingerprint: str
+    intent_policy_hash: str
+    decision_result_hash: str
+    approval_id: UUID
+    envelope_hash: str
+    created_at: datetime
+    action: ExecutionAction
+    experiment_lineage: ExperimentExecutionLineage | None
 
 
 class AgentDecisionRepository:
@@ -195,6 +238,7 @@ class AgentDecisionRepository:
         reason_code: str,
         policy_hash: str,
         result_payload: dict[str, object],
+        experiment_lineage: ExperimentExecutionLineage | None = None,
         thesis_version_id: UUID | None = None,
         authorization: EntryApprovalAuthorization | AssessmentCertificate | None = None,
         envelope: OrderEnvelope | None = None,
@@ -214,6 +258,7 @@ class AgentDecisionRepository:
             reason_code=reason_code,
             policy_hash=policy_hash,
             result_payload=result_payload,
+            experiment_lineage=experiment_lineage,
             thesis_version_id=thesis_version_id,
             authorization=authorization,
             envelope=envelope,
@@ -245,6 +290,7 @@ class AgentDecisionRepository:
                 intent_id=intent_id,
                 intent_digest=intent_digest(envelope) if envelope else None,
                 autonomy_authorized=authorization is not None,
+                experiment_lineage=experiment_lineage,
             )
         )
         snapshot_id = uuid5(NAMESPACE_URL, f"alphadecay:agent-input:{input_hash}")
@@ -277,6 +323,17 @@ class AgentDecisionRepository:
                 )
                 if invalid_time or frozen_at > observed or frozen_at > created_at:
                     raise ExecutionBlocked("AGENT_DECISION_THESIS_AUTHORITY_INVALID")
+            if experiment_lineage is not None:
+                compiled = session.get(
+                    CompiledExperimentVersionRow,
+                    experiment_lineage.experiment_id,
+                )
+                if (
+                    compiled is None
+                    or compiled.source_definition_hash != experiment_lineage.source_definition_hash
+                    or compiled.protocol_hash != experiment_lineage.protocol_hash
+                ):
+                    raise ExecutionBlocked("EXPERIMENT_EXECUTION_LINEAGE_INVALID")
             tick = session.get(AgentTickRow, tick_id, with_for_update=True)
             if (
                 tick is None
@@ -293,37 +350,46 @@ class AgentDecisionRepository:
                     raise ExecutionBlocked("AGENT_AUTHORITY_ACCOUNT_LATCHED")
                 if not account.autonomous_enabled:
                     raise ExecutionBlocked("AGENT_AUTHORITY_AUTONOMY_DISABLED")
-            existing_input = session.scalar(
+            existing_inputs = session.scalars(
                 select(AgentInputSnapshotRow)
                 .where(
                     AgentInputSnapshotRow.account_role == account_role.value,
                     AgentInputSnapshotRow.decision_kind == decision_kind,
                     AgentInputSnapshotRow.decision_boundary == boundary,
                 )
+                .order_by(AgentInputSnapshotRow.snapshot_id)
                 .with_for_update()
-            )
-            if existing_input is not None:
-                if existing_input.input_hash != input_hash:
-                    raise ExecutionBlocked("AGENT_INPUT_BOUNDARY_CONFLICT")
+            ).all()
+            existing_decisions: list[AgentDecisionRow] = []
+            for existing_input in existing_inputs:
                 existing = session.scalar(
                     select(AgentDecisionRow).where(
                         AgentDecisionRow.input_snapshot_id == existing_input.snapshot_id
                     )
                 )
-                if existing is None or existing.result_hash != result_hash:
-                    raise ExecutionBlocked("AGENT_DECISION_CONFLICT")
-                if tick.decision_id not in {None, existing.decision_id}:
-                    raise ExecutionBlocked("AGENT_TICK_DECISION_CONFLICT")
-                if lifecycle_manifest_id is not None:
-                    _bind_lifecycle_input(
-                        session,
-                        lifecycle_manifest_id,
-                        existing_input,
-                        created_at,
-                    )
-                tick.decision_id = existing.decision_id
-                session.flush()
-                return self._decision_from_rows(session, existing_input, existing)
+                if existing is None:
+                    raise ExecutionBlocked("AGENT_DECISION_LINEAGE_INCOMPLETE")
+                existing_decisions.append(existing)
+                if existing_input.input_hash == input_hash:
+                    if existing.result_hash != result_hash:
+                        raise ExecutionBlocked("AGENT_DECISION_CONFLICT")
+                    if tick.decision_id not in {None, existing.decision_id}:
+                        raise ExecutionBlocked("AGENT_TICK_DECISION_CONFLICT")
+                    if lifecycle_manifest_id is not None:
+                        _bind_lifecycle_input(
+                            session,
+                            lifecycle_manifest_id,
+                            existing_input,
+                            created_at,
+                        )
+                    tick.decision_id = existing.decision_id
+                    session.flush()
+                    return self._decision_from_rows(session, existing_input, existing)
+            if not _is_non_policy_audit(decision_kind, outcome) and any(
+                not _is_non_policy_audit(existing.decision_kind, existing.outcome)
+                for existing in existing_decisions
+            ):
+                raise ExecutionBlocked("AGENT_INPUT_BOUNDARY_CONFLICT")
 
             snapshot = AgentInputSnapshotRow(
                 snapshot_id=snapshot_id,
@@ -348,6 +414,17 @@ class AgentDecisionRepository:
                 outcome=outcome,
                 reason_code=reason_code,
                 policy_hash=policy_hash,
+                experiment_id=(
+                    experiment_lineage.experiment_id if experiment_lineage is not None else None
+                ),
+                experiment_source_definition_hash=(
+                    experiment_lineage.source_definition_hash
+                    if experiment_lineage is not None
+                    else None
+                ),
+                experiment_protocol_hash=(
+                    experiment_lineage.protocol_hash if experiment_lineage is not None else None
+                ),
                 result_payload=result_payload,
                 result_hash=result_hash,
                 autonomy_authorized=authorization is not None,
@@ -595,6 +672,229 @@ class AgentDecisionRepository:
                 else _tick_from_row(row, accepted=False, include_reservation=False)
             )
 
+    def pending_submission_lifecycle_intents(
+        self,
+        account_fingerprint: str,
+    ) -> tuple[UUID, ...]:
+        if _HASH.fullmatch(account_fingerprint) is None:
+            raise ExecutionBlocked("SUBMISSION_LIFECYCLE_RECOVERY_AUTHORITY_INVALID")
+        with self._sessions() as session:
+            account = session.get(AccountRoleRow, AccountRole.SUBMISSION.value)
+            if account is None or account.account_fingerprint != account_fingerprint:
+                raise ExecutionBlocked("SUBMISSION_LIFECYCLE_RECOVERY_AUTHORITY_INVALID")
+            positions = session.scalars(
+                select(ManagedLifecyclePositionRow).where(
+                    ManagedLifecyclePositionRow.account_role == AccountRole.SUBMISSION.value,
+                    ManagedLifecyclePositionRow.closed_at.is_(None),
+                )
+            ).all()
+            if len(positions) > 1:
+                raise ExecutionBlocked("SUBMISSION_LIFECYCLE_RECOVERY_CONFLICT")
+            if not positions:
+                return ()
+            position = positions[0]
+            if position.account_fingerprint != account_fingerprint:
+                raise ExecutionBlocked("SUBMISSION_LIFECYCLE_RECOVERY_AUTHORITY_INVALID")
+            rows = session.scalars(
+                select(ExecutionIntentRow).where(
+                    ExecutionIntentRow.account_role == AccountRole.SUBMISSION.value,
+                    ExecutionIntentRow.action == ExecutionAction.CLOSE.value,
+                    ExecutionIntentRow.fingerprint == position.active_position_fingerprint,
+                    ExecutionIntentRow.state.in_(
+                        {
+                            IntentState.APPROVED.value,
+                            IntentState.CLAIMED.value,
+                            IntentState.TERMINAL.value,
+                        }
+                    ),
+                )
+            ).all()
+            pending: list[UUID] = []
+            for row in rows:
+                if row.state == IntentState.TERMINAL.value:
+                    certificate = session.scalar(
+                        select(ExecutionCertificateRow).where(
+                            ExecutionCertificateRow.execution_intent_id == row.intent_id
+                        )
+                    )
+                    if certificate is None or certificate.execution_status != "FILLED":
+                        continue
+                pending.append(row.intent_id)
+            if len(pending) > 1:
+                raise ExecutionBlocked("SUBMISSION_LIFECYCLE_RECOVERY_CONFLICT")
+            return tuple(pending)
+
+    def submission_order_preview(self, intent_id: UUID) -> PersistedSubmissionOrderPreview:
+        with self._sessions() as session:
+            row = session.get(ExecutionIntentRow, intent_id)
+            entry = row is not None and row.action == ExecutionAction.ENTRY.value
+            close = row is not None and row.action == ExecutionAction.CLOSE.value
+            if (
+                row is None
+                or row.account_role != AccountRole.SUBMISSION.value
+                or not (entry or close)
+                or entry != (row.entry_approval_id is not None)
+                or close != (row.assessment_certificate_id is not None)
+                or row.minimum_limit > row.maximum_limit
+                or row.state
+                not in {
+                    IntentState.APPROVED.value,
+                    IntentState.CLAIMED.value,
+                    IntentState.TERMINAL.value,
+                }
+                or (entry and row.state == IntentState.TERMINAL.value)
+            ):
+                raise ExecutionBlocked("SUBMISSION_ORDER_PREVIEW_UNAVAILABLE")
+            account = session.get(AccountRoleRow, AccountRole.SUBMISSION.value)
+            authorization = (
+                session.get(EntryApprovalCertificateRow, row.entry_approval_id)
+                if entry
+                else session.get(AssessmentCertificateRow, row.assessment_certificate_id)
+            )
+            decision = (
+                session.get(AgentDecisionRow, authorization.agent_decision_id)
+                if authorization is not None and authorization.agent_decision_id is not None
+                else None
+            )
+            thesis = (
+                session.get(ThesisVersionRow, authorization.thesis_version_id)
+                if authorization is not None
+                else None
+            )
+            snapshot = (
+                session.get(AgentInputSnapshotRow, decision.input_snapshot_id)
+                if decision is not None
+                else None
+            )
+            tick = (
+                session.get(AgentTickRow, decision.origin_tick_id) if decision is not None else None
+            )
+            try:
+                envelope = _envelope_from_json(row.envelope_payload)
+            except (KeyError, TypeError, ValueError):
+                raise ExecutionBlocked("SUBMISSION_ORDER_PREVIEW_AUTHORITY_INVALID") from None
+            if (
+                account is None
+                or authorization is None
+                or decision is None
+                or thesis is None
+                or snapshot is None
+                or tick is None
+                or not account.autonomous_enabled
+                or account.account_fingerprint != decision.account_fingerprint
+                or authorization.account_role != AccountRole.SUBMISSION.value
+                or decision.account_role != AccountRole.SUBMISSION.value
+                or thesis.account_role != AccountRole.SUBMISSION.value
+                or snapshot.account_role != AccountRole.SUBMISSION.value
+                or tick.account_role != AccountRole.SUBMISSION.value
+                or tick.actor != Actor.SCHEDULER.value
+                or not decision.autonomy_authorized
+                or (
+                    close
+                    and (
+                        structural_pilot_profile(thesis.thesis_code) is None
+                        or decision.reason_code not in STRUCTURAL_CLOSE_REASONS
+                    )
+                )
+                or decision.decision_kind != ("OPPORTUNITY" if entry else "ASSESSMENT")
+                or decision.outcome
+                not in ({"ENTRY_APPROVED"} if entry else {"CLOSE_APPROVED", "CLOSE_RISK_ONLY"})
+                or (close and authorization.action != ExecutionAction.CLOSE.value)
+                or authorization.agent_decision_id != decision.decision_id
+                or decision.thesis_version_id != authorization.thesis_version_id
+                or snapshot.thesis_version_id != authorization.thesis_version_id
+                or thesis.policy_hash != row.policy_hash
+                or authorization.policy_hash != row.policy_hash
+                or decision.policy_hash != row.policy_hash
+                or authorization.envelope_hash != row.envelope_hash
+                or authorization.approved_max_loss != row.approved_max_loss
+                or authorization.quantity != row.quantity
+                or (authorization.book_fingerprint if entry else authorization.position_fingerprint)
+                != row.fingerprint
+                or snapshot.account_fingerprint != decision.account_fingerprint
+                or tick.account_fingerprint != decision.account_fingerprint
+                or envelope.authorization_certificate_id
+                != (authorization.approval_id if entry else authorization.certificate_id)
+                or envelope.account_fingerprint != decision.account_fingerprint
+                or envelope.position_or_book_fingerprint != row.fingerprint
+                or envelope.action
+                is not (ExecutionAction.ENTRY if entry else ExecutionAction.CLOSE)
+                or envelope.policy_hash != row.policy_hash
+                or envelope.event_key != row.event_key
+                or envelope.trading_day != row.trading_day
+                or envelope.quantity != row.quantity
+                or envelope.minimum_limit != row.minimum_limit
+                or envelope.maximum_limit != row.maximum_limit
+                or envelope.approved_max_loss != row.approved_max_loss
+                or envelope.market_session_id is not None
+                or envelope.quoted_relative_spread is not None
+                or envelope.maximum_relative_spread is not None
+                or envelope.incremental_debit is not None
+                or envelope.maximum_incremental_debit is not None
+                or _legs_to_json(envelope) != row.legs
+                or order_envelope_hash(envelope) != row.envelope_hash
+                or intent_digest(envelope) != row.intent_digest
+            ):
+                raise ExecutionBlocked("SUBMISSION_ORDER_PREVIEW_AUTHORITY_INVALID")
+            expected_input_hash = canonical_agent_hash(
+                agent_input_material(
+                    account_role=snapshot.account_role,
+                    account_fingerprint=snapshot.account_fingerprint,
+                    decision_kind=snapshot.decision_kind,
+                    decision_boundary=_utc(snapshot.decision_boundary),
+                    observed_at=_utc(snapshot.observed_at),
+                    normalized_input=snapshot.normalized_payload,
+                    thesis_version_id=snapshot.thesis_version_id,
+                )
+            )
+            expected_result_hash = canonical_agent_hash(
+                agent_result_material(
+                    input_hash=expected_input_hash,
+                    outcome=decision.outcome,
+                    reason_code=decision.reason_code,
+                    policy_hash=decision.policy_hash,
+                    thesis_version_id=decision.thesis_version_id,
+                    result_payload=decision.result_payload,
+                    authorization_id=(
+                        authorization.approval_id if entry else authorization.certificate_id
+                    ),
+                    intent_id=row.intent_id,
+                    intent_digest=row.intent_digest,
+                    autonomy_authorized=decision.autonomy_authorized,
+                    experiment_lineage=_row_experiment_lineage(decision),
+                )
+            )
+            if (
+                snapshot.input_hash != expected_input_hash
+                or decision.result_hash != expected_result_hash
+                or decision.decision_id
+                != uuid5(NAMESPACE_URL, f"alphadecay:agent-decision:{expected_result_hash}")
+            ):
+                raise ExecutionBlocked("SUBMISSION_ORDER_PREVIEW_AUTHORITY_INVALID")
+            return PersistedSubmissionOrderPreview(
+                intent_id=row.intent_id,
+                intent_digest=row.intent_digest,
+                legs=envelope.legs,
+                quantity=row.quantity,
+                limit_price=row.minimum_limit,
+                maximum_loss=row.approved_max_loss,
+                decision_id=decision.decision_id,
+                thesis_version_id=thesis.thesis_version_id,
+                thesis_code=thesis.thesis_code,
+                thesis_risk_cap=thesis.portfolio_risk_cap,
+                reason_code=decision.reason_code,
+                result_payload=dict(decision.result_payload),
+                account_fingerprint=decision.account_fingerprint,
+                book_fingerprint=row.fingerprint,
+                intent_policy_hash=row.policy_hash,
+                decision_result_hash=decision.result_hash,
+                approval_id=(authorization.approval_id if entry else authorization.certificate_id),
+                envelope_hash=row.envelope_hash,
+                created_at=_utc(decision.created_at),
+                action=envelope.action,
+                experiment_lineage=_row_experiment_lineage(decision),
+            )
+
     def _add_authorized_intent(
         self,
         *,
@@ -626,6 +926,7 @@ class AgentDecisionRepository:
             or thesis.account_role != account_role.value
             or decision.policy_hash != envelope.policy_hash
             or thesis.policy_hash != envelope.policy_hash
+            or _row_experiment_lineage(decision) != authorization.experiment_lineage
         ):
             raise ExecutionBlocked("THESIS_AUTHORITY_MISMATCH")
         digest = intent_digest(envelope)
@@ -657,6 +958,21 @@ class AgentDecisionRepository:
                     agent_decision_id=decision_id,
                     account_role=authorization.account_role.value,
                     policy_hash=authorization.policy_hash,
+                    experiment_id=(
+                        authorization.experiment_lineage.experiment_id
+                        if authorization.experiment_lineage is not None
+                        else None
+                    ),
+                    experiment_source_definition_hash=(
+                        authorization.experiment_lineage.source_definition_hash
+                        if authorization.experiment_lineage is not None
+                        else None
+                    ),
+                    experiment_protocol_hash=(
+                        authorization.experiment_lineage.protocol_hash
+                        if authorization.experiment_lineage is not None
+                        else None
+                    ),
                     book_fingerprint=authorization.book_fingerprint,
                     envelope_hash=authorization.envelope_hash,
                     approved_max_loss=authorization.approved_max_loss,
@@ -681,6 +997,7 @@ class AgentDecisionRepository:
                 or managed_position.thesis_version_id != authorization.thesis_version_id
                 or managed_position.active_position_fingerprint
                 != authorization.position_fingerprint
+                or _row_experiment_lineage(managed_position) != authorization.experiment_lineage
             ):
                 raise ExecutionBlocked("LIFECYCLE_POSITION_AUTHORITY_MISMATCH")
             if envelope.action is ExecutionAction.ROLL:
@@ -723,6 +1040,21 @@ class AgentDecisionRepository:
                         authorization.expected_after_exposure
                     ),
                     policy_hash=authorization.policy_hash,
+                    experiment_id=(
+                        authorization.experiment_lineage.experiment_id
+                        if authorization.experiment_lineage is not None
+                        else None
+                    ),
+                    experiment_source_definition_hash=(
+                        authorization.experiment_lineage.source_definition_hash
+                        if authorization.experiment_lineage is not None
+                        else None
+                    ),
+                    experiment_protocol_hash=(
+                        authorization.experiment_lineage.protocol_hash
+                        if authorization.experiment_lineage is not None
+                        else None
+                    ),
                     created_at=_utc(authorization.created_at),
                     expires_at=_utc(authorization.expires_at),
                     valid=authorization.valid,
@@ -810,6 +1142,7 @@ class AgentDecisionRepository:
             input_hash=snapshot.input_hash,
             result_hash=decision.result_hash,
             autonomy_authorized=decision.autonomy_authorized,
+            experiment_lineage=_row_experiment_lineage(decision),
             intent_id=intent_id,
             created_at=_utc(decision.created_at),
         )
@@ -827,6 +1160,7 @@ def _validate_decision_values(
     reason_code: str,
     policy_hash: str,
     result_payload: dict[str, object],
+    experiment_lineage: ExperimentExecutionLineage | None,
     thesis_version_id: UUID | None,
     authorization: EntryApprovalAuthorization | AssessmentCertificate | None,
     envelope: OrderEnvelope | None,
@@ -852,11 +1186,31 @@ def _validate_decision_values(
         raise ExecutionBlocked("AGENT_AUTHORITY_INCOMPLETE")
     if authorization is not None and not server_autonomy_enabled:
         raise ExecutionBlocked("AGENT_AUTHORITY_SERVER_GATE_DISABLED")
-    if account_role is AccountRole.SUBMISSION and decision_kind == "OPPORTUNITY":
-        if outcome != "NO_TRADE" or reason_code != "CALIBRATION_BINDING_NO_TRADE" or any(supplied):
+    if (
+        account_role is AccountRole.SUBMISSION
+        and decision_kind == "OPPORTUNITY"
+        and not all(supplied)
+    ):
+        calibration_no_trade = (
+            outcome == "NO_TRADE" and reason_code == "CALIBRATION_BINDING_NO_TRADE"
+        )
+        provider_failure = (
+            outcome in {"OPPORTUNITY_DECISION_PENDING", "PROVIDER_FAILURE_NO_TRADE"}
+            and reason_code == outcome
+            and isinstance(normalized_input.get("typed"), dict)
+            and isinstance(result_payload.get("typed"), dict)
+        )
+        policy_no_trade = (
+            outcome == "NO_TRADE"
+            and reason_code != "CALIBRATION_BINDING_NO_TRADE"
+            and isinstance(normalized_input.get("typed"), dict)
+            and isinstance(result_payload.get("typed"), dict)
+        )
+        if not (calibration_no_trade or provider_failure or policy_no_trade):
             raise ExecutionBlocked("SUBMISSION_CALIBRATION_NO_TRADE_REQUIRED")
-        if not _HASH.fullmatch(str(normalized_input.get("machine_binding_hash", ""))) or not (
-            _HASH.fullmatch(str(normalized_input.get("calibration_hash", "")))
+        if calibration_no_trade and (
+            not _HASH.fullmatch(str(normalized_input.get("machine_binding_hash", "")))
+            or not _HASH.fullmatch(str(normalized_input.get("calibration_hash", "")))
         ):
             raise ExecutionBlocked("SUBMISSION_CALIBRATION_BINDING_INVALID")
     if authorization is None or envelope is None:
@@ -867,6 +1221,8 @@ def _validate_decision_values(
         raise ExecutionBlocked("AUTHORIZATION_THESIS_MISMATCH")
     if authorization.account_role is not account_role:
         raise ExecutionBlocked("AUTHORIZATION_ACCOUNT_ROLE_MISMATCH")
+    if authorization.experiment_lineage != experiment_lineage:
+        raise ExecutionBlocked("EXPERIMENT_EXECUTION_LINEAGE_MISMATCH")
     if envelope.account_fingerprint != account_fingerprint:
         raise ExecutionBlocked("AUTHORIZATION_ACCOUNT_MISMATCH")
     if isinstance(authorization, EntryApprovalAuthorization):
@@ -876,8 +1232,6 @@ def _validate_decision_values(
             or envelope.action is not ExecutionAction.ENTRY
         ):
             raise ExecutionBlocked("ENTRY_AUTHORIZATION_KIND_MISMATCH")
-        if account_role is not AccountRole.DEVELOPMENT:
-            raise ExecutionBlocked("SUBMISSION_ENTRY_DISABLED")
         if envelope.authorization_certificate_id != authorization.approval_id:
             raise ExecutionBlocked("AUTHORIZATION_ID_MISMATCH")
     else:
@@ -901,6 +1255,21 @@ def _authorization_id(
     if isinstance(authorization, EntryApprovalAuthorization):
         return authorization.approval_id
     return authorization.certificate_id
+
+
+def _row_experiment_lineage(row) -> ExperimentExecutionLineage | None:
+    try:
+        return optional_experiment_execution_lineage(
+            row.experiment_id,
+            row.experiment_source_definition_hash,
+            row.experiment_protocol_hash,
+        )
+    except ValueError as error:
+        raise ExecutionBlocked("EXPERIMENT_EXECUTION_LINEAGE_INVALID") from error
+
+
+def _is_non_policy_audit(decision_kind: str, outcome: str) -> bool:
+    return outcome in _NON_POLICY_OUTCOMES.get(decision_kind, set())
 
 
 def _bind_lifecycle_input(
@@ -934,7 +1303,8 @@ def _bind_lifecycle_input(
         or manifest.agent_input_snapshot_id is not None
         or manifest.reconciliation_id is not None
         or input_snapshot.decision_kind != "ASSESSMENT"
-        or input_snapshot.account_role != AccountRole.DEVELOPMENT.value
+        or input_snapshot.account_role
+        not in {AccountRole.DEVELOPMENT.value, AccountRole.SUBMISSION.value}
         or input_snapshot.account_role != position.account_role
         or input_snapshot.account_fingerprint != position.account_fingerprint
         or input_snapshot.thesis_version_id != position.thesis_version_id
@@ -997,8 +1367,45 @@ def _envelope_to_json(envelope: OrderEnvelope) -> dict[str, object]:
     }
 
 
+def _envelope_from_json(value: dict[str, object]) -> OrderEnvelope:
+    return OrderEnvelope(
+        action=ExecutionAction(str(value["action"])),
+        authorization_certificate_id=UUID(str(value["authorization_certificate_id"])),
+        policy_hash=str(value["policy_hash"]),
+        account_fingerprint=str(value["account_fingerprint"]),
+        position_or_book_fingerprint=str(value["position_or_book_fingerprint"]),
+        legs=tuple(
+            OrderLegIntent(
+                symbol=str(leg["symbol"]),
+                intent=PositionIntent(str(leg["intent"])),
+                ratio=int(leg["ratio"]),
+            )
+            for leg in value["legs"]
+        ),
+        quantity=int(value["quantity"]),
+        minimum_limit=Decimal(str(value["minimum_limit"])),
+        maximum_limit=Decimal(str(value["maximum_limit"])),
+        approved_max_loss=Decimal(str(value["approved_max_loss"])),
+        event_key=str(value["event_key"]),
+        trading_day=datetime.fromisoformat(str(value["trading_day"])).date(),
+        market_session_id=(
+            UUID(str(value["market_session_id"]))
+            if value.get("market_session_id") is not None
+            else None
+        ),
+        quoted_relative_spread=_optional_decimal(value.get("quoted_relative_spread")),
+        maximum_relative_spread=_optional_decimal(value.get("maximum_relative_spread")),
+        incremental_debit=_optional_decimal(value.get("incremental_debit")),
+        maximum_incremental_debit=_optional_decimal(value.get("maximum_incremental_debit")),
+    )
+
+
 def _decimal_or_none(value: Decimal | None) -> str | None:
     return str(value) if value is not None else None
+
+
+def _optional_decimal(value: object) -> Decimal | None:
+    return Decimal(str(value)) if value is not None else None
 
 
 def _exposure_to_json(exposure: GreekExposure | None) -> dict[str, str] | None:

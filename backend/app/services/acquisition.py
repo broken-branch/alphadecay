@@ -45,6 +45,7 @@ from backend.app.execution import (
 from backend.app.execution.models import ExecutionIntent, IntentState
 from backend.app.lifecycle import LifecycleLaunchAuthority
 from backend.app.lifecycle.fingerprint import option_position_fingerprint
+from backend.app.lifecycle.structural_pilot import structural_pilot_lifecycle
 from backend.app.order_limits import (
     MAX_STRUCTURAL_APPROVED_RISK,
     MAX_STRUCTURAL_LIFETIME_RISK,
@@ -70,6 +71,9 @@ from backend.app.policy import (
     score_drift,
     score_evidence,
 )
+
+_RETRIEVAL_SKEW_TOLERANCE = timedelta(seconds=30)
+
 
 T = TypeVar("T")
 _FAILURE_CODE = re.compile(r"^[A-Z][A-Z0-9_]{0,63}$")
@@ -277,6 +281,9 @@ class RetainedLifecycleContext:
     target_at: datetime
     position_fingerprint: str
     expected_positions: tuple[RetainedOptionPosition, RetainedOptionPosition]
+    account_expected_positions: tuple[RetainedOptionPosition, ...]
+    account_activity_hashes: tuple[str, ...]
+    account_lifecycle_origin_at: datetime
     delta_low: Decimal
     delta_high: Decimal
     vega_low: Decimal
@@ -512,18 +519,29 @@ class DevelopmentLifecycleAcquisition:
             raise AcquisitionFailure(AcquisitionKind.LIFECYCLE, "TICK_ID_INVALID")
 
         context = self._load_context(authority)
+        structural_lifecycle = structural_pilot_lifecycle(context)
+        if authority.role is AccountRole.SUBMISSION and structural_lifecycle is None:
+            raise AcquisitionFailure(
+                AcquisitionKind.LIFECYCLE,
+                "SUBMISSION_ACQUISITION_FORBIDDEN",
+            )
         if trusted_at < context.lifecycle_origin_at:
             raise AcquisitionFailure(AcquisitionKind.LIFECYCLE, "LIFECYCLE_NOT_YET_ACTIVE")
         observation, normalized = self._load_observation(context, authority, trusted_at)
-        clusters = await self._load_research(context, trusted_at)
-        self._validate_clusters(clusters, trusted_at)
-        classifications = self._call_source(
-            "CLASSIFICATION",
-            self._classifier.classify,
-            context.thesis,
-            clusters,
-        )
-        self._validate_classifications(context, clusters, classifications)
+        structural_pilot = structural_lifecycle is not None
+        if structural_pilot:
+            clusters = ()
+            classifications = ()
+        else:
+            clusters = await self._load_research(context, trusted_at)
+            self._validate_clusters(clusters, trusted_at)
+            classifications = self._call_source(
+                "CLASSIFICATION",
+                self._classifier.classify,
+                context.thesis,
+                clusters,
+            )
+            self._validate_classifications(context, clusters, classifications)
         manifest_hash = _acquisition_manifest_hash(
             context,
             observation,
@@ -581,20 +599,33 @@ class DevelopmentLifecycleAcquisition:
             liquidation_pnl=normalized.liquidation_pnl,
             approved_max_loss=context.approved_max_loss,
         )
-        hard_gates = self._derive_hard_gates(
-            context,
-            observation.boundaries,
-            classifications,
-            normalized.dte,
-            trusted_at,
-        )
-        roll_selection = self._derive_roll_candidate(
-            context,
-            observation,
-            scores,
-            observation.boundaries.market_session,
-            trusted_at,
-        )
+        if structural_pilot:
+            try:
+                assert structural_lifecycle is not None
+                strategy_close_reason = structural_lifecycle.close_reason(
+                    context,
+                    executable_value=_close_cashflow(normalized.options),
+                    trusted_at=trusted_at,
+                )
+            except ValueError as error:
+                raise AcquisitionFailure(AcquisitionKind.LIFECYCLE, str(error)) from error
+            hard_gates = HardGateInput(strategy_close_reason=strategy_close_reason)
+            roll_selection = None
+        else:
+            hard_gates = self._derive_hard_gates(
+                context,
+                observation.boundaries,
+                classifications,
+                normalized.dte,
+                trusted_at,
+            )
+            roll_selection = self._derive_roll_candidate(
+                context,
+                observation,
+                scores,
+                observation.boundaries.market_session,
+                trusted_at,
+            )
         manifest_id = uuid5(
             NAMESPACE_URL,
             f"alphadecay:lifecycle-acquisition:{manifest_hash}",
@@ -729,8 +760,13 @@ class DevelopmentLifecycleAcquisition:
         if (
             not isinstance(context.thesis, ThesisResponse)
             or not isinstance(context.expected_positions, tuple)
+            or not isinstance(context.account_expected_positions, tuple)
             or any(
                 not isinstance(item, RetainedOptionPosition) for item in context.expected_positions
+            )
+            or any(
+                not isinstance(item, RetainedOptionPosition)
+                for item in context.account_expected_positions
             )
         ):
             raise AcquisitionFailure(AcquisitionKind.LIFECYCLE, "RETAINED_CONTEXT_INVALID")
@@ -762,6 +798,11 @@ class DevelopmentLifecycleAcquisition:
             and context.account_fingerprint == authority.account_fingerprint
             and _is_hash(context.policy_hash)
             and _is_hash(context.position_fingerprint)
+            and _is_utc(context.account_lifecycle_origin_at)
+            and context.account_lifecycle_origin_at <= context.lifecycle_origin_at
+            and context.account_activity_hashes == tuple(sorted(context.account_activity_hashes))
+            and len(set(context.account_activity_hashes)) == len(context.account_activity_hashes)
+            and all(_is_hash(value) for value in context.account_activity_hashes)
             and context.thesis.frozen is True
             and _is_hash(context.thesis.thesis_hash)
             and context.thesis.thesis.source_policy_hash == context.policy_hash
@@ -873,13 +914,9 @@ class DevelopmentLifecycleAcquisition:
                 AcquisitionKind.LIFECYCLE,
                 "LIFECYCLE_ACCOUNT_EVIDENCE_INCOMPLETE",
             )
-        expected_activity_hashes = tuple(
-            sorted(
-                activity_hash
-                for transition in context.lifecycle_transitions
-                for activity_hash in transition.activity_hashes
-            )
-        )
+        # The sweep covers the whole account, so the expected activities are every active
+        # managed position's, and the window opens at the earliest active origin.
+        expected_activity_hashes = tuple(sorted(context.account_activity_hashes))
         observed_known_activity_hashes = tuple(
             sorted(
                 item.activity_id_hash
@@ -888,7 +925,7 @@ class DevelopmentLifecycleAcquisition:
             )
         )
         if (
-            sweep.activity_pagination.requested_start != context.lifecycle_origin_at
+            sweep.activity_pagination.requested_start != context.account_lifecycle_origin_at
             or observed_known_activity_hashes != expected_activity_hashes
         ):
             raise AcquisitionFailure(
@@ -936,20 +973,12 @@ class DevelopmentLifecycleAcquisition:
                 signed_quantity=item.signed_quantity,
                 multiplier=item.multiplier,
             )
-            for item in context.expected_positions
+            for item in context.account_expected_positions
         )
         if sweep.final_positions != expected_inventory:
             raise AcquisitionFailure(
                 AcquisitionKind.LIFECYCLE,
                 "UNEXPECTED_ACCOUNT_INVENTORY",
-            )
-        if (
-            _position_fingerprint_from_inventory(sweep.final_positions)
-            != context.position_fingerprint
-        ):
-            raise AcquisitionFailure(
-                AcquisitionKind.LIFECYCLE,
-                "POSITION_FINGERPRINT_MISMATCH",
             )
         options = _validate_option_evidence(
             context.expected_positions,
@@ -1404,8 +1433,7 @@ def _account_material(account: AccountObservation) -> tuple[object, ...]:
         account.account_blocked,
         account.trading_blocked,
         account.options_trading_blocked,
-        account.equity,
-        account.buying_power,
+        # Equity and buying power move with option marks between the bookend reads.
         account.cash,
     )
 
@@ -1840,7 +1868,7 @@ def _validate_boundaries(
         not isinstance(boundaries, LifecycleBoundaryObservation)
         or not isinstance(boundaries.market_session, AlpacaMarketSession)
         or not boundaries.market_session.open_at <= trusted_at <= boundaries.market_session.close_at
-        or boundaries.market_session.retrieved_at > trusted_at
+        or boundaries.market_session.retrieved_at - trusted_at > _RETRIEVAL_SKEW_TOLERANCE
         or not _is_utc(boundaries.observed_at)
         or not _is_hash(boundaries.source_hash)
         or not isinstance(boundaries.price_confirmation, tuple)

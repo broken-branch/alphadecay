@@ -272,7 +272,9 @@ class AlpacaLifecycleMarketDataCollector:
         calendar = calendars[0]
         open_at = _calendar_utc(calendar.open)
         close_at = _calendar_utc(calendar.close)
-        if not open_at <= trusted_at <= close_at or calendar_retrieved_at > trusted_at:
+        if not open_at <= trusted_at <= close_at or calendar_retrieved_at - trusted_at > timedelta(
+            seconds=30
+        ):
             raise MarketDataError("MARKET_CALENDAR_INVALID")
 
         quote_request = StockLatestQuoteRequest(
@@ -293,7 +295,7 @@ class AlpacaLifecycleMarketDataCollector:
             bid <= 0
             or ask < bid
             or quote_at > quote_retrieved_at
-            or quote_retrieved_at > trusted_at
+            or quote_retrieved_at - trusted_at > timedelta(seconds=30)
         ):
             raise MarketDataError("UNDERLYING_QUOTE_INVALID")
 
@@ -320,7 +322,7 @@ class AlpacaLifecycleMarketDataCollector:
             or _utc(benchmark_bars[0].timestamp, "BAR_EVIDENCE_INVALID") != open_at
         ):
             raise MarketDataError("BAR_EVIDENCE_INCOMPLETE")
-        if bars_retrieved_at > trusted_at:
+        if bars_retrieved_at - trusted_at > timedelta(seconds=30):
             raise MarketDataError("PROVIDER_TIMESTAMP_FUTURE")
         confirmations = _confirmation_points(
             asset_bars,
@@ -336,7 +338,7 @@ class AlpacaLifecycleMarketDataCollector:
         )
         chain = self._options.get_option_chain(chain_request)
         chain_retrieved_at = _utc(self._clock(), "PROVIDER_CLOCK_INVALID")
-        if chain_retrieved_at > trusted_at:
+        if chain_retrieved_at - trusted_at > timedelta(seconds=30):
             raise MarketDataError("PROVIDER_TIMESTAMP_FUTURE")
         midpoint = (bid + ask) / Decimal(2)
         call = _select_atm(chain, underlying, expiry, "C", midpoint, chain_retrieved_at)
@@ -498,7 +500,7 @@ def _select_roll(
     )
     chain = chains.get_option_chain(request)
     retrieved_at = _utc(clock(), "PROVIDER_CLOCK_INVALID")
-    if retrieved_at > trusted_at or type(chain) is not dict:
+    if retrieved_at - trusted_at > timedelta(seconds=30) or type(chain) is not dict:
         raise MarketDataError("ROLL_EVIDENCE_INVALID")
     grouped: dict[date, dict[Decimal, tuple[str, OptionsSnapshot]]] = {}
     # Adjusted listings are ineligible, but they do not erase a complete standard candidate.
@@ -687,20 +689,25 @@ def _select_atm(
         root, candidate_expiry, candidate_right, strike = _parse_occ(symbol)
         if root != underlying or candidate_expiry != expiry or candidate_right != right:
             continue
-        if (
-            type(snapshot) is not OptionsSnapshot
-            or snapshot.symbol != symbol
-            or snapshot.latest_quote is None
-        ):
+        if type(snapshot) is not OptionsSnapshot or snapshot.symbol != symbol:
             raise MarketDataError("ATM_IV_EVIDENCE_INVALID")
+        # Deep in- or out-of-the-money contracts routinely carry stale quotes, zero bids,
+        # or no implied volatility. They are not candidates; only the selected
+        # at-the-money pair must be fresh and complete.
+        if snapshot.latest_quote is None or snapshot.implied_volatility is None:
+            continue
         quote = snapshot.latest_quote
-        quote_at = _utc(snapshot.latest_quote.timestamp, "ATM_IV_EVIDENCE_INVALID")
+        try:
+            quote_at = _utc(snapshot.latest_quote.timestamp, "ATM_IV_EVIDENCE_INVALID")
+            bid = _finite(quote.bid_price, "ATM_IV_EVIDENCE_INVALID")
+            ask = _finite(quote.ask_price, "ATM_IV_EVIDENCE_INVALID")
+            iv = _finite(snapshot.implied_volatility, "ATM_IV_EVIDENCE_INVALID")
+        except MarketDataError:
+            continue
         if quote_at > retrieved_at or retrieved_at - quote_at > timedelta(seconds=30):
-            raise MarketDataError("ATM_IV_EVIDENCE_INVALID")
-        bid = _finite(quote.bid_price, "ATM_IV_EVIDENCE_INVALID")
-        ask = _finite(quote.ask_price, "ATM_IV_EVIDENCE_INVALID")
-        if bid <= 0 or ask < bid:
-            raise MarketDataError("ATM_IV_EVIDENCE_INVALID")
+            continue
+        if bid <= 0 or ask < bid or iv <= 0:
+            continue
         candidates.append((abs(strike - midpoint), strike, symbol, snapshot))
     if not candidates:
         raise MarketDataError("ATM_IV_EVIDENCE_INCOMPLETE")

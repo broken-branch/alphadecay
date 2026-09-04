@@ -351,3 +351,113 @@ def test_postgres_rejects_invalid_origin_and_serializes_tick_reservation(
                 "boundary": invalid_boundary,
             },
         )
+
+
+def test_postgres_provider_failures_do_not_consume_policy_decision_boundary(
+    postgres_engine,
+) -> None:
+    apply_migrations(postgres_engine, discover_migrations(MIGRATIONS))
+    with postgres_engine.begin() as connection:
+        _insert_account(connection)
+    repository = AgentDecisionRepository(sessionmaker(postgres_engine, expire_on_commit=False))
+    now = datetime.now(UTC) - timedelta(minutes=5)
+    boundary = now.replace(minute=now.minute - now.minute % 5, second=0, microsecond=0)
+
+    def record(key: str, outcome: str, marker: str):
+        tick = repository.reserve_tick(
+            account_role=AccountRole.DEVELOPMENT,
+            account_fingerprint=FINGERPRINT,
+            actor="SCHEDULER",
+            trusted_at=boundary,
+            tick_key=key,
+        )
+        assert tick.reservation_token is not None
+        return repository.record_decision(
+            account_role=AccountRole.DEVELOPMENT,
+            account_fingerprint=FINGERPRINT,
+            decision_kind="OPPORTUNITY",
+            decision_boundary=boundary,
+            observed_at=boundary,
+            normalized_input={"marker": marker},
+            outcome=outcome,
+            reason_code=outcome,
+            policy_hash=HASH,
+            result_payload={"marker": marker},
+            tick_id=tick.tick_id,
+            reservation_token=tick.reservation_token,
+        )
+
+    record("provider-failure-1", "PROVIDER_FAILURE_NO_TRADE", "one")
+    record("provider-failure-2", "PROVIDER_FAILURE_NO_TRADE", "two")
+    policy = record("policy-decision", "NO_TRADE", "terminal")
+
+    with pytest.raises(ExecutionBlocked, match="AGENT_INPUT_BOUNDARY_CONFLICT"):
+        record("second-policy-decision", "NO_TRADE", "duplicate")
+    with postgres_engine.connect() as connection:
+        assert (
+            connection.execute(text("SELECT count(*) FROM agent_input_snapshots")).scalar_one() == 3
+        )
+        assert connection.execute(text("SELECT count(*) FROM agent_decisions")).scalar_one() == 3
+        assert (
+            connection.execute(
+                text("SELECT count(*) FROM agent_decisions WHERE decision_id=:decision"),
+                {"decision": policy.decision_id},
+            ).scalar_one()
+            == 1
+        )
+
+
+def test_postgres_concurrent_policy_decisions_leave_one_terminal_authority(
+    postgres_engine,
+) -> None:
+    apply_migrations(postgres_engine, discover_migrations(MIGRATIONS))
+    with postgres_engine.begin() as connection:
+        _insert_account(connection)
+    repository = AgentDecisionRepository(sessionmaker(postgres_engine, expire_on_commit=False))
+    now = datetime.now(UTC) - timedelta(minutes=5)
+    boundary = now.replace(minute=now.minute - now.minute % 5, second=0, microsecond=0)
+
+    def record(marker: str):
+        tick = repository.reserve_tick(
+            account_role=AccountRole.DEVELOPMENT,
+            account_fingerprint=FINGERPRINT,
+            actor="SCHEDULER",
+            trusted_at=boundary,
+            tick_key=f"concurrent-policy-{marker}",
+        )
+        assert tick.reservation_token is not None
+        try:
+            return repository.record_decision(
+                account_role=AccountRole.DEVELOPMENT,
+                account_fingerprint=FINGERPRINT,
+                decision_kind="OPPORTUNITY",
+                decision_boundary=boundary,
+                observed_at=boundary,
+                normalized_input={"marker": marker},
+                outcome="NO_TRADE",
+                reason_code="NO_TRADE",
+                policy_hash=HASH,
+                result_payload={"marker": marker},
+                tick_id=tick.tick_id,
+                reservation_token=tick.reservation_token,
+            )
+        except ExecutionBlocked as error:
+            return str(error)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(record, ("one", "two")))
+
+    assert sum(not isinstance(result, str) for result in results) == 1
+    assert results.count("AGENT_INPUT_BOUNDARY_CONFLICT") == 1
+    with postgres_engine.connect() as connection:
+        assert (
+            connection.execute(
+                text(
+                    "SELECT count(*) FROM agent_decisions "
+                    "WHERE decision_kind='OPPORTUNITY' AND decision_boundary=:boundary "
+                    "AND outcome='NO_TRADE'"
+                ),
+                {"boundary": boundary},
+            ).scalar_one()
+            == 1
+        )

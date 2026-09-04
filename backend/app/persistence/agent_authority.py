@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from backend.app.execution import ExecutionBlocked
+from backend.app.experiment_lineage import ExperimentExecutionLineage
 
 
 def canonical_agent_hash(value: object) -> str:
@@ -56,8 +57,9 @@ def agent_result_material(
     intent_id: UUID | None,
     intent_digest: str | None,
     autonomy_authorized: bool,
+    experiment_lineage: ExperimentExecutionLineage | None = None,
 ) -> dict[str, object]:
-    return {
+    material = {
         "domain": "alphadecay.agent-decision.v1",
         "input_hash": input_hash,
         "outcome": outcome,
@@ -70,6 +72,9 @@ def agent_result_material(
         "intent_digest": intent_digest,
         "autonomy_authorized": autonomy_authorized,
     }
+    if experiment_lineage is not None:
+        material["experiment_lineage"] = experiment_lineage.material()
+    return material
 
 
 def _utc(value: datetime) -> datetime:

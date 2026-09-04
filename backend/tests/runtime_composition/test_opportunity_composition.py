@@ -395,6 +395,52 @@ def test_rejects_invalid_entry_time_before_provider_work(
     assert calls == ["plan"]
 
 
+def test_frozen_market_window_waits_at_0945_and_attempts_provider_at_0950() -> None:
+    early = datetime(2026, 9, 2, 13, 45, tzinfo=UTC)
+    boundary = datetime(2026, 9, 2, 13, 50, tzinfo=UTC)
+    values = _fixture()
+    values.policy.selected_decision_boundary = boundary
+    values.policy.last_entry_boundary = datetime(2026, 9, 2, 14, 15, tzinfo=UTC)
+    calls: list[str] = []
+    composer = _composer(values, calls)
+    composer._snapshots = _SyncPort(
+        "snapshot",
+        RuntimeError("provider sentinel"),
+        calls,
+        "collect",
+    )
+    authority = ObservedPaperAccountAuthority(
+        AccountRole.DEVELOPMENT,
+        values.authority.plan_spec.request_contract.expected_account_fingerprint,
+        True,
+        True,
+    )
+
+    with pytest.raises(AcquisitionFailure) as waiting:
+        asyncio.run(composer.acquire(authority, early, uuid4(), actor=Actor.SCHEDULER))
+    assert waiting.value.code == "OPPORTUNITY_DECISION_BOUNDARY_NOT_REACHED"
+    assert calls == ["plan"]
+
+    calls.clear()
+    with pytest.raises(AcquisitionFailure) as eligible:
+        asyncio.run(composer.acquire(authority, boundary, uuid4(), actor=Actor.SCHEDULER))
+    assert eligible.value.code == "OPPORTUNITY_SNAPSHOT_UNAVAILABLE"
+    assert calls == ["plan", "snapshot"]
+
+    calls.clear()
+    with pytest.raises(AcquisitionFailure) as closed:
+        asyncio.run(
+            composer.acquire(
+                authority,
+                datetime(2026, 9, 2, 14, 15, tzinfo=UTC),
+                uuid4(),
+                actor=Actor.SCHEDULER,
+            )
+        )
+    assert closed.value.code == "OPPORTUNITY_ENTRY_WINDOW_CLOSED"
+    assert calls == ["plan"]
+
+
 def test_nonapproved_decision_persists_observation_but_never_builds_a_thesis(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -11,7 +11,7 @@ from backend.app.main import app
 ORIGIN = "https://alphadecay.example"
 ACCESS_CODE = "owner-access-code-fixture"
 TICK_ID = UUID("00000000-0000-0000-0000-000000000901")
-SCHEDULER_TOKEN = "t" * 32
+SCHEDULER_TOKEN = "dummy-scheduler-token-placeholder-01"
 
 
 class RecordingAgentRuns:
@@ -72,7 +72,7 @@ def client():
     autonomy = RecordingAutonomy()
     app.state.owner_session_manager = OwnerSessionManager(
         access_code=ACCESS_CODE,
-        signing_secret="s" * 32,
+        signing_secret="dummy-signing-secret-placeholder-01",
         allowed_origin=ORIGIN,
     )
     app.state.scheduler_authenticator = SchedulerAuthenticator(SCHEDULER_TOKEN)
@@ -139,6 +139,36 @@ def test_scheduler_tick_requires_exact_bearer_and_no_input(client) -> None:
     assert response.json()["code"] == "CALIBRATION_BINDING_NO_TRADE"
     assert response.headers["Cache-Control"] == "no-store"
     assert runs.actors == [Actor.SCHEDULER]
+
+
+def test_scheduler_accepts_pending_entry_recovery_and_a_later_tick(client) -> None:
+    test_client, _runs, _autonomy = client
+
+    class RecoveringAgentRuns:
+        def __init__(self) -> None:
+            self.codes = iter(
+                (
+                    "ENTRY_EXECUTION_RECOVERY_PENDING",
+                    "PROVIDER_FAILURE_NO_TRADE",
+                )
+            )
+
+        async def run(self, actor: Actor) -> object:
+            assert actor is Actor.SCHEDULER
+            return SimpleNamespace(tick_id=TICK_ID, terminal_code=next(self.codes))
+
+    app.state.agent_run_service = RecoveringAgentRuns()
+    headers = {"Authorization": "Bearer " + SCHEDULER_TOKEN}
+
+    pending = test_client.post("/api/internal/scheduler/tick", headers=headers)
+    recovered = test_client.post("/api/internal/scheduler/tick", headers=headers)
+
+    assert pending.status_code == 200
+    assert pending.json()["accepted"] is True
+    assert pending.json()["code"] == "ENTRY_EXECUTION_RECOVERY_PENDING"
+    assert recovered.status_code == 200
+    assert recovered.json()["accepted"] is True
+    assert recovered.json()["code"] == "PROVIDER_FAILURE_NO_TRADE"
 
 
 def test_agent_routes_are_selector_free_in_openapi(client) -> None:

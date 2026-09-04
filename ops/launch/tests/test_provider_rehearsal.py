@@ -2165,9 +2165,7 @@ def _service_evidence(role: AccountRole, fingerprint: str):
         acquisition = 0
     return rehearsal._CanonicalServiceEvidence(
         terminal_code,
-        "CONTEXT_ACTIVE_POSITION_NOT_UNIQUE"
-        if role is AccountRole.DEVELOPMENT
-        else None,
+        "CONTEXT_ACTIVE_POSITION_NOT_UNIQUE" if role is AccountRole.DEVELOPMENT else None,
         {
             "acquisition": acquisition,
             "mcp": 0,

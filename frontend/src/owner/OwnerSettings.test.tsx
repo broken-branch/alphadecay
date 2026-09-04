@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { copy } from "../content/copy";
 import { OwnerRequestError, type OwnerSettingsClient } from "./api";
 import { InformationDialog, OwnerSettings } from "./OwnerSettings";
+import { useOwnerSession } from "./useOwnerSession";
 
 const emptyStatus = { schema_version: "v1" as const, configured: false };
 const configuredStatus = {
@@ -15,6 +16,7 @@ const configuredStatus = {
   model: "gemini-2.5-flash",
   generation: 4,
 };
+const readTestCsrf = () => "csrf-token";
 
 function client(overrides: Partial<OwnerSettingsClient> = {}): OwnerSettingsClient {
   return {
@@ -27,6 +29,32 @@ function client(overrides: Partial<OwnerSettingsClient> = {}): OwnerSettingsClie
   };
 }
 
+function SettingsWithSession({
+  api,
+  open = true,
+  onClose = vi.fn(),
+  triggerRef = createRef<HTMLButtonElement>(),
+  ownerControlsEnabled = true,
+}: {
+  api: OwnerSettingsClient;
+  open?: boolean;
+  onClose?: () => void;
+  triggerRef?: ReturnType<typeof createRef<HTMLButtonElement>>;
+  ownerControlsEnabled?: boolean;
+}) {
+  const ownerSession = useOwnerSession(ownerControlsEnabled, api, readTestCsrf);
+  return (
+    <OwnerSettings
+      open={open}
+      onClose={onClose}
+      triggerRef={triggerRef}
+      ownerSession={ownerSession}
+      ownerControlsEnabled={ownerControlsEnabled}
+      client={api}
+    />
+  );
+}
+
 beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
@@ -37,13 +65,7 @@ describe("owner settings", () => {
   it("shows only shortcuts and makes no owner request in Replay-only mode", async () => {
     const api = client();
     render(
-      <OwnerSettings
-        open
-        onClose={vi.fn()}
-        triggerRef={createRef()}
-        ownerControlsEnabled={false}
-        client={api}
-      />,
+      <SettingsWithSession api={api} ownerControlsEnabled={false} />,
     );
 
     expect(screen.getByText(copy.keyboardGuide.help)).toBeVisible();
@@ -65,7 +87,7 @@ describe("owner settings", () => {
     const { container } = render(
       <>
         <button ref={triggerRef}>trigger</button>
-        <OwnerSettings open onClose={vi.fn()} triggerRef={triggerRef} client={api} />
+        <SettingsWithSession api={api} triggerRef={triggerRef} />
       </>,
     );
     const settingsValue = "private-owner-code";
@@ -90,7 +112,7 @@ describe("owner settings", () => {
     const providerValue = "private-gemini-key";
     const api = client();
     render(
-      <OwnerSettings open onClose={vi.fn()} triggerRef={createRef()} client={api} />,
+      <SettingsWithSession api={api} />,
     );
     const model = await screen.findByLabelText(copy.ownerSettings.model);
     await user.type(model, "gemini-2.5-flash");
@@ -121,7 +143,7 @@ describe("owner settings", () => {
 
   it("shows the custom endpoint only for OpenAI-compatible providers", async () => {
     const user = userEvent.setup();
-    render(<OwnerSettings open onClose={vi.fn()} triggerRef={createRef()} client={client()} />);
+    render(<SettingsWithSession api={client()} />);
     const provider = await screen.findByLabelText(copy.ownerSettings.provider);
     expect(screen.queryByLabelText(copy.ownerSettings.endpoint)).not.toBeInTheDocument();
 
@@ -145,14 +167,14 @@ describe("owner settings", () => {
         throw new Error("private server detail");
       }),
     });
-    render(<OwnerSettings open onClose={vi.fn()} triggerRef={createRef()} client={api} />);
+    render(<SettingsWithSession api={api} />);
     const input = await screen.findByLabelText(copy.ownerSettings.settingsCode);
     await user.type(input, "rejected-owner-code");
     await user.click(screen.getByRole("button", { name: copy.ownerSettings.signIn }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(copy.ownerSettings.signInFailed);
     expect(screen.getByRole("alert")).not.toHaveTextContent("private server detail");
-    expect(input).toHaveValue("");
+    await waitFor(() => expect(screen.getByLabelText(copy.ownerSettings.settingsCode)).toHaveValue(""));
   });
 
   it("traps focus and restores the settings trigger when closed", async () => {
@@ -164,7 +186,12 @@ describe("owner settings", () => {
       return (
         <>
           <button ref={triggerRef}>trigger</button>
-          <OwnerSettings open={open} onClose={() => setOpen(false)} triggerRef={triggerRef} client={api} />
+          <SettingsWithSession
+            api={api}
+            open={open}
+            onClose={() => setOpen(false)}
+            triggerRef={triggerRef}
+          />
         </>
       );
     }
@@ -185,6 +212,8 @@ describe("owner settings", () => {
     expect(privacy).toHaveTextContent(copy.legal.privacyOwnerBody);
     expect(privacy).toHaveTextContent(copy.legal.privacyKeyBody);
     expect(privacy).toHaveTextContent(copy.legal.privacyFlowBody);
+    expect(privacy).toHaveTextContent(copy.legal.privacyDraftBody);
+    expect(privacy).toHaveTextContent(copy.legal.privacyCurationBody);
 
     rerender(
       <InformationDialog kind="important" onClose={vi.fn()} triggerRef={triggerRef} />,
@@ -192,5 +221,6 @@ describe("owner settings", () => {
     const important = screen.getByRole("dialog", { name: copy.legal.importantTitle });
     expect(within(important).getByText(copy.legal.importantPaperBody)).toBeInTheDocument();
     expect(important).toHaveTextContent(copy.legal.importantAdviceBody);
+    expect(important).toHaveTextContent(copy.legal.importantModelBody);
   });
 });

@@ -95,7 +95,9 @@ def build_development_entry_proposal(
         legs=tuple(OrderLegIntent(leg.symbol, leg.intent, leg.ratio) for leg in candidate.legs),
         quantity=decision.quantity,
         minimum_limit=candidate.approved_limit,
-        maximum_limit=candidate.approved_limit,
+        maximum_limit=(
+            candidate.approved_limit if candidate.maximum_limit is None else candidate.maximum_limit
+        ),
         approved_max_loss=decision.approved_max_loss,
         event_key=decision.opportunity_key,
         trading_day=decision.decision_boundary.date(),

@@ -1,97 +1,64 @@
 # alphadecay
 
-**Know when the option stopped matching the thesis.**
+AlphaDecay freezes the reason for a trade before the position exists, then proves whether each later decision stayed faithful to it.
 
-Opening an options trade is easy. The harder question comes later: does the position still match the reason it was opened?
+It turns a plain English options thesis into reviewed rules, records the evidence seen at each scheduled check, and lets fixed policy code decide whether to enter, hold, close, roll, or stand aside. Each frozen plan fixes its own bounded contract quantity. A later entry may be considered against a reconciled open book when that plan permits it, while each managed position keeps its own lifecycle record. The model labels supplied evidence in a fixed format. It does not set risk or choose the action.
 
-alphadecay keeps a paper option trade beside its original thesis and intended exposure. It measures the position's current Greeks, checks for drift, and compares four outcomes: `HOLD`, `CLOSE`, `ROLL`, or `NO_ACTION`. The decision comes from fixed policy code. A model may classify supplied evidence, but it cannot choose an action or place an order.
+## Competition record
 
-Start with the [quick tour and API guide](docs/public/AGENT_GUIDE.md). It covers the browser Replay and public API calls without credentials or setup.
+> **September 3, 2026 · Alpaca competition paper account** · record: [COMPETITION_RECORD.md](docs/public/COMPETITION_RECORD.md)
+>
+> **Outcome:** One reconciled SPY call debit spread remains open under lifecycle management.
+>
+> **Decision:** `ENTRY_APPROVED` at 10:45:01 AM ET after every entry gate passed.
+>
+> **Primary gate or order state:** Complete single simulated paper fill at 10:45:02 AM ET.
+>
+> **Broker writes:** One product submitted multileg paper order.
+>
+> **Account checkpoint:** Whole account reconciliation certified the fill and open managed position.
+>
+> Every scheduled check since the fill authorized no action, and the position stays open under its plan. The mandatory close is due September 4 at 9:45 AM ET. The record will show the outcome.
 
-```mermaid
-flowchart LR
-    A[Alpaca paper account and market data] --> B[Typed evidence]
-    M[Alpaca MCP research calls] --> B
-    B --> C[Model classification in a fixed schema]
-    C --> D[Deterministic policy and risk gates]
-    D --> I[Saved paper intent]
-    I --> T[Alpaca Trading API]
-    T --> R[Reconciliation and lifecycle record]
-```
+The dated record above and [COMPETITION_RECORD.md](docs/public/COMPETITION_RECORD.md) are the published source for the judged trade. The [live demo](https://alphadecay.onrender.com) exposes [`/api/competition-record`](https://alphadecay.onrender.com/api/competition-record) and the account measurement at [`/api/proof`](https://alphadecay.onrender.com/api/proof). Each publishes only what passes its publication check, so `NOT_PUBLISHED` means the check did not run, not that no trade exists. Missing evidence is never shown as a zero or a trade.
 
-That is the production path. Public Replay begins with a typed fixture stored in the repository and stops before order entry.
+## See it in 60 seconds
 
-## What works in this repository
+1. Read the competition record above, then open the [live demo](https://alphadecay.onrender.com). Its **Experiments** view shows a record card only after the publication check has run.
+2. Choose **Open Replay**. Select **Time decay takes over** to follow one sample spread from its saved thesis to a `ROLL` decision.
+3. Open **Record details** to compare the input and decision hashes, then switch to **The quote is too old to act on** and see the same policy return `NO_ACTION`.
 
-The tested Replay runs four fixed options scenarios through the same decision policy. Each one is labeled `REPLAY · SAMPLE DATA · NO ORDER SENT`. It shows the saved thesis, later sample state, current exposure, rejected alternatives, expected exposure after the action, and a separate record showing that execution was disabled.
+Replay uses fixed sample data, so it is available even when no competition record has been published. Its four expected decisions are pinned by the [Replay API integration test](backend/tests/integration/test_replay_api.py).
 
-After reviewing the development results, we selected a bearish competition candidate and fixed it before opening its holdout once. Validation produced too few qualifying trades, and too much of the result depended on one trade. The candidate was rejected, so alphadecay sent no competition order. This is a research result, not a live agent decision or a performance claim.
+## Alpaca proof
 
-We also ran a limited rehearsal against the development paper account. alphadecay reached Alpaca's paper endpoint through the Trading API, read the market clock through MCP, checked the pinned CLI dry run, and left the account unchanged without sending an order. The sanitized [provider receipt](docs/public/PROVIDER_REHEARSAL_PROOF.json) shows development integration, not competition performance or a paper fill. An autonomous broker write has not been proven.
+The judged account trade is the record above and its dated timeline in [COMPETITION_RECORD.md](docs/public/COMPETITION_RECORD.md): entry approved, the multileg paper order submitted by the product, a complete fill, a reconciliation certificate, and an open managed position. The table below is connection evidence from a development rehearsal, not that trade.
 
-Deployment availability is kept separate from repository tests. The [public Replay](https://alphadecay.onrender.com) and public repository can be checked without signing in. The health response identifies the exact Render commit so the running app can be compared with the repository.
+| Alpaca surface | What it does here | Openable proof |
+|---|---|---|
+| Judged account trade | Records the submitted agent's approved SPY spread, complete simulated paper fill, reconciliation, and managed position. | [Competition Record](https://alphadecay.onrender.com) and [`/api/competition-record`](https://alphadecay.onrender.com/api/competition-record) |
+| Trading API | Reads the paper account, market, options, orders, and positions; submits only a stored, approved multileg paper intent; then checks the broker result. | [Development rehearsal receipt](docs/public/PROVIDER_REHEARSAL_PROOF.json) and [execution service tests](backend/tests/agent_orchestration/test_agent_run_service.py) |
+| Official MCP server | Supplies application selected, read only research calls to the evidence pipeline. | The receipt's `mcp` section and [MCP boundary tests](backend/tests/provider_evidence/test_mcp_boundary.py) |
+| Alpaca CLI | Gives the operator a pinned paper host preview outside the deployed application. | [CLI dry run receipt](docs/public/CLI_PROOF.json) and [bootstrap tests](ops/launch/tests/test_cli_bootstrap.py) |
 
-## Run the Replay locally
+The development receipt records eleven read only provider requests, one MCP `get_clock` call, the CLI preview, and an unchanged development account book. It remains separate from the judged account trade above.
 
-You need Git, Python 3.12, [uv](https://docs.astral.sh/uv/) 0.12.3, Node.js 24.16.0, and npm 11.13.0.
+## Limits
+
+AlphaDecay is an options hackathon prototype with no live trading setting. Alpaca paper fills are simulations, and its free options feed is indicative rather than OPRA. Replay is invented data; development receipts are not judged results; paper performance does not predict live performance. The supported structure is a defined risk vertical spread. If a required quote, account fact, authority check, or broker state is missing or inconsistent, the policy records no action. This is not investment advice. Full evidence boundaries are in the reviewer index.
+
+## Run and test
+
+Requires Python 3.12, uv 0.12.3, Node.js 24.16.0, and npm 11.13.0.
 
 ```bash
-git clone https://github.com/broken-branch/alphadecay.git
-cd alphadecay
-uv sync --python 3.12 --frozen --all-groups
-npm ci
-npm run build
-uv run --python 3.12 uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+uv sync --python 3.12 --frozen --all-groups && npm ci && npm run build && uv run --python 3.12 uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
 ```
-
-Open `http://127.0.0.1:8000`, then choose a Replay scenario. This local Replay needs no Alpaca or model credentials and cannot send an order.
-
-Do not copy real credentials into the repository. [`.env.example`](.env.example) documents the production variable names with placeholders only.
-
-## Check the build
 
 ```bash
-uv run --python 3.12 pytest -q
-uv run --python 3.12 ruff check \
-  backend ops/contracts \
-  ops/release/generate_third_party_notices.py \
-  ops/release/test_third_party_notices.py
-uv run --python 3.12 python -m ops.contracts.generate_openapi
-git diff --exit-code -- contracts/openapi-v1.json
-npm test -- --run
-npm run typecheck
-npm run build
-uv run --python 3.12 python -m ops.release.generate_third_party_notices --check
-python3 ops/quality/public_copy_check.py
-python3 ops/quality/render_blueprint_check.py
-python3 ops/quality/public_link_check.py --root . README.md docs/public/*.md
+uv run --python 3.12 pytest -q && npm test -- --run
 ```
 
-See [Reproducing the evidence](docs/public/REPRODUCIBILITY.md) for the limits of each check.
+For architecture, API examples, receipts, research, setup, and privacy details, use the single [For reviewers](docs/public/README.md) index.
 
-## How Alpaca fits
-
-- **Trading API:** typed adapters for the paper account, market data, option orders, and reconciliation. Only the authenticated scheduler can dispatch a stored paper intent, and only after both the server and account autonomy gates are armed. This revision does not claim proof of an autonomous broker write.
-- **MCP server:** a research client that cannot write to Alpaca. The app chooses from a small allowlist and passes only bounded structured fields onward.
-- **CLI:** a bootstrap and inspection tool used by the operator. It stays outside the web application and production image. The public proof records a pinned options dry run against Alpaca's paper host. It did not submit an order.
-
-The [provider rehearsal receipt](docs/public/PROVIDER_REHEARSAL_PROOF.json) ties those three Alpaca surfaces to one production run. It contains no account, order, position, activity, or credential identifiers.
-
-The sponsor requirement is the Trading API plus either MCP or CLI. alphadecay's design gives each surface a separate job instead of treating dependency installation as proof of use.
-
-## Documentation
-
-- [Architecture](docs/public/ARCHITECTURE.md)
-- [Strategy research record](docs/public/STRATEGY_RESEARCH.md)
-- [Setup](docs/public/SETUP.md)
-- [Reproducing the evidence](docs/public/REPRODUCIBILITY.md)
-- [Limitations](docs/public/LIMITATIONS.md)
-
-## Safety
-
-alphadecay is restricted to Alpaca paper trading. Its configuration rejects the live Alpaca endpoint. Replay is fixture data, paper fills are simulations, and nothing here is investment advice.
-
-## License
-
-[MIT](LICENSE). Package licenses and retained terms are listed in
-[Third-party notices](THIRD_PARTY_NOTICES.md).
+Released under the [MIT License](LICENSE). Package licenses and retained terms are in [Third-party notices](THIRD_PARTY_NOTICES.md).

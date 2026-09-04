@@ -37,6 +37,7 @@ export const PerformancePointSchema = z.object({
   account_equity_return_pct: PercentStringSchema.nullable(),
   reconciled_lifecycle_cashflow_usd: MoneyStringSchema.nullable(),
   open_position_liquidation_pnl_usd: MoneyStringSchema.nullable(),
+  broker_write_count: z.number().int().nonnegative().optional(),
   simulator_limitations_code: z.literal("ALPACA_PAPER_SIMULATION"),
 }).strict().superRefine((point, context) => {
   const scheduled = Date.parse(point.scheduled_for);

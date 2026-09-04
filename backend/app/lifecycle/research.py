@@ -284,12 +284,56 @@ def _validate_dividend_evidence(
         raise LifecycleResearchError("EX_DIVIDEND_EVIDENCE_AMBIGUOUS")
 
 
+_ALPACA_NEWS_KEYS = {"id", "headline", "created_at", "source"}
+
+
+def _unwrap_mcp_envelope(data: object) -> object:
+    """Strip the official MCP server's untrusted-output envelope when present."""
+    if isinstance(data, dict) and set(data) == {"_alpaca_mcp_security", "data"}:
+        return data["data"]
+    return data
+
+
+def _normalize_alpaca_news_item(raw: object) -> object:
+    """Map one raw Alpaca news record to the bounded lifecycle source shape."""
+    if not isinstance(raw, dict) or not set(raw) >= _ALPACA_NEWS_KEYS:
+        return raw
+    group = "".join(character for character in str(raw["source"]).lower() if character.isalnum())
+    created = raw["created_at"]
+    if isinstance(created, str):
+        try:
+            parsed = datetime.fromisoformat(created.replace("Z", "+00:00"))
+        except ValueError:
+            parsed = None
+        if parsed is None or parsed.tzinfo is None or parsed.utcoffset() != timedelta(0):
+            raise LifecycleResearchError("RESULT_SCHEMA_INVALID")
+        created = _timestamp(parsed)
+    return {
+        "id": str(raw["id"]),
+        "headline": raw["headline"],
+        "published_at": created,
+        "source_tier": EvidenceTier.SECONDARY.value,
+        "independent_reporting_group": group or None,
+    }
+
+
 def _news_items(data: object, start: datetime, end: datetime) -> list[dict[str, object]]:
+    data = _unwrap_mcp_envelope(data)
+    if isinstance(data, dict) and set(data) == {"news", "next_page_token"}:
+        data = {"news": data["news"]}
     if not isinstance(data, dict) or set(data) != {"news"} or not isinstance(data["news"], list):
         raise LifecycleResearchError("RESULT_SCHEMA_INVALID")
-    if len(data["news"]) > _MAX_RESULTS:
+    raw_alpaca = any(
+        isinstance(item, dict) and set(item) >= _ALPACA_NEWS_KEYS for item in data["news"]
+    )
+    news = [_normalize_alpaca_news_item(item) for item in data["news"]]
+    if raw_alpaca and all(
+        isinstance(item, dict) and {"published_at", "id"} <= set(item) for item in news
+    ):
+        news.sort(key=lambda item: (str(item["published_at"]), str(item["id"])))
+    if len(news) > _MAX_RESULTS:
         raise LifecycleResearchError("RESULT_LIMIT_EXCEEDED")
-    items = [_news_item(item, start, end) for item in data["news"]]
+    items = [_news_item(item, start, end) for item in news]
     _canonical_order(items, "published_at")
     return items
 

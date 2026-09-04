@@ -16,6 +16,9 @@ from backend.app.execution import ActivityItem, ActivityPaginationEvidence, Acti
 
 _PAPER_HOST = "paper-api.alpaca.markets"
 _ACTIVITY_PATH = "/v2/account/activities"
+_ORDER_PATH = "/v2/orders"
+_FILL_SIDES = frozenset({"buy", "sell", "sell_short", "buy_to_cover"})
+_SELL_SIDES = frozenset({"sell", "sell_short"})
 _OPTION_ACTIVITY_TYPES = {"OPASN", "OPTRD", "OPEXC", "OPEXP", "OPXRC"}
 _OPTION_DOMAIN_TYPES = {
     ActivityType.OPASN,
@@ -88,7 +91,7 @@ class _ActivityPayload(BaseModel):
     symbol: str | None = None
     qty: Decimal | None = None
     price: Decimal | None = None
-    side: Literal["buy", "sell"] | None = None
+    side: Literal["buy", "sell", "sell_short", "buy_to_cover"] | None = None
     order_id: str | None = None
     client_order_id: str | None = None
 
@@ -151,8 +154,9 @@ class AccountActivitiesAdapter:
         _require_aware(until, "ACTIVITY_TIMEZONE_MISSING")
         if since > until:
             raise ActivityReadError("ACTIVITY_WINDOW_INVALID")
-        if until - since < timedelta(hours=24):
-            raise ActivityReadError("ACTIVITY_VISIBILITY_HORIZON_INCOMPLETE")
+        # A window shorter than the 24-hour visibility horizon is legitimate on the day a
+        # position opens; the pagination evidence reports visibility_complete_through
+        # honestly and every consumer checks it against its own required watermark.
         if initial_funding is not None and (
             observed_account_fingerprint != initial_funding.account_fingerprint
         ):
@@ -162,11 +166,35 @@ class AccountActivitiesAdapter:
         _require_aware(established_at, "ACTIVITY_TIMEZONE_MISSING")
         if established_at < until:
             raise ActivityReadError("ACTIVITY_WINDOW_INVALID")
+        provider_aliases: dict[str, str] = {}
+        lineage_to_client = dict(provider_to_client)
+        unmapped = {
+            payload.order_id
+            for payload in payloads
+            if payload.activity_type == "FILL"
+            and payload.order_id is not None
+            and payload.order_id not in provider_to_client
+        }
+        if unmapped:
+            # Multi-leg fills report the leg order id. Resolve legs to the parent order
+            # the attempt recorded, using the same paper endpoint, read-only.
+            for order_id, (parent_id, client_id) in self._order_lineage(
+                since=since, until=until
+            ).items():
+                if order_id not in unmapped and order_id != parent_id:
+                    continue
+                if order_id != parent_id:
+                    provider_aliases[order_id] = parent_id
+                mapped = lineage_to_client.get(parent_id)
+                if mapped is not None and mapped != client_id:
+                    raise ActivityReadError("ACTIVITY_ORDER_LINEAGE_MISMATCH")
+                lineage_to_client[parent_id] = client_id
         items = tuple(
             self._activity_item(
                 payload,
-                provider_to_client=provider_to_client,
+                provider_to_client=lineage_to_client,
                 initial_funding=initial_funding,
+                provider_aliases=provider_aliases,
             )
             for payload in payloads
         )
@@ -216,6 +244,52 @@ class AccountActivitiesAdapter:
             seen_tokens.add(next_token)
             page_token = next_token
         raise ActivityReadError("ACTIVITY_PAGE_LIMIT_EXCEEDED")
+
+    def _order_lineage(self, *, since: datetime, until: datetime) -> dict[str, tuple[str, str]]:
+        params = {
+            "status": "all",
+            "nested": "true",
+            "after": (since - timedelta(days=1)).date().isoformat(),
+            "until": until.isoformat(),
+            "direction": "asc",
+            "limit": "500",
+        }
+        try:
+            response = self._client.get(
+                f"https://{_PAPER_HOST}{_ORDER_PATH}",
+                params=params,
+                headers=self._headers,
+                follow_redirects=False,
+            )
+        except httpx.TimeoutException as exc:
+            raise ActivityReadError("ACTIVITY_TIMEOUT") from exc
+        except httpx.HTTPError as exc:
+            raise ActivityReadError("ACTIVITY_PROVIDER_ERROR") from exc
+        if response.status_code != 200:
+            raise ActivityReadError(f"ACTIVITY_ORDER_HTTP_{response.status_code}")
+        try:
+            body = response.json()
+            if not isinstance(body, list) or len(body) >= 500:
+                raise TypeError
+            lineage: dict[str, tuple[str, str]] = {}
+            for order in body:
+                if not isinstance(order, dict):
+                    raise TypeError
+                parent_id = str(order["id"])
+                client_id = order.get("client_order_id")
+                if not isinstance(client_id, str) or not client_id:
+                    continue
+                lineage[parent_id] = (parent_id, client_id)
+                for leg in order.get("legs") or ():
+                    if not isinstance(leg, dict):
+                        raise TypeError
+                    leg_id = str(leg["id"])
+                    if lineage.get(leg_id, (parent_id, client_id)) != (parent_id, client_id):
+                        raise ActivityReadError("ACTIVITY_ORDER_LINEAGE_MISMATCH")
+                    lineage[leg_id] = (parent_id, client_id)
+            return lineage
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ActivityReadError("ACTIVITY_ORDER_LINEAGE_INVALID") from exc
 
     def _get_page(
         self, *, since: datetime, until: datetime, page_token: str | None
@@ -272,10 +346,13 @@ class AccountActivitiesAdapter:
         *,
         provider_to_client: Mapping[str, str],
         initial_funding: InitialFundingContext | None,
+        provider_aliases: Mapping[str, str] | None = None,
     ) -> ActivityItem:
         activity_type = _normalized_type(payload, initial_funding)
         occurred_at, time_quality = _normalized_time(payload)
         provider_order_id = payload.order_id
+        if provider_order_id is not None and provider_aliases:
+            provider_order_id = provider_aliases.get(provider_order_id, provider_order_id)
         client_order_id = payload.client_order_id
         if provider_order_id is not None:
             mapped = provider_to_client.get(provider_order_id)
@@ -457,7 +534,7 @@ def _signed_activity_quantity(
         raise ActivityReadError("ACTIVITY_SCHEMA_INVALID")
     if activity_type == ActivityType.FILL:
         if (
-            payload.side not in {"buy", "sell"}
+            payload.side not in _FILL_SIDES
             or quantity < 0
             or payload.symbol is None
             or payload.price is None
@@ -465,11 +542,11 @@ def _signed_activity_quantity(
             or payload.price <= 0
         ):
             raise ActivityReadError("ACTIVITY_SCHEMA_INVALID")
-        return -quantity if payload.side == "sell" else quantity
+        return -quantity if payload.side in _SELL_SIDES else quantity
     if payload.side is not None:
         if quantity < 0:
             raise ActivityReadError("ACTIVITY_SCHEMA_INVALID")
-        return -quantity if payload.side == "sell" else quantity
+        return -quantity if payload.side in _SELL_SIDES else quantity
     return quantity
 
 

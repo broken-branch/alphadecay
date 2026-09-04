@@ -31,6 +31,16 @@ def test_repository_scheduler_workflow_is_exactly_default_off() -> None:
     check_scheduler_workflow(WORKFLOW)
 
 
+def test_repository_scheduler_wakes_each_five_minute_boundary_serially() -> None:
+    workflow = _document()
+
+    assert workflow["on"]["schedule"] == [{"cron": "*/5 * * * *"}]
+    assert workflow["concurrency"] == {
+        "group": "alphadecay-scheduler",
+        "cancel-in-progress": "false",
+    }
+
+
 def test_public_ci_runs_scheduler_workflow_check() -> None:
     assert "python ops/quality/scheduler_workflow_check.py" in PUBLIC_CI.read_text(encoding="utf-8")
 
@@ -57,7 +67,7 @@ def test_private_ci_runs_scheduler_workflow_check() -> None:
 @pytest.mark.parametrize(
     ("path", "unsafe_value"),
     [
-        (("on", "schedule", 0, "cron"), "*/5 * * * *"),
+        (("on", "schedule", 0, "cron"), "*/15 * * * *"),
         (("jobs", "tick", "if"), "${{ always() }}"),
         (("permissions", "contents"), "write"),
         (("concurrency", "cancel-in-progress"), "true"),

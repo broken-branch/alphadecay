@@ -38,7 +38,7 @@ def test_provider_settings_migration_and_generation_guard() -> None:
     )
     try:
         migrations = discover_migrations(MIGRATIONS)
-        assert [migration.version for migration in migrations] == list(range(1, 27))
+        assert [migration.version for migration in migrations] == list(range(1, 37))
         assert migrations[14].filename == "0015_owner_provider_settings.sql"
         apply_migrations(engine, migrations[:14])
         apply_migrations(engine, migrations)

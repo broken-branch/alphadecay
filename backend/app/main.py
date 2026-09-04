@@ -1,5 +1,6 @@
 import hmac
 import json
+import logging
 import os
 from contextlib import asynccontextmanager
 from copy import deepcopy
@@ -7,6 +8,7 @@ from dataclasses import dataclass
 from datetime import UTC
 from pathlib import Path
 from typing import Annotated, Protocol
+from uuid import UUID
 
 from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.exception_handlers import request_validation_exception_handler
@@ -57,6 +59,12 @@ from backend.app.contracts.v1.openapi_copy import (
     COMPETITION_RECORD_SUMMARY,
     CSRF_COOKIE_DESCRIPTION,
     CSRF_COOKIE_TITLE,
+    EXPERIMENT_CREATE_DESCRIPTION,
+    EXPERIMENT_CREATE_SUMMARY,
+    EXPERIMENT_LIST_DESCRIPTION,
+    EXPERIMENT_LIST_SUMMARY,
+    EXPERIMENT_READ_DESCRIPTION,
+    EXPERIMENT_READ_SUMMARY,
     HEALTH_DESCRIPTION,
     HEALTH_SUMMARY,
     INTERNAL_TAG,
@@ -76,6 +84,9 @@ from backend.app.contracts.v1.openapi_copy import (
     PROVIDER_SETTINGS_REPLACE_SUMMARY,
     PROVIDER_SETTINGS_STATUS_DESCRIPTION,
     PROVIDER_SETTINGS_STATUS_SUMMARY,
+    PUBLIC_EXPERIMENT_PERFORMANCE_SUMMARY,
+    PUBLIC_EXPERIMENT_WINDOWS_DESCRIPTION,
+    PUBLIC_EXPERIMENT_WINDOWS_SUMMARY,
     REPLAY_DESCRIPTION,
     REPLAY_NOT_FOUND_DESCRIPTION,
     REPLAY_SUMMARY,
@@ -85,8 +96,31 @@ from backend.app.contracts.v1.openapi_copy import (
     SESSION_CREATE_SUMMARY,
     SESSION_DELETE_DESCRIPTION,
     SESSION_DELETE_SUMMARY,
+    STRATEGY_CURATION_CREATE_DESCRIPTION,
+    STRATEGY_CURATION_CREATE_SUMMARY,
+    STRATEGY_DRAFT_CREATE_DESCRIPTION,
+    STRATEGY_DRAFT_CREATE_SUMMARY,
 )
 from backend.app.execution import Actor, ExecutionBlocked
+from backend.app.experiments import (
+    CompiledExperimentVersion,
+    CompileExperimentRequest,
+    ExperimentAuthorizationRequest,
+    ExperimentAuthorizationStatus,
+    ExperimentPerformanceResponse,
+    ExperimentRegistryError,
+    ExperimentWindowListResponse,
+    ExperimentWindowReadError,
+    ReviewedExperimentCreateRequest,
+    ReviewedExperimentDefinition,
+    ReviewedExperimentListResponse,
+    SQLAlchemyExperimentPerformanceReader,
+    SQLAlchemyExperimentWindowReader,
+)
+from backend.app.experiments.performance import (
+    ExperimentPerformanceEvidenceError,
+    ExperimentPerformanceProjection,
+)
 from backend.app.performance import (
     NoEligiblePerformanceSnapshot,
     PerformanceProofIntegrityError,
@@ -99,6 +133,16 @@ from backend.app.provider_settings import (
 from backend.app.replay import run_replay
 from backend.app.replay.runner import ReplayFixtureError
 from backend.app.runtime import ProductionAgent, build_production_agent
+from backend.app.strategy_briefs import (
+    StrategyBriefRequest,
+    StrategyCurationRequest,
+    StrategyCurationResponse,
+    StrategyCurationUnavailable,
+    StrategyProtocolDraftResponse,
+    draft_strategy_protocol,
+)
+
+_LOGGER = logging.getLogger(__name__)
 
 _RUNTIME_STATE_FIELDS = (
     "settings",
@@ -108,6 +152,10 @@ _RUNTIME_STATE_FIELDS = (
     "agent_run_service",
     "account_autonomy_service",
     "owner_provider_settings_service",
+    "strategy_curation_service",
+    "experiment_registry",
+    "experiment_performance_reader",
+    "experiment_window_reader",
     "performance_publisher",
     "owner_session_manager",
     "scheduler_authenticator",
@@ -139,6 +187,12 @@ async def lifespan(app: FastAPI):
             app.state.agent_run_service = production.service
             app.state.account_autonomy_service = production.autonomy
             app.state.owner_provider_settings_service = production.provider_settings
+            app.state.strategy_curation_service = production.strategy_curation
+            app.state.experiment_registry = production.persistence.experiment_registry
+            app.state.experiment_performance_reader = (
+                production.persistence.experiment_performance_reader
+            )
+            app.state.experiment_window_reader = production.persistence.experiment_window_reader
             app.state.performance_proof_reader = production.persistence.performance_proof_reader
             app.state.performance_publisher = production.persistence.performance_repository
             sessions = getattr(production.persistence, "sessions", None)
@@ -169,10 +223,16 @@ app = FastAPI(
 app.state.performance_proof_reader = UnavailablePerformanceProofReader()
 app.state.competition_archive_reader = UnavailableCompetitionArchiveReader()
 _PROVIDER_SETTINGS_PATH = "/api/owner/provider-settings"
+_STRATEGY_DRAFT_PATH = "/api/owner/strategy-drafts"
+_STRATEGY_CURATION_PATH = "/api/owner/strategy-curations"
+_EXPERIMENTS_PATH = "/api/owner/experiments"
+_EXPERIMENT_COMPILE_SUFFIX = "/compile"
+_EXPERIMENT_AUTHORIZATION_MUTATION_SUFFIXES = ("/arm", "/disarm")
 _NO_STORE_PATHS = frozenset(
     {
         "/",
         "/api/competition-record",
+        "/api/experiments/windows",
         "/api/health",
         "/api/proof",
         "/api/session",
@@ -268,7 +328,7 @@ class _AutonomyStatus(Protocol):
 
 
 @app.exception_handler(RequestValidationError)
-async def redact_provider_settings_validation(
+async def redact_sensitive_validation(
     request: Request,
     error: RequestValidationError,
 ) -> Response:
@@ -276,6 +336,40 @@ async def redact_provider_settings_validation(
         return JSONResponse(
             status_code=422,
             content={"detail": "PROVIDER_SETTINGS_INPUT_REJECTED"},
+            headers={"Cache-Control": "no-store"},
+        )
+    if request.url.path == _STRATEGY_DRAFT_PATH:
+        return JSONResponse(
+            status_code=422,
+            content={"detail": "STRATEGY_BRIEF_INPUT_REJECTED"},
+            headers={"Cache-Control": "no-store"},
+        )
+    if request.url.path == _STRATEGY_CURATION_PATH:
+        return JSONResponse(
+            status_code=422,
+            content={"detail": "STRATEGY_CURATION_INPUT_REJECTED"},
+            headers={"Cache-Control": "no-store"},
+        )
+    if request.url.path == _EXPERIMENTS_PATH:
+        return JSONResponse(
+            status_code=422,
+            content={"detail": "EXPERIMENT_DEFINITION_INPUT_REJECTED"},
+            headers={"Cache-Control": "no-store"},
+        )
+    if request.url.path.startswith(f"{_EXPERIMENTS_PATH}/") and request.url.path.endswith(
+        _EXPERIMENT_COMPILE_SUFFIX
+    ):
+        return JSONResponse(
+            status_code=422,
+            content={"detail": "EXPERIMENT_COMPILE_INPUT_REJECTED"},
+            headers={"Cache-Control": "no-store"},
+        )
+    if request.url.path.startswith(f"{_EXPERIMENTS_PATH}/") and request.url.path.endswith(
+        _EXPERIMENT_AUTHORIZATION_MUTATION_SUFFIXES
+    ):
+        return JSONResponse(
+            status_code=422,
+            content={"detail": "EXPERIMENT_AUTHORIZATION_INPUT_REJECTED"},
             headers={"Cache-Control": "no-store"},
         )
     if request.url.path.startswith("/api/replays/") and any(
@@ -619,6 +713,7 @@ async def _run_agent(request: Request, response: Response, actor: Actor) -> Sche
             code=result.terminal_code,
         )
     except Exception as error:
+        _LOGGER.exception("agent run failed: %s: %s", type(error).__name__, error)
         raise HTTPException(status_code=503, detail="AGENT_RUN_UNAVAILABLE") from error
     response.headers["Cache-Control"] = "no-store"
     return payload
@@ -732,6 +827,505 @@ def account_autonomy_status(
         raise HTTPException(status_code=503, detail="AUTONOMY_UNAVAILABLE") from error
     response.headers["Cache-Control"] = "no-store"
     return payload
+
+
+@app.post(
+    "/api/owner/strategy-drafts",
+    response_model=StrategyProtocolDraftResponse,
+    response_model_exclude_none=True,
+    operation_id="owner_strategy_draft_create",
+    summary=STRATEGY_DRAFT_CREATE_SUMMARY,
+    description=STRATEGY_DRAFT_CREATE_DESCRIPTION,
+    tags=[OWNER_TAG],
+    responses={
+        **_OWNER_RESPONSES,
+        422: {"description": "STRATEGY_BRIEF_INPUT_REJECTED"},
+    },
+    dependencies=[Depends(require_owner_session)],
+)
+def create_strategy_draft(
+    request: Request,
+    payload: StrategyBriefRequest,
+    response: Response,
+) -> StrategyProtocolDraftResponse:
+    if request.query_params:
+        raise HTTPException(status_code=422, detail="STRATEGY_BRIEF_INPUT_REJECTED")
+    response.headers["Cache-Control"] = "no-store"
+    return draft_strategy_protocol(payload)
+
+
+@app.post(
+    _STRATEGY_CURATION_PATH,
+    response_model=StrategyCurationResponse,
+    response_model_exclude_none=True,
+    operation_id="owner_strategy_curation_create",
+    summary=STRATEGY_CURATION_CREATE_SUMMARY,
+    description=STRATEGY_CURATION_CREATE_DESCRIPTION,
+    tags=[OWNER_TAG],
+    responses={
+        **_OWNER_RESPONSES,
+        422: {"description": "STRATEGY_CURATION_INPUT_REJECTED"},
+        503: {"description": "STRATEGY_CURATION_UNAVAILABLE"},
+    },
+    dependencies=[Depends(require_owner_session)],
+)
+def create_strategy_curation(
+    request: Request,
+    payload: StrategyCurationRequest,
+    response: Response,
+) -> StrategyCurationResponse:
+    if request.query_params:
+        raise HTTPException(status_code=422, detail="STRATEGY_CURATION_INPUT_REJECTED")
+    response.headers["Cache-Control"] = "no-store"
+    service = getattr(app.state, "strategy_curation_service", None)
+    curate = getattr(service, "curate", None)
+    if not callable(curate):
+        raise HTTPException(status_code=503, detail="STRATEGY_CURATION_UNAVAILABLE")
+    try:
+        return curate(payload)
+    except StrategyCurationUnavailable as error:
+        if error.code in {"CURATION_INPUT_TOO_LARGE", "CURATION_REQUEST_INVALID"}:
+            raise HTTPException(
+                status_code=422,
+                detail="STRATEGY_CURATION_INPUT_REJECTED",
+            ) from error
+        raise HTTPException(
+            status_code=503,
+            detail="STRATEGY_CURATION_UNAVAILABLE",
+        ) from error
+
+
+def _experiment_registry(request: Request):
+    registry = getattr(request.app.state, "experiment_registry", None)
+    if registry is None:
+        raise HTTPException(status_code=503, detail="EXPERIMENT_REGISTRY_UNAVAILABLE")
+    return registry
+
+
+def _experiment_performance_reader(request: Request) -> SQLAlchemyExperimentPerformanceReader:
+    reader = getattr(request.app.state, "experiment_performance_reader", None)
+    if not isinstance(reader, SQLAlchemyExperimentPerformanceReader):
+        raise HTTPException(status_code=503, detail="EXPERIMENT_PERFORMANCE_UNAVAILABLE")
+    return reader
+
+
+def _experiment_window_reader(request: Request) -> SQLAlchemyExperimentWindowReader:
+    reader = getattr(request.app.state, "experiment_window_reader", None)
+    if not isinstance(reader, SQLAlchemyExperimentWindowReader):
+        raise HTTPException(status_code=503, detail="EXPERIMENT_WINDOWS_UNAVAILABLE")
+    return reader
+
+
+@app.get(
+    "/api/experiments/windows",
+    response_model=ExperimentWindowListResponse,
+    operation_id="anonymous_experiment_windows_read",
+    summary=PUBLIC_EXPERIMENT_WINDOWS_SUMMARY,
+    description=PUBLIC_EXPERIMENT_WINDOWS_DESCRIPTION,
+    tags=[ANONYMOUS_TAG],
+    responses={503: {"description": "EXPERIMENT_WINDOWS_UNAVAILABLE"}},
+)
+def read_experiment_windows(request: Request) -> ExperimentWindowListResponse:
+    if request.query_params:
+        raise HTTPException(status_code=422, detail="EXPERIMENT_WINDOWS_INPUT_REJECTED")
+    if not _runtime_enabled() and not hasattr(request.app.state, "experiment_window_reader"):
+        return ExperimentWindowListResponse(windows=())
+    try:
+        return ExperimentWindowListResponse(windows=_experiment_window_reader(request).list())
+    except ExperimentWindowReadError as error:
+        raise HTTPException(status_code=503, detail="EXPERIMENT_WINDOWS_UNAVAILABLE") from error
+
+
+def _performance_response(
+    projection: ExperimentPerformanceProjection,
+) -> ExperimentPerformanceResponse:
+    return ExperimentPerformanceResponse.model_validate(
+        {
+            "lineage": projection.lineage.material(),
+            "decision_count": projection.decision_count,
+            "opened_trade_count": projection.opened_trade_count,
+            "closed_trade_count": projection.closed_trade_count,
+            "terminal_state": projection.terminal_state,
+            "total_defined_maximum_risk_at_entry": vars(
+                projection.total_defined_maximum_risk_at_entry
+            ),
+            "entry_cash_flow": vars(projection.entry_cash_flow),
+            "management_cash_flow": vars(projection.management_cash_flow),
+            "exit_cash_flow": vars(projection.exit_cash_flow),
+            "realized_strategy_pnl": vars(projection.realized_strategy_pnl),
+            "win_count": vars(projection.win_count),
+            "loss_count": vars(projection.loss_count),
+            "breakeven_count": vars(projection.breakeven_count),
+        }
+    )
+
+
+@app.post(
+    _EXPERIMENTS_PATH,
+    response_model=ReviewedExperimentDefinition,
+    response_model_exclude_none=True,
+    status_code=201,
+    operation_id="owner_experiment_create",
+    summary=EXPERIMENT_CREATE_SUMMARY,
+    description=EXPERIMENT_CREATE_DESCRIPTION,
+    tags=[OWNER_TAG],
+    responses={
+        **_OWNER_RESPONSES,
+        422: {"description": "EXPERIMENT_DEFINITION_INPUT_REJECTED"},
+        503: {"description": "EXPERIMENT_REGISTRY_UNAVAILABLE"},
+    },
+    dependencies=[Depends(require_owner_session)],
+)
+def create_reviewed_experiment(
+    request: Request,
+    payload: ReviewedExperimentCreateRequest,
+    response: Response,
+) -> ReviewedExperimentDefinition:
+    if request.query_params:
+        raise HTTPException(status_code=422, detail="EXPERIMENT_DEFINITION_INPUT_REJECTED")
+    response.headers["Cache-Control"] = "no-store"
+    registry = _experiment_registry(request)
+    persistence = getattr(request.app.state, "persistence", None)
+    clock = getattr(getattr(persistence, "database_clock", None), "now", None)
+    if not callable(clock):
+        raise HTTPException(status_code=503, detail="EXPERIMENT_REGISTRY_UNAVAILABLE")
+    try:
+        return registry.create(payload, created_at=clock())
+    except ExperimentRegistryError as error:
+        raise HTTPException(status_code=503, detail="EXPERIMENT_REGISTRY_UNAVAILABLE") from error
+
+
+@app.get(
+    _EXPERIMENTS_PATH,
+    response_model=ReviewedExperimentListResponse,
+    response_model_exclude_none=True,
+    operation_id="owner_experiment_list",
+    summary=EXPERIMENT_LIST_SUMMARY,
+    description=EXPERIMENT_LIST_DESCRIPTION,
+    tags=[OWNER_TAG],
+    responses=_OWNER_RESPONSES,
+    dependencies=[Depends(require_owner_read_session)],
+)
+def list_reviewed_experiments(
+    request: Request,
+    response: Response,
+) -> ReviewedExperimentListResponse:
+    if request.query_params:
+        raise HTTPException(status_code=422, detail="EXPERIMENT_DEFINITION_INPUT_REJECTED")
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        return ReviewedExperimentListResponse(experiments=_experiment_registry(request).list())
+    except ExperimentRegistryError as error:
+        raise HTTPException(status_code=503, detail="EXPERIMENT_REGISTRY_UNAVAILABLE") from error
+
+
+@app.get(
+    "/api/owner/experiments/{experiment_id}",
+    response_model=ReviewedExperimentDefinition,
+    response_model_exclude_none=True,
+    operation_id="owner_experiment_read",
+    summary=EXPERIMENT_READ_SUMMARY,
+    description=EXPERIMENT_READ_DESCRIPTION,
+    tags=[OWNER_TAG],
+    responses={**_OWNER_RESPONSES, 404: {"description": "EXPERIMENT_NOT_FOUND"}},
+    dependencies=[Depends(require_owner_read_session)],
+)
+def read_reviewed_experiment(
+    request: Request,
+    experiment_id: UUID,
+    response: Response,
+) -> ReviewedExperimentDefinition:
+    if request.query_params:
+        raise HTTPException(status_code=422, detail="EXPERIMENT_DEFINITION_INPUT_REJECTED")
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        definition = _experiment_registry(request).read(experiment_id)
+    except ExperimentRegistryError as error:
+        raise HTTPException(status_code=503, detail="EXPERIMENT_REGISTRY_UNAVAILABLE") from error
+    if definition is None:
+        raise HTTPException(status_code=404, detail="EXPERIMENT_NOT_FOUND")
+    return definition
+
+
+@app.get(
+    "/api/owner/experiments/{experiment_id}/performance",
+    response_model=ExperimentPerformanceResponse,
+    operation_id="owner_experiment_performance_read",
+    tags=[OWNER_TAG],
+    responses={**_OWNER_RESPONSES, 404: {"description": "EXPERIMENT_NOT_FOUND"}},
+    dependencies=[Depends(require_owner_read_session)],
+)
+def read_experiment_performance(
+    request: Request,
+    experiment_id: UUID,
+    response: Response,
+) -> ExperimentPerformanceResponse:
+    if request.query_params:
+        raise HTTPException(status_code=422, detail="EXPERIMENT_PERFORMANCE_INPUT_REJECTED")
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        projection = _experiment_performance_reader(request).project_for_experiment(experiment_id)
+    except ExperimentPerformanceEvidenceError as error:
+        raise HTTPException(status_code=503, detail="EXPERIMENT_PERFORMANCE_UNAVAILABLE") from error
+    if projection is None:
+        raise HTTPException(status_code=404, detail="EXPERIMENT_NOT_FOUND")
+    return _performance_response(projection)
+
+
+@app.get(
+    "/api/experiments/{experiment_id}/performance",
+    response_model=ExperimentPerformanceResponse,
+    operation_id="anonymous_published_experiment_performance_read",
+    summary=PUBLIC_EXPERIMENT_PERFORMANCE_SUMMARY,
+    tags=[ANONYMOUS_TAG],
+    responses={404: {"description": "EXPERIMENT_PERFORMANCE_NOT_PUBLISHED"}},
+)
+def read_published_experiment_performance(
+    request: Request,
+    experiment_id: UUID,
+) -> ExperimentPerformanceResponse:
+    if request.query_params:
+        raise HTTPException(status_code=422, detail="EXPERIMENT_PERFORMANCE_INPUT_REJECTED")
+    try:
+        projection = _experiment_performance_reader(request).project_published(experiment_id)
+    except ExperimentPerformanceEvidenceError as error:
+        raise HTTPException(status_code=503, detail="EXPERIMENT_PERFORMANCE_UNAVAILABLE") from error
+    if projection is None:
+        raise HTTPException(status_code=404, detail="EXPERIMENT_PERFORMANCE_NOT_PUBLISHED")
+    return _performance_response(projection)
+
+
+def _experiment_compile_error(error: ExperimentRegistryError) -> HTTPException:
+    if error.code == "EXPERIMENT_NOT_FOUND":
+        return HTTPException(status_code=404, detail="EXPERIMENT_NOT_FOUND")
+    if error.code in {"EXPERIMENT_SOURCE_HASH_MISMATCH", "EXPERIMENT_COMPILE_CONFLICT"}:
+        return HTTPException(status_code=409, detail=error.code)
+    if error.code == "EXPERIMENT_COMPILE_INPUT_REJECTED":
+        return HTTPException(status_code=422, detail="EXPERIMENT_COMPILE_INPUT_REJECTED")
+    return HTTPException(status_code=503, detail="EXPERIMENT_REGISTRY_UNAVAILABLE")
+
+
+@app.post(
+    "/api/owner/experiments/{experiment_id}/compile",
+    response_model=CompiledExperimentVersion,
+    response_model_exclude_none=True,
+    status_code=201,
+    operation_id="owner_experiment_compile",
+    tags=[OWNER_TAG],
+    responses={
+        **_OWNER_RESPONSES,
+        404: {"description": "EXPERIMENT_NOT_FOUND"},
+        409: {"description": "EXPERIMENT_COMPILE_CONFLICT"},
+        422: {"description": "EXPERIMENT_COMPILE_INPUT_REJECTED"},
+    },
+    dependencies=[Depends(require_owner_session)],
+)
+def compile_reviewed_experiment(
+    request: Request,
+    experiment_id: UUID,
+    payload: CompileExperimentRequest,
+    response: Response,
+) -> CompiledExperimentVersion:
+    if request.query_params:
+        raise HTTPException(status_code=422, detail="EXPERIMENT_COMPILE_INPUT_REJECTED")
+    response.headers["Cache-Control"] = "no-store"
+    persistence = getattr(request.app.state, "persistence", None)
+    clock = getattr(getattr(persistence, "database_clock", None), "now", None)
+    if not callable(clock):
+        raise HTTPException(status_code=503, detail="EXPERIMENT_REGISTRY_UNAVAILABLE")
+    try:
+        return _experiment_registry(request).compile(
+            experiment_id,
+            payload,
+            created_at=clock(),
+        )
+    except ExperimentRegistryError as error:
+        raise _experiment_compile_error(error) from error
+
+
+@app.get(
+    "/api/owner/experiments/{experiment_id}/compiled",
+    response_model=CompiledExperimentVersion,
+    response_model_exclude_none=True,
+    operation_id="owner_experiment_compiled_read",
+    tags=[OWNER_TAG],
+    responses={**_OWNER_RESPONSES, 404: {"description": "EXPERIMENT_NOT_FOUND"}},
+    dependencies=[Depends(require_owner_read_session)],
+)
+def read_compiled_experiment(
+    request: Request,
+    experiment_id: UUID,
+    response: Response,
+) -> CompiledExperimentVersion:
+    if request.query_params:
+        raise HTTPException(status_code=422, detail="EXPERIMENT_COMPILE_INPUT_REJECTED")
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        compiled = _experiment_registry(request).read_compiled(experiment_id)
+    except ExperimentRegistryError as error:
+        raise HTTPException(
+            status_code=503,
+            detail="EXPERIMENT_REGISTRY_UNAVAILABLE",
+        ) from error
+    if compiled is None:
+        raise HTTPException(status_code=404, detail="EXPERIMENT_NOT_FOUND")
+    return compiled
+
+
+def _experiment_authorization_error(error: ExperimentRegistryError) -> HTTPException:
+    headers = {"Cache-Control": "no-store"}
+    if error.code == "EXPERIMENT_NOT_FOUND":
+        return HTTPException(
+            status_code=404,
+            detail="EXPERIMENT_NOT_FOUND",
+            headers=headers,
+        )
+    if error.code in {
+        "EXPERIMENT_NOT_COMPILED",
+        "EXPERIMENT_AUTHORIZATION_HASH_MISMATCH",
+        "EXPERIMENT_AUTHORIZATION_REVISION_CONFLICT",
+        "EXPERIMENT_ARM_CONFLICT",
+        "EXPERIMENT_NOT_ARMED",
+    }:
+        return HTTPException(status_code=409, detail=error.code, headers=headers)
+    return HTTPException(
+        status_code=503,
+        detail="EXPERIMENT_AUTHORIZATION_UNAVAILABLE",
+        headers=headers,
+    )
+
+
+def _change_experiment_authorization(
+    request: Request,
+    experiment_id: UUID,
+    payload: ExperimentAuthorizationRequest,
+    response: Response,
+    operation: str,
+) -> ExperimentAuthorizationStatus:
+    if request.query_params:
+        raise HTTPException(
+            status_code=422,
+            detail="EXPERIMENT_AUTHORIZATION_INPUT_REJECTED",
+            headers={"Cache-Control": "no-store"},
+        )
+    response.headers["Cache-Control"] = "no-store"
+    persistence = getattr(request.app.state, "persistence", None)
+    clock = getattr(getattr(persistence, "database_clock", None), "now", None)
+    if not callable(clock):
+        raise HTTPException(
+            status_code=503,
+            detail="EXPERIMENT_AUTHORIZATION_UNAVAILABLE",
+            headers={"Cache-Control": "no-store"},
+        )
+    try:
+        change = getattr(_experiment_registry(request), operation)
+        return change(experiment_id, payload, changed_at=clock())
+    except ExperimentRegistryError as error:
+        raise _experiment_authorization_error(error) from error
+
+
+@app.post(
+    "/api/owner/experiments/{experiment_id}/arm",
+    response_model=ExperimentAuthorizationStatus,
+    response_model_exclude_none=True,
+    operation_id="owner_experiment_arm",
+    description=(
+        "Records experiment-scoped entry authorization for one exact compiled paper-options "
+        "protocol. ARMED is authorization only: runtime stays NOT_CONNECTED, "
+        "execution_eligible stays false, and this route does not schedule work, call a "
+        "provider, access an account, or create an order."
+    ),
+    tags=[OWNER_TAG],
+    responses={
+        **_OWNER_RESPONSES,
+        404: {"description": "EXPERIMENT_NOT_FOUND"},
+        409: {"description": "EXPERIMENT_AUTHORIZATION_CONFLICT"},
+        422: {"description": "EXPERIMENT_AUTHORIZATION_INPUT_REJECTED"},
+    },
+    dependencies=[Depends(require_owner_session)],
+)
+def arm_experiment(
+    request: Request,
+    experiment_id: UUID,
+    payload: ExperimentAuthorizationRequest,
+    response: Response,
+) -> ExperimentAuthorizationStatus:
+    return _change_experiment_authorization(
+        request,
+        experiment_id,
+        payload,
+        response,
+        "arm",
+    )
+
+
+@app.post(
+    "/api/owner/experiments/{experiment_id}/disarm",
+    response_model=ExperimentAuthorizationStatus,
+    response_model_exclude_none=True,
+    operation_id="owner_experiment_disarm",
+    description=(
+        "Stops future entry authorization for the exact compiled experiment. Disarming never "
+        "disables risk-reducing management of an already-open position; runtime remains "
+        "NOT_CONNECTED and execution_eligible remains false."
+    ),
+    tags=[OWNER_TAG],
+    responses={
+        **_OWNER_RESPONSES,
+        404: {"description": "EXPERIMENT_NOT_FOUND"},
+        409: {"description": "EXPERIMENT_AUTHORIZATION_CONFLICT"},
+        422: {"description": "EXPERIMENT_AUTHORIZATION_INPUT_REJECTED"},
+    },
+    dependencies=[Depends(require_owner_session)],
+)
+def disarm_experiment(
+    request: Request,
+    experiment_id: UUID,
+    payload: ExperimentAuthorizationRequest,
+    response: Response,
+) -> ExperimentAuthorizationStatus:
+    return _change_experiment_authorization(
+        request,
+        experiment_id,
+        payload,
+        response,
+        "disarm",
+    )
+
+
+@app.get(
+    "/api/owner/experiments/{experiment_id}/authorization",
+    response_model=ExperimentAuthorizationStatus,
+    response_model_exclude_none=True,
+    operation_id="owner_experiment_authorization_read",
+    description=(
+        "Reads hash-bound experiment authorization only. It does not report runtime readiness: "
+        "runtime is NOT_CONNECTED and execution_eligible is false."
+    ),
+    tags=[OWNER_TAG],
+    responses={
+        **_OWNER_RESPONSES,
+        404: {"description": "EXPERIMENT_NOT_FOUND"},
+        409: {"description": "EXPERIMENT_NOT_COMPILED"},
+    },
+    dependencies=[Depends(require_owner_read_session)],
+)
+def read_experiment_authorization(
+    request: Request,
+    experiment_id: UUID,
+    response: Response,
+) -> ExperimentAuthorizationStatus:
+    if request.query_params:
+        raise HTTPException(
+            status_code=422,
+            detail="EXPERIMENT_AUTHORIZATION_INPUT_REJECTED",
+            headers={"Cache-Control": "no-store"},
+        )
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        return _experiment_registry(request).read_authorization(experiment_id)
+    except ExperimentRegistryError as error:
+        raise _experiment_authorization_error(error) from error
 
 
 def _provider_settings_service():

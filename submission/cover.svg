@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
   <title id="title">alphadecay</title>
-  <desc id="description">Know when the option stopped matching the thesis. Paper trading only.</desc>
+  <desc id="description">Know when the option no longer matches the thesis.</desc>
 
   <defs>
     <radialGradient id="glow" cx="78%" cy="16%" r="68%">
@@ -35,12 +35,7 @@
 
   <g font-family="'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif">
     <text x="112" y="290" font-size="112" font-weight="600" letter-spacing="-4"><tspan fill="#A991FF">α</tspan><tspan fill="#F6F6F6">lphadecay</tspan></text>
-    <text x="118" y="370" fill="#C8C8C8" font-size="36" font-weight="400">Know when the option stopped matching the thesis.</text>
-
-    <g transform="translate(118 420)">
-      <rect width="256" height="52" rx="8" fill="#2A0152" stroke="#A991FF" stroke-width="2"/>
-      <text x="128" y="34" fill="#F6F6F6" font-size="19" font-weight="600" text-anchor="middle" letter-spacing="2.4">PAPER TRADING ONLY</text>
-    </g>
+    <text x="118" y="370" fill="#C8C8C8" font-size="32" font-weight="400">Know when the option no longer matches the thesis.</text>
   </g>
 
   <g transform="translate(780 280)">

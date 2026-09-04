@@ -73,7 +73,7 @@ class InstalledModelTradingClient:
         self.account_value = account_model()
         self.position_values = [
             position_model(CALL, "2", PositionSide.LONG),
-            position_model(SHORT_CALL, "2", PositionSide.SHORT),
+            position_model(SHORT_CALL, "-2", PositionSide.SHORT),
             position_model("NVDA", "100", PositionSide.LONG, AssetClass.US_EQUITY),
         ]
         self.order_values = [order_model()]

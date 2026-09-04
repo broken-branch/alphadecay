@@ -256,7 +256,7 @@ class FilledComposedTradingClient(ComposedTradingClient):
                 exchange=AssetExchange.NASDAQ,
                 asset_class=AssetClass.US_OPTION,
                 avg_entry_price="0.30",
-                qty="1",
+                qty="-1",
                 side=PositionSide.SHORT,
                 cost_basis="30",
             ),

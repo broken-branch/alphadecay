@@ -154,7 +154,8 @@ def _migrate(postgres_engine) -> SQLAlchemyEvidenceLedger:
 
 def test_postgres_migration_0010_applies_after_0009_and_restarts(postgres_engine) -> None:
     migrations = discover_migrations(MIGRATIONS)
-    assert [migration.version for migration in migrations] == list(range(1, 27))
+    expected_versions = list(range(1, 37))
+    assert [migration.version for migration in migrations] == expected_versions
 
     apply_migrations(postgres_engine, migrations[:9])
     with postgres_engine.connect() as connection:
@@ -166,9 +167,12 @@ def test_postgres_migration_0010_applies_after_0009_and_restarts(postgres_engine
     postgres_engine.dispose()
     apply_migrations(postgres_engine, migrations)
     with postgres_engine.connect() as connection:
-        assert connection.execute(
-            text("SELECT array_agg(version ORDER BY version) FROM alphadecay_schema_migrations")
-        ).scalar_one() == list(range(1, 27))
+        assert (
+            connection.execute(
+                text("SELECT array_agg(version ORDER BY version) FROM alphadecay_schema_migrations")
+            ).scalar_one()
+            == expected_versions
+        )
         assert connection.execute(
             text("SELECT request_count, hard_limit FROM model_call_budgets WHERE model = :model"),
             {"model": MODEL},

@@ -43,6 +43,7 @@ from backend.app.execution.order_status import (
     FINALIZABLE_BROKER_ORDER_STATES,
     LOOKUP_ONLY_BROKER_ORDER_STATES,
     MUTATION_ELIGIBLE_BROKER_ORDER_STATES,
+    PENDING_BROKER_ORDER_STATES,
     broker_lookup_policy,
 )
 from backend.app.execution.permits import (
@@ -68,7 +69,9 @@ from backend.app.execution.reconciliation import (
     ReconciliationPurpose,
     SweepObservation,
     WholeAccountReconciliation,
+    activity_predates_window,
 )
+from backend.app.experiment_lineage import optional_experiment_execution_lineage
 from backend.app.order_limits import EntryBudgetLimits
 
 from .agent_authority import agent_input_material, agent_result_material, canonical_agent_hash
@@ -108,7 +111,6 @@ class SQLAlchemyTrustedDatabaseClock:
 
 
 class SQLAlchemyExecutionRepository:
-
     def __init__(
         self,
         session_factory: sessionmaker[Session],
@@ -271,74 +273,8 @@ class SQLAlchemyExecutionRepository:
         if sweep.final_account.role != AccountRole.SUBMISSION:
             raise ExecutionBlocked("RECONCILIATION_STATE_ROLE_INVALID")
         with self._sessions.begin() as session:
-            account = session.get(
-                AccountRoleRow, AccountRole.SUBMISSION.value, with_for_update=True
-            )
-            baseline = session.scalar(
-                select(SubmissionBaselineRow)
-                .where(SubmissionBaselineRow.account_role == AccountRole.SUBMISSION.value)
-                .with_for_update()
-            )
-            existing = session.scalar(
-                select(AccountReconciliationStateRow)
-                .where(AccountReconciliationStateRow.account_role == AccountRole.SUBMISSION.value)
-                .order_by(AccountReconciliationStateRow.sequence)
-                .with_for_update()
-            )
-            if account is None or baseline is None:
-                raise ExecutionBlocked("SUBMISSION_BASELINE_REQUIRED")
-            if baseline.contaminated:
-                raise ExecutionBlocked("SUBMISSION_BASELINE_CONTAMINATED")
-            if existing is not None:
-                raise ExecutionBlocked("RECONCILIATION_STATE_ALREADY_INITIALIZED")
-            if (
-                account.account_fingerprint != baseline.account_fingerprint
-                or sweep.final_account.account_fingerprint != account.account_fingerprint
-                or sweep.first_account.account_fingerprint != account.account_fingerprint
-                or sweep.first_positions
-                or sweep.final_positions
-                or sweep.first_open_orders
-                or sweep.final_open_orders
-                or len(sweep.activities) != 1
-                or sweep.activities[0].activity_type != ActivityType.INITIAL_FUNDING
-                or sweep.activities[0].symbol is not None
-                or sweep.activities[0].signed_quantity != baseline.equity
-                or sweep.activities[0].occurred_at > _utc(baseline.captured_at)
-            ):
-                raise ExecutionBlocked("RECONCILIATION_STATE_NOT_CLEAN")
-            accepted_at = self._trusted_now(session)
-            expectation = ReconciliationExpectation._from_repository_state(
-                purpose=ReconciliationPurpose.BASELINE_INITIALIZATION,
-                account_role=AccountRole.SUBMISSION,
-                account_fingerprint=account.account_fingerprint,
-                expected_cash=baseline.equity,
-                baseline_captured_at=_utc(baseline.captured_at),
-                expected_positions=(),
-                expected_open_orders=(),
-                known_activities=sweep.activities,
-                resolved_activity_hashes=(),
-                required_activity_window_start=_utc(baseline.captured_at),
-                required_activity_complete_through=_utc(baseline.captured_at),
-                intent_id=uuid5(NAMESPACE_URL, "alphadecay:submission-state-anchor"),
-                intent_digest="0" * 64,
-                attempt_ordinal=0,
-                request_hash="0" * 64,
-            )
-            result = WholeAccountReconciliation.evaluate(
-                sweep, expectation, accepted_at=accepted_at
-            )
-            if not result.safe:
-                raise ExecutionBlocked("RECONCILIATION_STATE_UNSAFE")
-            state = AccountReconciliationState._from_repository_state(
-                account_role=AccountRole.SUBMISSION,
-                account_fingerprint=account.account_fingerprint,
-                baseline_captured_at=_utc(baseline.captured_at),
-                accepted_at=accepted_at,
-                expected_cash=baseline.equity,
-                expected_positions=(),
-                expected_open_orders=(),
-                known_activities=sweep.activities,
-                activity_complete_through=sweep.activity_pagination.visibility_complete_through,
+            state, baseline = self._validated_initial_reconciliation_state(
+                session, sweep, lock=True
             )
             session.add(
                 AccountReconciliationStateRow(
@@ -368,6 +304,89 @@ class SQLAlchemyExecutionRepository:
             )
             session.flush()
             return state
+
+    def validate_reconciliation_initialization(
+        self, sweep: SweepObservation
+    ) -> AccountReconciliationState:
+        if sweep.final_account.role != AccountRole.SUBMISSION:
+            raise ExecutionBlocked("RECONCILIATION_STATE_ROLE_INVALID")
+        with self._sessions() as session:
+            state, _ = self._validated_initial_reconciliation_state(session, sweep, lock=False)
+            return state
+
+    def _validated_initial_reconciliation_state(
+        self, session: Session, sweep: SweepObservation, *, lock: bool
+    ) -> tuple[AccountReconciliationState, SubmissionBaselineRow]:
+        account = session.get(AccountRoleRow, AccountRole.SUBMISSION.value, with_for_update=lock)
+        baseline_query = select(SubmissionBaselineRow).where(
+            SubmissionBaselineRow.account_role == AccountRole.SUBMISSION.value
+        )
+        state_query = (
+            select(AccountReconciliationStateRow)
+            .where(AccountReconciliationStateRow.account_role == AccountRole.SUBMISSION.value)
+            .order_by(AccountReconciliationStateRow.sequence)
+        )
+        if lock:
+            baseline_query = baseline_query.with_for_update()
+            state_query = state_query.with_for_update()
+        baseline = session.scalar(baseline_query)
+        existing = session.scalar(state_query)
+        if account is None or baseline is None:
+            raise ExecutionBlocked("SUBMISSION_BASELINE_REQUIRED")
+        if baseline.contaminated:
+            raise ExecutionBlocked("SUBMISSION_BASELINE_CONTAMINATED")
+        if existing is not None:
+            raise ExecutionBlocked("RECONCILIATION_STATE_ALREADY_INITIALIZED")
+        if (
+            account.account_fingerprint != baseline.account_fingerprint
+            or sweep.final_account.account_fingerprint != account.account_fingerprint
+            or sweep.first_account.account_fingerprint != account.account_fingerprint
+            or sweep.first_positions
+            or sweep.final_positions
+            or sweep.first_open_orders
+            or sweep.final_open_orders
+            or len(sweep.activities) != 1
+            or sweep.activities[0].activity_type != ActivityType.INITIAL_FUNDING
+            or sweep.activities[0].symbol is not None
+            or sweep.activities[0].signed_quantity != baseline.equity
+            or sweep.activities[0].occurred_at > _utc(baseline.captured_at)
+        ):
+            raise ExecutionBlocked("RECONCILIATION_STATE_NOT_CLEAN")
+        accepted_at = self._trusted_now(session)
+        expectation = ReconciliationExpectation._from_repository_state(
+            purpose=ReconciliationPurpose.BASELINE_INITIALIZATION,
+            account_role=AccountRole.SUBMISSION,
+            account_fingerprint=account.account_fingerprint,
+            expected_cash=baseline.equity,
+            baseline_captured_at=_utc(baseline.captured_at),
+            expected_positions=(),
+            expected_open_orders=(),
+            known_activities=sweep.activities,
+            resolved_activity_hashes=(),
+            required_activity_window_start=_utc(baseline.captured_at),
+            required_activity_complete_through=_utc(baseline.captured_at),
+            intent_id=uuid5(NAMESPACE_URL, "alphadecay:submission-state-anchor"),
+            intent_digest="0" * 64,
+            attempt_ordinal=0,
+            request_hash="0" * 64,
+        )
+        result = WholeAccountReconciliation.evaluate(sweep, expectation, accepted_at=accepted_at)
+        if not result.safe:
+            raise ExecutionBlocked("RECONCILIATION_STATE_UNSAFE")
+        return (
+            AccountReconciliationState._from_repository_state(
+                account_role=AccountRole.SUBMISSION,
+                account_fingerprint=account.account_fingerprint,
+                baseline_captured_at=_utc(baseline.captured_at),
+                accepted_at=accepted_at,
+                expected_cash=baseline.equity,
+                expected_positions=(),
+                expected_open_orders=(),
+                known_activities=sweep.activities,
+                activity_complete_through=_utc(baseline.captured_at),
+            ),
+            baseline,
+        )
 
     def get_reconciliation_state(self, role: AccountRole) -> AccountReconciliationState:
         _ensure_executable_role(role)
@@ -558,6 +577,23 @@ class SQLAlchemyExecutionRepository:
                 return None
             if any(
                 permit.state in {"PREPARED", "DISPATCHING", "LOOKUP_ONLY"} for permit in permit_rows
+            ):
+                return None
+            observations = session.scalars(
+                select(AttemptObservationRow)
+                .where(
+                    AttemptObservationRow.execution_intent_id == claim.intent_id,
+                    AttemptObservationRow.attempt_ordinal == latest.attempt_ordinal,
+                )
+                .order_by(
+                    AttemptObservationRow.observation_sequence,
+                    AttemptObservationRow.observation_id,
+                )
+            ).all()
+            if not any(
+                observation.source == AttemptObservationSource.TARGETED_LOOKUP.value
+                and observation.observed_payload is not None
+                for observation in observations
             ):
                 return None
             initial_permit = _creation_permit(execution_attempt_rows[0], permit_rows)
@@ -783,14 +819,6 @@ class SQLAlchemyExecutionRepository:
                         _latch_account(account, str(error), trusted_now)
                         session.flush()
                         return BrokerMutationPreparation(evaluated, None, None)
-                if (
-                    intent.action == ExecutionAction.ENTRY.value
-                    and purpose == ReconciliationPurpose.SUBMIT
-                    and reconciliation.sweep.final_positions
-                ):
-                    _latch_account(account, "ENTRY_OPEN_POSITION_LIMIT", trusted_now)
-                    session.flush()
-                    return BrokerMutationPreparation(evaluated, None, None)
                 matching_permits = [
                     row
                     for row in permit_rows
@@ -1274,16 +1302,24 @@ class SQLAlchemyExecutionRepository:
             row.filled_quantity = observed.filled_quantity
             row.quantity = observed.quantity
             row.fill_cash_flow = observed.fill_cash_flow
-            lookup_only = permit.state == "LOOKUP_ONLY"
-            if permit.state in {"DISPATCHING", "LOOKUP_ONLY"}:
+            lookup_pending = (
+                permit.state == "LOOKUP_ONLY"
+                and permit.mutation_kind
+                in {
+                    ReconciliationPurpose.SUBMIT.value,
+                    ReconciliationPurpose.REPLACE.value,
+                }
+                and observed.state in PENDING_BROKER_ORDER_STATES
+                and not (
+                    observed.state == "CALCULATED" and observed.filled_quantity == observed.quantity
+                )
+            )
+            if permit.state == "DISPATCHING" or (
+                permit.state == "LOOKUP_ONLY" and not lookup_pending
+            ):
                 permit.state = "CONSUMED"
                 permit.consumed_at = trusted_now
                 permit.outcome_hash = observation_hash
-            if lookup_only and permit.mutation_kind in {
-                ReconciliationPurpose.SUBMIT.value,
-                ReconciliationPurpose.REPLACE.value,
-            }:
-                _latch_account(account, "RECONCILIATION_MISMATCH", trusted_now)
             session.flush()
             return observation
 
@@ -1476,7 +1512,11 @@ class SQLAlchemyExecutionRepository:
                     observation_hash=observation_hash,
                 )
             )
-            _latch_account(account, "RECONCILIATION_MISMATCH", trusted_now)
+            if permit.mutation_kind not in {
+                ReconciliationPurpose.SUBMIT.value,
+                ReconciliationPurpose.REPLACE.value,
+            }:
+                _latch_account(account, "RECONCILIATION_MISMATCH", trusted_now)
             session.flush()
             return observation
 
@@ -1500,6 +1540,8 @@ class SQLAlchemyExecutionRepository:
 
     def add_entry_approval(self, approval: EntryApprovalAuthorization) -> None:
         _ensure_executable_role(approval.account_role)
+        if approval.experiment_lineage is not None:
+            raise ExecutionBlocked("EXPERIMENT_EXECUTION_LINEAGE_REQUIRES_AGENT_DECISION")
         try:
             with self._sessions.begin() as session:
                 session.add(
@@ -1560,6 +1602,8 @@ class SQLAlchemyExecutionRepository:
 
     def add_assessment_certificate(self, certificate: AssessmentCertificate) -> None:
         _ensure_executable_role(certificate.account_role)
+        if certificate.experiment_lineage is not None:
+            raise ExecutionBlocked("EXPERIMENT_EXECUTION_LINEAGE_REQUIRES_AGENT_DECISION")
         exposure = _exposure_to_json(certificate.expected_after_exposure)
         try:
             with self._sessions.begin() as session:
@@ -1816,6 +1860,11 @@ class SQLAlchemyExecutionRepository:
                     intent_id=intent.intent_id,
                     intent_digest=intent.digest,
                     autonomy_authorized=True,
+                    experiment_lineage=optional_experiment_execution_lineage(
+                        decision.experiment_id,
+                        decision.experiment_source_definition_hash,
+                        decision.experiment_protocol_hash,
+                    ),
                 )
             )
             if decision is not None
@@ -1939,6 +1988,63 @@ class SQLAlchemyExecutionRepository:
                 budget.reserved_risk = Decimal(0)
             row.state = IntentState.TERMINAL.value
 
+    def execution_preflight_intent(
+        self, role: AccountRole, intent_id: UUID | None = None
+    ) -> ExecutionIntent:
+        _ensure_executable_role(role)
+        with self._sessions() as session:
+            query = select(ExecutionIntentRow).where(ExecutionIntentRow.account_role == role.value)
+            if intent_id is not None:
+                query = query.where(ExecutionIntentRow.intent_id == intent_id)
+            else:
+                query = query.where(
+                    ExecutionIntentRow.state != IntentState.TERMINAL.value
+                ).order_by(
+                    ExecutionIntentRow.trading_day.desc(),
+                    ExecutionIntentRow.claimed_at.desc().nullslast(),
+                    ExecutionIntentRow.intent_id.desc(),
+                )
+            row = session.scalar(query.limit(1))
+            if row is None:
+                raise ExecutionBlocked("EXECUTION_INTENT_NOT_FOUND")
+            intent = self._intent_from_row(session, row)
+            if row.state == IntentState.CLAIMED.value:
+                trusted_now = self._trusted_now(session)
+                if row.lease_expires_at is None or _utc(row.lease_expires_at) <= trusted_now:
+                    raise ExecutionBlocked("INTENT_CLAIM_EXPIRED")
+            return intent
+
+    def expired_unsubmitted_claims(self, role: AccountRole, *, persist: bool) -> tuple[UUID, ...]:
+        _ensure_executable_role(role)
+        context = self._sessions.begin() if persist else self._sessions()
+        with context as session:
+            trusted_now = self._trusted_now(session)
+            query = (
+                select(ExecutionIntentRow)
+                .where(
+                    ExecutionIntentRow.account_role == role.value,
+                    ExecutionIntentRow.state == IntentState.CLAIMED.value,
+                    ExecutionIntentRow.lease_expires_at <= trusted_now,
+                    ~select(OrderAttemptRow.attempt_id)
+                    .where(OrderAttemptRow.execution_intent_id == ExecutionIntentRow.intent_id)
+                    .exists(),
+                )
+                .order_by(ExecutionIntentRow.intent_id)
+            )
+            if persist:
+                query = query.with_for_update()
+            rows = session.scalars(query).all()
+            if not persist:
+                return tuple(row.intent_id for row in rows)
+            budget = session.get(CompetitionEntryBudgetRow, role.value, with_for_update=True)
+            for row in rows:
+                if budget is not None and budget.reserved_intent_id == row.intent_id:
+                    budget.reserved_intent_id = None
+                    budget.reserved_risk = Decimal(0)
+                row.state = IntentState.TERMINAL.value
+            session.flush()
+            return tuple(row.intent_id for row in rows)
+
     def add_attempt(self, attempt: OrderAttempt) -> None:
         del attempt
         raise ExecutionBlocked("BROKER_PERMIT_REQUIRED")
@@ -1974,9 +2080,7 @@ class SQLAlchemyExecutionRepository:
             ).all()
             return _attempts_from_rows(_execution_attempt_rows(rows, permits))
 
-    def targeted_lookup_authority(
-        self, claim: ExecutionIntent
-    ) -> tuple[UUID, OrderAttempt] | None:
+    def targeted_lookup_authority(self, claim: ExecutionIntent) -> tuple[UUID, OrderAttempt] | None:
         with self._sessions.begin() as session:
             intent = session.get(ExecutionIntentRow, claim.intent_id, with_for_update=True)
             account = session.get(AccountRoleRow, claim.account_role.value, with_for_update=True)
@@ -2004,11 +2108,6 @@ class SQLAlchemyExecutionRepository:
                 raise ExecutionBlocked("TRANSITIONAL_ATTEMPT_MISSING")
             current_row = execution_attempts[-1]
             current = _attempt_from_row(current_row, execution_attempts)
-            if current.state not in LOOKUP_ONLY_BROKER_ORDER_STATES:
-                raise ExecutionBlocked("TARGETED_LOOKUP_STATE_INVALID")
-            permit = _creation_permit(current_row, permits)
-            if permit.state != "CONSUMED":
-                raise ExecutionBlocked("TARGETED_LOOKUP_NOT_AUTHORIZED")
             observations = session.scalars(
                 select(AttemptObservationRow)
                 .where(
@@ -2021,6 +2120,74 @@ class SQLAlchemyExecutionRepository:
                 )
                 .with_for_update()
             ).all()
+            active_lookup_permits = [
+                permit
+                for permit in permits
+                if permit.attempt_ordinal == current.ordinal and permit.state == "LOOKUP_ONLY"
+            ]
+            if active_lookup_permits:
+                if len(active_lookup_permits) != 1:
+                    raise ExecutionBlocked("TARGETED_LOOKUP_AUTHORITY_CONFLICT")
+                permit = active_lookup_permits[0]
+                if permit.dispatch_acquired_at is None:
+                    raise ExecutionBlocked("BROKER_DISPATCH_TIME_MISSING")
+                trusted_now = self._trusted_now(session)
+                not_before = max(
+                    _utc(permit.expires_at),
+                    _utc(permit.dispatch_acquired_at) + self._network_call_horizon,
+                )
+                if trusted_now < not_before:
+                    return None
+                if observations:
+                    policy = broker_lookup_policy(
+                        current.state
+                        if current.state in PENDING_BROKER_ORDER_STATES
+                        else "PENDING_NEW"
+                    )
+                    latest_attempt_at = _utc(observations[-1].observed_at)
+                    if trusted_now < latest_attempt_at + policy.cadence:
+                        return None
+                    provider_observations = [
+                        item for item in observations if item.observed_payload is not None
+                    ]
+                    if provider_observations:
+                        state_observations = []
+                        for item in reversed(provider_observations):
+                            observed = _attempt_from_json(item.observed_payload)
+                            if observed.state != current.state:
+                                break
+                            state_observations.append(item)
+                        state_started_at = _utc(state_observations[-1].observed_at)
+                    else:
+                        state_started_at = _utc(observations[0].observed_at)
+                    if (
+                        current.state in LOOKUP_ONLY_BROKER_ORDER_STATES
+                        and trusted_now >= state_started_at + policy.deadline
+                        and not account.execution_locked
+                    ):
+                        _latch_account(account, "BROKER_TRANSITION_STALLED", trusted_now)
+                return permit.permit_id, current
+            if current.state not in PENDING_BROKER_ORDER_STATES:
+                return None
+            if current.state in MUTATION_ELIGIBLE_BROKER_ORDER_STATES and any(
+                permit.state in {"PREPARED", "DISPATCHING"} for permit in permits
+            ):
+                return None
+            if current.state == "PENDING_CANCEL":
+                cancel_permits = [
+                    permit
+                    for permit in permits
+                    if permit.attempt_ordinal == current.ordinal
+                    and permit.mutation_kind == ReconciliationPurpose.CANCEL.value
+                    and permit.state == "CONSUMED"
+                ]
+                if not cancel_permits:
+                    raise ExecutionBlocked("TARGETED_LOOKUP_NOT_AUTHORIZED")
+                permit = cancel_permits[-1]
+            else:
+                permit = _creation_permit(current_row, permits)
+            if permit.state != "CONSUMED":
+                raise ExecutionBlocked("TARGETED_LOOKUP_NOT_AUTHORIZED")
             provider_observations = [
                 item for item in observations if item.observed_payload is not None
             ]
@@ -2040,7 +2207,11 @@ class SQLAlchemyExecutionRepository:
                     break
                 state_observations.append(item)
             state_started_at = _utc(state_observations[-1].observed_at)
-            if trusted_now >= state_started_at + policy.deadline and not account.execution_locked:
+            if (
+                current.state in LOOKUP_ONLY_BROKER_ORDER_STATES
+                and trusted_now >= state_started_at + policy.deadline
+                and not account.execution_locked
+            ):
                 _latch_account(account, "BROKER_TRANSITION_STALLED", trusted_now)
             return permit.permit_id, current
 
@@ -2075,7 +2246,24 @@ class SQLAlchemyExecutionRepository:
                     raise ExecutionBlocked("ACCOUNT_NOT_REGISTERED")
                 self._verify_claim_fence(intent, account, claim)
                 trusted_now = self._trusted_now(session)
-                self._validate_origin(session, self._intent_from_row(session, intent), trusted_now)
+                # Finalization records an order the broker already accepted. The authorization
+                # must have been valid when the first broker write was dispatched, not when the
+                # terminal state is reconciled, which can be well after a short approval window.
+                first_dispatch = session.scalar(
+                    select(BrokerMutationPermitRow.dispatch_acquired_at)
+                    .where(
+                        BrokerMutationPermitRow.execution_intent_id == intent.intent_id,
+                        BrokerMutationPermitRow.dispatch_acquired_at.is_not(None),
+                    )
+                    .order_by(BrokerMutationPermitRow.dispatch_acquired_at)
+                    .limit(1)
+                )
+                origin_at = (
+                    trusted_now
+                    if first_dispatch is None
+                    else min(trusted_now, _utc(first_dispatch))
+                )
+                self._validate_origin(session, self._intent_from_row(session, intent), origin_at)
                 baseline = session.scalar(
                     select(SubmissionBaselineRow)
                     .where(SubmissionBaselineRow.account_role == intent.account_role)
@@ -3254,8 +3442,7 @@ def _validate_replacement_attempt(
     if (
         any(value is None for value in required)
         or attempt.client_order_id != expected_client_id
-        or current.state
-        not in MUTATION_ELIGIBLE_BROKER_ORDER_STATES - {"PARTIALLY_FILLED"}
+        or current.state not in MUTATION_ELIGIBLE_BROKER_ORDER_STATES - {"PARTIALLY_FILLED"}
         or current.provider_order_id is None
         or attempt.state != "PREPARED"
         or attempt.provider_order_id is not None
@@ -3451,12 +3638,29 @@ def _bound_attempt_activities(
         return known, resolved
     known_by_hash = {item.activity_id_hash: item for item in known}
     candidate_by_hash = {item.activity_id_hash: item for item in candidates}
-    if any(candidate_by_hash.get(key) != value for key, value in known_by_hash.items()):
+    window_start = _utc(state.baseline_captured_at)
+    if any(
+        candidate_by_hash.get(key) != value
+        for key, value in known_by_hash.items()
+        if not activity_predates_window(value, window_start)
+    ):
         raise ExecutionBlocked("KNOWN_ACTIVITY_MISSING")
-    new = tuple(item for item in candidates if item.activity_id_hash not in known_by_hash)
+    # Regulatory fee postings are explainable cash adjustments, not attempt evidence.
+    fees = tuple(
+        item
+        for item in candidates
+        if item.activity_id_hash not in known_by_hash and item.activity_type is ActivityType.FEE
+    )
+    new = tuple(
+        item
+        for item in candidates
+        if item.activity_id_hash not in known_by_hash and item.activity_type is not ActivityType.FEE
+    )
     if not new:
         if require_visible:
             raise ExecutionBlocked("ATTEMPT_ACTIVITY_EVIDENCE_PENDING")
+        if fees:
+            return (*known, *fees), tuple(sorted({*resolved, *(f.activity_id_hash for f in fees)}))
         return known, resolved
     if (
         attempt.filled_quantity <= 0
@@ -3485,7 +3689,15 @@ def _bound_attempt_activities(
         )
     ):
         raise ExecutionBlocked("ATTEMPT_ACTIVITY_EVIDENCE_MISMATCH")
-    return candidates, tuple(sorted({*resolved, *(item.activity_id_hash for item in new)}))
+    # Known activities that predate the sweep window (the funding journal) stay known in
+    # every successor state; they cannot be re-observed and must not be forgotten.
+    predating = tuple(
+        item for item in known if activity_predates_window(item, _utc(state.baseline_captured_at))
+    )
+    combined = {item.activity_id_hash: item for item in (*predating, *candidates)}
+    return tuple(sorted(combined.values(), key=lambda item: item.activity_id_hash)), tuple(
+        sorted({*resolved, *(item.activity_id_hash for item in (*new, *fees))})
+    )
 
 
 def _positions_after_fill(
@@ -3743,6 +3955,11 @@ def _assessment_from_row(row: AssessmentCertificateRow) -> AssessmentCertificate
         expires_at=_utc(row.expires_at),
         valid=row.valid,
         thesis_version_id=row.thesis_version_id,
+        experiment_lineage=optional_experiment_execution_lineage(
+            row.experiment_id,
+            row.experiment_source_definition_hash,
+            row.experiment_protocol_hash,
+        ),
     )
 
 

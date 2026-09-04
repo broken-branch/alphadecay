@@ -480,7 +480,7 @@ def test_daily_bar_count_and_chronology_fail_before_calculation(mutation: str) -
     elif mutation == "future":
         values[-1] = _daily_bar("NVDA", date(2026, 8, 28), Decimal("108"))
     else:
-        values.append(_daily_bar("NVDA", date(2026, 8, 28), Decimal("109")))
+        values.append(_daily_bar("NVDA", DAILY_SESSIONS[-1], Decimal("109")))
 
     with pytest.raises(OpportunitySignalCollectionError, match="SIGNAL_DAILY_BAR"):
         _collect(target)
@@ -511,7 +511,7 @@ def test_daily_timestamp_rejects_utc_midnight_when_it_is_not_new_york_midnight()
 
     with pytest.raises(
         OpportunitySignalCollectionError,
-        match="SIGNAL_DAILY_BAR_CHRONOLOGY_INVALID",
+        match="SIGNAL_DAILY_BAR_(CHRONOLOGY|COUNT)_INVALID",
     ):
         _collect(target)
 

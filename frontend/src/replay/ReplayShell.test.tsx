@@ -7,6 +7,7 @@ import {
 } from "../contracts/v1";
 import type { CompetitionRecordResponse } from "../competition-record/api";
 import { copy } from "../content/copy";
+import type { ExperimentWindowList } from "../experiments";
 import { ReplayShell } from "./ReplayShell";
 import type { OperationalState } from "./types";
 
@@ -95,6 +96,40 @@ function notPublishedArchive(): CompetitionRecordResponse {
     schema_version: "v1",
     publication_status: "NOT_PUBLISHED",
     records: [],
+  };
+}
+
+function frozenWindows(): ExperimentWindowList {
+  return {
+    schema_version: "v2",
+    windows: [{
+      schema_version: "v2",
+      plan_version: 2,
+      protocol: {
+        schema_version: "v2",
+        name: "SPY structural bullish beta pilot",
+        summary: "Bullish direction fixed before the window; one defined-risk options vertical.",
+      },
+      frozen_at: "2026-09-02T18:15:00Z",
+      decision_boundary: "2026-09-03T13:50:00Z",
+      entry_window: {
+        schema_version: "v2",
+        opens_at: "2026-09-03T13:50:00Z",
+        closes_at: "2026-09-03T14:25:00Z",
+      },
+      terminal_decision: {
+        schema_version: "v2",
+        outcome_code: "NO_TRADE",
+        reason: "The option quote was too old.",
+        decided_at: "2026-09-03T13:52:00Z",
+      },
+      lifecycle: null,
+      status: "DECIDED",
+      aborted_reason: null,
+      tick_outcome_code: null,
+      tick_outcome_text: null,
+      collapsed_versions: [2],
+    }],
   };
 }
 
@@ -308,6 +343,20 @@ describe("public Replay shell", () => {
     expect(await screen.findByRole("dialog", { name: copy.ownerSettings.title })).toBeInTheDocument();
   });
 
+  it("opens the Replay keyboard guide with ? from a focused navigation button", async () => {
+    const user = userEvent.setup();
+    render(<ReplayShell />);
+
+    const replay = screen.getByRole("button", { name: copy.productShell.replay });
+    await user.click(replay);
+    expect(replay).toHaveFocus();
+    await user.keyboard("?");
+
+    expect(
+      await screen.findByRole("dialog", { name: copy.ownerSettings.title }),
+    ).toBeVisible();
+  });
+
   it("labels an unpublished competition record without implying a measured return", async () => {
     const user = userEvent.setup();
     const proof: CompetitionPerformanceProofResponse = {
@@ -323,7 +372,7 @@ describe("public Replay shell", () => {
 
     render(<ReplayShell proofLoader={async () => proof} />);
 
-    await user.click(screen.getByRole("button", { name: copy.gateway.competition }));
+    await user.click(screen.getByRole("button", { name: copy.productShell.experiments }));
     const record = screen.getByRole("region", { name: copy.performance.label });
     expect(
       await screen.findByRole("heading", { name: copy.performance.notPublished }),
@@ -340,7 +389,7 @@ describe("public Replay shell", () => {
     };
     render(<ReplayShell proofLoader={unavailable} />);
 
-    await user.click(screen.getByRole("button", { name: copy.gateway.competition }));
+    await user.click(screen.getByRole("button", { name: copy.productShell.experiments }));
     const record = screen.getByRole("region", { name: copy.performance.label });
     expect(
       await screen.findByRole("heading", { name: copy.performance.unavailable }),
@@ -350,6 +399,7 @@ describe("public Replay shell", () => {
   });
 
   it("shows every field in a complete clean competition proof", async () => {
+    const user = userEvent.setup();
     render(
       <ReplayShell proofLoader={async () => publishedProof(completePoint, "BASELINE_CLEAN")} />,
     );
@@ -368,11 +418,16 @@ describe("public Replay shell", () => {
     expect(proof).toHaveTextContent("1.2505%");
     expect(proof).toHaveTextContent("$210.25");
     expect(proof).toHaveTextContent("-$45.75");
+    expect(proof).toHaveTextContent(copy.performance.lifecycleCashflow);
+    expect(proof).toHaveTextContent(copy.performance.liquidationPnl);
     expect(proof).toHaveTextContent("2026-09-04T14:30:00Z");
     expect(proof).toHaveTextContent("2026-09-04T14:31:00Z");
     expect(proof).toHaveTextContent("2026-09-04T14:32:00Z");
     expect(proof).toHaveTextContent("2026-09-04T14:36:00Z");
-    expect(proof).toHaveTextContent("a".repeat(64));
+    const publicationHash = screen.getByText("a".repeat(64));
+    expect(publicationHash).not.toBeVisible();
+    await user.click(screen.getByText(copy.performance.technicalSummary));
+    expect(publicationHash).toBeVisible();
     expect(proof).toHaveTextContent(copy.performance.firstPublication);
     expect(proof).toHaveTextContent(`${copy.performance.linkedCertificates}2`);
     expect(proof).toHaveTextContent(copy.performance.simulatorDetail);
@@ -410,7 +465,7 @@ describe("public Replay shell", () => {
     });
     render(<ReplayShell proofLoader={() => pendingProof} />);
 
-    await userEvent.setup().click(screen.getByRole("button", { name: copy.gateway.competition }));
+    await userEvent.setup().click(screen.getByRole("button", { name: copy.productShell.experiments }));
     const announcement = screen.getByRole("heading", { name: copy.performance.loading });
     expect(announcement).toHaveAttribute("aria-live", "polite");
     expect(announcement).toHaveAttribute("aria-atomic", "true");
@@ -535,7 +590,9 @@ describe("public Replay shell", () => {
     await user.click(screen.getByRole("tab", { name: copy.navigation.record }));
     expect(screen.getAllByText(copy.alternatives.unavailable)).toHaveLength(3);
     await user.click(screen.getByRole("tab", { name: copy.navigation.run }));
-    expect(screen.getAllByText(copy.run.notRun)).toHaveLength(2);
+    expect(screen.getByRole("tabpanel", { name: copy.navigation.run })).toHaveTextContent(
+      copy.run.certify,
+    );
   });
 
   it("does not imply source attribution for fixture-only Replay state", () => {
@@ -588,9 +645,13 @@ describe("public Replay shell", () => {
     expect(evidence).toHaveTextContent(copy.provenanceDetail.sourceValue);
     expect(evidence).toHaveTextContent(copy.provenanceDetail.weakenedClassification);
 
-    await user.click(screen.getByRole("tab", { name: copy.navigation.run }));
+    await user.click(screen.getByRole("tab", { name: copy.navigation.record }));
     const cycle = screen.getByRole("region", { name: copy.autonomy.title });
+    expect(cycle).not.toBeVisible();
+    expect(screen.getByText(copy.run.technologyTitle)).not.toBeVisible();
+    await user.click(screen.getByText(copy.certificate.howChecked));
     expect(cycle).toHaveTextContent(copy.autonomy.disarmed);
+    expect(cycle).toBeVisible();
     expect(cycle).toHaveTextContent(copy.autonomy.emptyBookRouteValue);
     expect(cycle).toHaveTextContent(copy.autonomy.managedPositionRouteValue);
   });
@@ -670,13 +731,13 @@ describe("public Replay shell", () => {
     );
 
     const proof = await screen.findByRole("region", { name: copy.performance.label });
-    expect(screen.getByRole("button", { name: copy.gateway.competition })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: copy.productShell.experiments })).toHaveAttribute(
       "aria-current",
       "page",
     );
     expect(screen.queryByRole("tabpanel", { name: copy.navigation.overview })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: copy.gateway.demo }));
+    await user.click(screen.getByRole("button", { name: copy.productShell.replay }));
     const evidence = screen.getByRole("tabpanel", { name: copy.navigation.overview });
     expect(proof).not.toBeInTheDocument();
     expect(evidence).toBeVisible();
@@ -687,14 +748,39 @@ describe("public Replay shell", () => {
     render(<ReplayShell archiveLoader={async () => publishedArchive()} />);
 
     await waitFor(() => expect(
-      screen.getByRole("button", { name: copy.gateway.competition }),
+      screen.getByRole("button", { name: copy.productShell.experiments }),
     ).toHaveAttribute("aria-current", "page"));
-    expect(screen.getByRole("heading", { name: copy.competitionRecord.noTrade })).toBeVisible();
+    expect(screen.getByRole("heading", { name: copy.gateway.competitionTitle })).toBeVisible();
+    expect(screen.getByRole("link", { name: copy.productShell.viewCompetitionExperiment })).toHaveAttribute(
+      "href",
+      "#competition-experiment-workspace",
+    );
+    expect(
+      await screen.findByRole("heading", { name: copy.experiment.adapter.noTradeName }),
+    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: copy.experiment.status.rejected })).toBeVisible();
     expect(screen.queryByText(copy.provenance.banner)).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: copy.gateway.demo }));
+    await user.click(screen.getByRole("button", { name: copy.productShell.replay }));
     expect(screen.getByText(copy.provenance.banner)).toBeVisible();
-    expect(screen.queryByRole("heading", { name: copy.competitionRecord.noTrade })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: copy.experiment.adapter.noTradeName })).not.toBeInTheDocument();
+  });
+
+  it("shows every frozen window on the logged-out Experiments page", async () => {
+    render(
+      <ReplayShell
+        archiveLoader={async () => notPublishedArchive()}
+        experimentWindowsLoader={async () => frozenWindows()}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: copy.experiment.windows.title })).toBeVisible();
+    const timeline = screen.getByRole("list", { name: copy.experiment.windows.timelineLabel });
+    expect(timeline).toHaveTextContent("SPY structural bullish beta pilot");
+    expect(timeline).toHaveTextContent(copy.experiment.windows.noTrade);
+    expect(timeline).toHaveTextContent("The option quote was too old.");
+    expect(screen.queryByText(copy.experiment.history.notPublished)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: copy.productShell.openReplay })).toBeVisible();
   });
 
   it("waits for the competition record before choosing the first view", async () => {
@@ -702,23 +788,30 @@ describe("public Replay shell", () => {
     const pendingArchive = new Promise<CompetitionRecordResponse>((resolve) => {
       resolveArchive = resolve;
     });
-    render(<ReplayShell archiveLoader={() => pendingArchive} />);
+    render(
+      <ReplayShell
+        archiveLoader={() => pendingArchive}
+        experimentWindowsLoader={async () => ({ schema_version: "v2", windows: [] })}
+      />,
+    );
 
     expect(screen.getByRole("heading", { name: copy.competitionRecord.loading })).toBeVisible();
-    expect(screen.getByRole("button", { name: copy.gateway.competition })).not.toHaveAttribute(
+    expect(screen.getByRole("button", { name: copy.productShell.experiments })).not.toHaveAttribute(
       "aria-current",
     );
-    expect(screen.getByRole("button", { name: copy.gateway.demo })).not.toHaveAttribute(
+    expect(screen.getByRole("button", { name: copy.productShell.replay })).not.toHaveAttribute(
       "aria-current",
     );
     expect(screen.queryByText(copy.provenance.banner)).not.toBeInTheDocument();
 
     await act(async () => resolveArchive(notPublishedArchive()));
-    expect(screen.getByRole("button", { name: copy.gateway.demo })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: copy.productShell.experiments })).toHaveAttribute(
       "aria-current",
       "page",
     );
-    expect(screen.getByText(copy.provenance.banner)).toBeVisible();
+    expect(screen.getByRole("heading", { name: copy.productShell.landing.recordPending })).toBeVisible();
+    expect(screen.getByRole("button", { name: copy.productShell.openReplay })).toBeVisible();
+    expect(screen.queryByText(copy.provenance.banner)).not.toBeInTheDocument();
   });
 
   it("uses the healthy empty archive instead of an earlier performance response", async () => {
@@ -729,9 +822,9 @@ describe("public Replay shell", () => {
       />,
     );
 
-    const demo = screen.getByRole("button", { name: copy.gateway.demo });
-    await waitFor(() => expect(demo).toHaveAttribute("aria-current", "page"));
-    expect(screen.getByText(copy.provenance.banner)).toBeVisible();
+    const experiments = screen.getByRole("button", { name: copy.productShell.experiments });
+    await waitFor(() => expect(experiments).toHaveAttribute("aria-current", "page"));
+    expect(screen.queryByText(copy.provenance.banner)).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: copy.performance.label })).not.toBeInTheDocument();
   });
 
@@ -743,7 +836,7 @@ describe("public Replay shell", () => {
     });
     render(<ReplayShell archiveLoader={() => pendingArchive} />);
 
-    const demo = screen.getByRole("button", { name: copy.gateway.demo });
+    const demo = screen.getByRole("button", { name: copy.productShell.replay });
     await user.click(demo);
     expect(demo).toHaveAttribute("aria-current", "page");
 
@@ -760,7 +853,7 @@ describe("public Replay shell", () => {
     };
     render(<ReplayShell archiveLoader={unavailable} proofLoader={unavailable} />);
 
-    await user.click(screen.getByRole("button", { name: copy.gateway.competition }));
+    await user.click(screen.getByRole("button", { name: copy.productShell.experiments }));
 
     expect(
       await screen.findAllByRole("heading", { name: copy.competitionRecord.unavailable }),
@@ -768,7 +861,7 @@ describe("public Replay shell", () => {
     expect(screen.queryByRole("region", { name: copy.performance.label })).not.toBeInTheDocument();
   });
 
-  it("opens the sample demo when no competition result is published", async () => {
+  it("opens the experiment record when no competition result is published", async () => {
     const proof: CompetitionPerformanceProofResponse = {
       schema_version: "v1",
       publication_status: "NOT_PUBLISHED",
@@ -781,13 +874,12 @@ describe("public Replay shell", () => {
     };
     render(<ReplayShell proofLoader={async () => proof} />);
 
-    const demo = screen.getByRole("button", { name: copy.gateway.demo });
-    await waitFor(() => expect(demo).toHaveAttribute("aria-current", "page"));
-    expect(screen.getByText(copy.gateway.sample)).toBeVisible();
-    expect(screen.getByRole("status", { name: "" })).toHaveTextContent(
-      copy.provenance.banner,
+    const experiments = screen.getByRole("button", { name: copy.productShell.experiments });
+    await waitFor(() => expect(experiments).toHaveAttribute("aria-current", "page"));
+    expect(screen.queryByText(copy.provenance.banner)).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: copy.performance.label })).toHaveTextContent(
+      copy.performance.notPublished,
     );
-    expect(screen.queryByRole("region", { name: copy.performance.label })).not.toBeInTheDocument();
   });
 
   it("keeps the hosted Replay free of private account and provider controls", async () => {
@@ -803,8 +895,8 @@ describe("public Replay shell", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: copy.gateway.setup }));
-    expect(screen.getByRole("button", { name: copy.gateway.setup })).toHaveClass(
+    await user.click(screen.getByRole("button", { name: copy.productShell.settings }));
+    expect(screen.getByRole("button", { name: copy.productShell.settings })).toHaveClass(
       "workspace-nav__secondary",
     );
     expect(screen.getByRole("heading", { name: copy.gateway.setupTitle })).toBeVisible();
@@ -816,6 +908,8 @@ describe("public Replay shell", () => {
     expect(screen.getByRole("heading", { name: copy.gateway.publicTitle })).toBeVisible();
     expect(screen.queryByRole("button", { name: copy.gateway.ownerAction })).not.toBeInTheDocument();
 
+    expect(screen.queryByRole("button", { name: copy.keyboardGuide.toggleGuide })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: copy.productShell.replay }));
     const shortcuts = screen.getByRole("button", { name: copy.keyboardGuide.toggleGuide });
     expect(shortcuts).toHaveClass("keyboard-trigger--icon");
     expect(shortcuts).not.toHaveTextContent(copy.ownerSettings.entry);
@@ -829,6 +923,12 @@ describe("public Replay shell", () => {
     render(<ReplayShell />);
 
     expect(screen.getByRole("link", { name: copy.footer.api })).toHaveAttribute("href", "/docs");
+  });
+
+  it("marks the Replay tabs for two-row phone layout", () => {
+    render(<ReplayShell />);
+
+    expect(screen.getByRole("tablist")).toHaveClass("tab-list--wrap-on-phone");
   });
 
   it("shows Replay provenance once without repeating badges through the review", () => {

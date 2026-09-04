@@ -215,9 +215,7 @@ def test_execute_reverifies_identity_and_paper_doctor_immediately_before_submit(
     assert "account-id" not in persisted
     assert "credential_fingerprint" not in persisted
     assert '"status"' not in (artifacts / "result.json").read_text()
-    assert '"outcome":"DISPATCH_RESPONSE_RECEIVED"' in (
-        artifacts / "result.json"
-    ).read_text()
+    assert '"outcome":"DISPATCH_RESPONSE_RECEIVED"' in (artifacts / "result.json").read_text()
     assert "key" not in persisted and "secret" not in persisted
     assert set(path.name for path in artifacts.iterdir()) == {
         "request.json",
@@ -301,9 +299,7 @@ def test_rejects_quantity_above_public_structural_bound(tmp_path: Path) -> None:
     approval = _approval()
     approval["order"]["qty"] = "101"
     approval["order_sha256"] = hashlib.sha256(
-        json.dumps(
-            approval["order"], sort_keys=True, separators=(",", ":")
-        ).encode("ascii")
+        json.dumps(approval["order"], sort_keys=True, separators=(",", ":")).encode("ascii")
     ).hexdigest()
     _rehash_approval(approval)
     process = _runner()
@@ -479,9 +475,7 @@ def test_uncertain_dispatch_cannot_be_retried_with_a_new_artifact_directory(
             now=lambda: NOW,
         )
     assert len(retry.calls) == 5
-    assert not any(
-        "order" in call[1] and "--dry-run" not in call[1] for call in retry.calls
-    )
+    assert not any("order" in call[1] and "--dry-run" not in call[1] for call in retry.calls)
 
 
 def test_artifacts_are_private_and_canonical(tmp_path: Path) -> None:

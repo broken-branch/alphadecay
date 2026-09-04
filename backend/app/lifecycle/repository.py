@@ -62,12 +62,21 @@ class SQLAlchemyLifecycleRepository:
                     ManagedLifecyclePositionRow.closed_at.is_(None),
                 )
             ).all()
-            if len(positions) != 1:
+            if not positions:
                 raise LifecyclePersistenceError("ACTIVE_POSITION_NOT_UNIQUE")
+            positions.sort(key=lambda item: (item.activated_at, str(item.managed_position_id)))
             position = positions[0]
             if position.account_fingerprint != authority.account_fingerprint:
                 raise LifecyclePersistenceError("ACCOUNT_AUTHORITY_MISMATCH")
-            snapshot = session.get(ManagedPositionSnapshotRow, position.current_snapshot_id)
+            snapshots = {
+                item.managed_position_id: session.get(
+                    ManagedPositionSnapshotRow, item.current_snapshot_id
+                )
+                for item in positions
+            }
+            if any(item is None for item in snapshots.values()):
+                raise LifecyclePersistenceError("CONTEXT_LINEAGE_INCOMPLETE")
+            snapshot = snapshots[position.managed_position_id]
             thesis = session.get(ThesisVersionRow, position.thesis_version_id)
             launch = session.get(LifecycleLaunchAuthorityRow, position.managed_position_id)
             greek = session.scalar(
@@ -97,9 +106,47 @@ class SQLAlchemyLifecycleRepository:
             )
             if len(inventory) != 2:
                 raise LifecyclePersistenceError("CONTEXT_INVENTORY_INVALID")
+            account_inventory: dict[str, RetainedOptionPosition] = {}
+            account_activity_hashes: set[str] = set()
+            account_origin_at = _transition_origin_at(transitions[0])
+            for active in positions:
+                active_snapshot = snapshots[active.managed_position_id]
+                assert active_snapshot is not None
+                for item in active_snapshot.normalized_inventory:
+                    symbol = str(item["symbol"])
+                    quantity = Decimal(str(item["signed_quantity"]))
+                    existing = account_inventory.get(symbol)
+                    total = quantity if existing is None else existing.signed_quantity + quantity
+                    if total == 0:
+                        account_inventory.pop(symbol, None)
+                    else:
+                        account_inventory[symbol] = RetainedOptionPosition(
+                            symbol=symbol, signed_quantity=total, multiplier=int(item["multiplier"])
+                        )
+                active_transitions = session.scalars(
+                    select(ManagedPositionTransitionRow)
+                    .where(
+                        ManagedPositionTransitionRow.managed_position_id
+                        == active.managed_position_id
+                    )
+                    .order_by(ManagedPositionTransitionRow.transition_sequence)
+                ).all()
+                if not active_transitions:
+                    raise LifecyclePersistenceError("CONTEXT_LINEAGE_INCOMPLETE")
+                account_origin_at = min(
+                    account_origin_at, _transition_origin_at(active_transitions[0])
+                )
+                account_activity_hashes.update(
+                    str(value["activity_id_hash"])
+                    for transition in active_transitions
+                    for value in transition.fill_activity_manifest
+                )
             limits = thesis.exposure_limits
             try:
-                response = ThesisResponse.model_validate(thesis.thesis_payload)
+                response_payload = dict(thesis.thesis_payload)
+                response_payload.pop("origin_hash", None)
+                response_payload.pop("origin_material", None)
+                response = ThesisResponse.model_validate(response_payload)
                 return RetainedLifecycleContext(
                     thesis_version_id=thesis.thesis_version_id,
                     account_role=authority.role,
@@ -107,11 +154,11 @@ class SQLAlchemyLifecycleRepository:
                     policy_hash=thesis.policy_hash,
                     thesis=response,
                     thesis_frozen_at=_utc(thesis.frozen_at),
-                    lifecycle_origin_at=_utc(transitions[0].occurred_at),
+                    lifecycle_origin_at=_transition_origin_at(transitions[0]),
                     lifecycle_transitions=tuple(
                         RetainedLifecycleTransition(
                             action=item.action,
-                            occurred_at=_utc(item.occurred_at),
+                            occurred_at=_transition_origin_at(item),
                             market_session_id=item.market_session_id,
                             cashflow=Decimal(item.cashflow_contribution),
                             activity_hashes=tuple(
@@ -126,6 +173,11 @@ class SQLAlchemyLifecycleRepository:
                     target_at=_utc(thesis.target_at),
                     position_fingerprint=position.active_position_fingerprint,
                     expected_positions=(inventory[0], inventory[1]),
+                    account_expected_positions=tuple(
+                        account_inventory[symbol] for symbol in sorted(account_inventory)
+                    ),
+                    account_activity_hashes=tuple(sorted(account_activity_hashes)),
+                    account_lifecycle_origin_at=account_origin_at,
                     delta_low=Decimal(str(limits["delta_low"])),
                     delta_high=Decimal(str(limits["delta_high"])),
                     vega_low=Decimal(str(limits["vega_low"])),
@@ -529,7 +581,8 @@ class SQLAlchemyLifecycleRepository:
             sweep_hash,
             _utc(sweep.retrieval_started_at),
             _utc(sweep.retrieval_completed_at),
-            _utc(trusted_at),
+            # The observation is accepted no earlier than the sweep that produced it.
+            max(_utc(trusted_at), _utc(sweep.retrieval_completed_at)),
         )
         prior = session.get(LifecycleAccountObservationRow, account_id)
         if prior is not None:
@@ -720,3 +773,19 @@ def _utc(value: datetime) -> datetime:
 def _require_persisted_role(role: AccountRole) -> None:
     if role not in {AccountRole.DEVELOPMENT, AccountRole.SUBMISSION}:
         raise LifecyclePersistenceError("EXECUTABLE_ROLE_REQUIRED")
+
+
+def _transition_origin_at(row: ManagedPositionTransitionRow) -> datetime:
+    """The lifecycle window opens at the earliest fill of the entry, not at the transition stamp.
+
+    A multi-leg fill's legs print microseconds apart and the transition is stamped at the
+    latest leg, so a window that started at the transition would exclude the earlier leg.
+    """
+    origin = _utc(row.occurred_at)
+    for item in row.fill_activity_manifest or ():
+        try:
+            occurred = datetime.fromisoformat(str(item["occurred_at"]))
+        except (KeyError, TypeError, ValueError):
+            continue
+        origin = min(origin, _utc(occurred))
+    return origin

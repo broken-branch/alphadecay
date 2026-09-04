@@ -47,6 +47,7 @@ from backend.app.persistence.sqlalchemy_models import (
 from .fingerprint import option_position_fingerprint
 
 _HASH = re.compile(r"^[0-9a-f]{64}$")
+_EXECUTABLE_ACCOUNT_ROLES = frozenset({"DEVELOPMENT", "SUBMISSION"})
 _FINALIZATION_CHECKS = (
     "TERMINAL",
     "REMAINDER_ABSENT",
@@ -149,7 +150,7 @@ class SQLAlchemyLifecycleTerminalMaterializer:
                         session.scalars(
                             select(ManagedLifecyclePositionRow)
                             .where(
-                                ManagedLifecyclePositionRow.account_role == "DEVELOPMENT",
+                                ManagedLifecyclePositionRow.account_role == assessment.account_role,
                                 ManagedLifecyclePositionRow.closed_at.is_(None),
                                 ManagedLifecyclePositionRow.active_position_fingerprint
                                 == (assessment.position_fingerprint if assessment else ""),
@@ -423,7 +424,7 @@ def _validate_terminal_lineage(
         intent.action not in expected_outcomes
         or intent.state != "TERMINAL"
         or not intent.first_fill_consumed
-        or intent.account_role != "DEVELOPMENT"
+        or intent.account_role not in _EXECUTABLE_ACCOUNT_ROLES
         or certificate.certificate_id
         != uuid5(NAMESPACE_URL, f"alphadecay:execution:{intent.intent_digest}")
         or certificate.execution_intent_id != intent.intent_id
@@ -443,14 +444,17 @@ def _validate_terminal_lineage(
         or intent.quantity != assessment.quantity
         or (intent.action == "ROLL") != (assessment.expected_after_exposure is not None)
         or not assessment.valid
-        or assessment.account_role != "DEVELOPMENT"
+        or assessment.account_role != intent.account_role
         or assessment.thesis_version_id != thesis.thesis_version_id
+        or thesis.account_role != intent.account_role
         or assessment.policy_hash != thesis.policy_hash
         or assessment.policy_hash != intent.policy_hash
         or assessment.agent_decision_id != decision.decision_id
+        or _experiment_lineage_values(assessment) != _experiment_lineage_values(decision)
+        or _experiment_lineage_values(assessment) != _experiment_lineage_values(position)
         or decision.input_snapshot_id != input_snapshot.snapshot_id
         or decision.thesis_version_id != thesis.thesis_version_id
-        or decision.account_role != "DEVELOPMENT"
+        or decision.account_role != intent.account_role
         or decision.account_fingerprint != position.account_fingerprint
         or decision.decision_kind != "ASSESSMENT"
         or decision.decision_boundary != input_snapshot.decision_boundary
@@ -458,7 +462,7 @@ def _validate_terminal_lineage(
         or decision.policy_hash != thesis.policy_hash
         or not decision.autonomy_authorized
         or input_snapshot.thesis_version_id != thesis.thesis_version_id
-        or input_snapshot.account_role != "DEVELOPMENT"
+        or input_snapshot.account_role != intent.account_role
         or input_snapshot.account_fingerprint != position.account_fingerprint
         or input_snapshot.decision_kind != "ASSESSMENT"
         or binding.agent_input_snapshot_id != input_snapshot.snapshot_id
@@ -469,28 +473,30 @@ def _validate_terminal_lineage(
         or manifest.reconciliation_id is not None
         or account_observation.managed_position_id != position.managed_position_id
         or account_observation.managed_snapshot_id != predecessor_snapshot.snapshot_id
-        or account_observation.account_role != "DEVELOPMENT"
+        or account_observation.account_role != intent.account_role
         or account_observation.account_fingerprint != position.account_fingerprint
         or account_observation.sweep_hash != manifest.sweep_hash
         or input_snapshot.normalized_payload.get("acquisition_manifest_id")
         != str(manifest.manifest_id)
         or input_snapshot.normalized_payload.get("acquisition_manifest_hash")
         != manifest.manifest_hash
-        or position.account_role != "DEVELOPMENT"
+        or position.account_role != intent.account_role
         or position.account_fingerprint != account.account_fingerprint
-        or account.role != "DEVELOPMENT"
+        or account.role != intent.account_role
         or position.thesis_version_id != thesis.thesis_version_id
         or predecessor.managed_position_id != position.managed_position_id
         or predecessor_snapshot.managed_position_id != position.managed_position_id
         or predecessor_snapshot.transition_id != predecessor.transition_id
         or predecessor_snapshot.position_fingerprint != assessment.position_fingerprint
-        or reconciliation.account_role != "DEVELOPMENT"
+        or predecessor_state.account_role != intent.account_role
+        or predecessor_state.account_fingerprint != position.account_fingerprint
+        or reconciliation.account_role != intent.account_role
         or reconciliation.account_fingerprint != position.account_fingerprint
         or reconciliation.execution_intent_id != intent.intent_id
         or reconciliation.intent_digest != intent.intent_digest
         or not reconciliation.safe
         or reconciliation.block_codes
-        or state.account_role != "DEVELOPMENT"
+        or state.account_role != intent.account_role
         or state.account_fingerprint != position.account_fingerprint
         or state.authority_reconciliation_id != reconciliation.reconciliation_id
         or state.predecessor_state_id != predecessor_snapshot.reconciliation_state_id
@@ -506,7 +512,12 @@ def _validate_terminal_lineage(
         or state.authority_observation_id != observation.observation_id
         or state.authority_permit_request_hash != permit.request_hash
         or reconciliation.attempt_ordinal != permit.attempt_ordinal
-        or reconciliation.request_hash != permit.request_hash
+        or reconciliation.request_hash
+        != _final_reconciliation_request_hash(
+            intent.intent_digest,
+            permit.attempt_ordinal,
+            observation.observation_hash,
+        )
         or reconciliation.purpose != permit.mutation_kind
         or permit.execution_intent_id != intent.intent_id
         or permit.intent_digest != intent.intent_digest
@@ -612,6 +623,14 @@ def _validate_terminal_lineage(
         (item.fill_cash_flow or Decimal(0)) for item in attempts if item.filled_quantity > 0
     )
     return inventory, activities, cashflow, fingerprint
+
+
+def _experiment_lineage_values(row) -> tuple[object | None, object | None, object | None]:
+    return (
+        row.experiment_id,
+        row.experiment_source_definition_hash,
+        row.experiment_protocol_hash,
+    )
 
 
 def _validate_intent_envelope(intent, assessment, position) -> None:
@@ -1003,6 +1022,26 @@ def _json_hash(session, value) -> str:
         return session.scalar(select(func.lifecycle_json_hash(literal(value, JSONB))))
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def _final_reconciliation_request_hash(
+    intent_digest: str,
+    attempt_ordinal: int,
+    observation_hash: str,
+) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            {
+                "domain": "alphadecay.final-reconciliation.v1",
+                "intent_digest": intent_digest,
+                "attempt_ordinal": attempt_ordinal,
+                "last_observation_hash": observation_hash,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        ).encode()
     ).hexdigest()
 
 

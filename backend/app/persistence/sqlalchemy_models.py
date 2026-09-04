@@ -12,6 +12,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     LargeBinary,
@@ -320,9 +321,7 @@ class AgentInputSnapshotRow(Base):
         CheckConstraint(
             "decision_kind IN ('OPPORTUNITY', 'ASSESSMENT')", name="ck_agent_input_kind"
         ),
-        UniqueConstraint(
-            "account_role", "decision_kind", "decision_boundary", name="uq_agent_input_boundary"
-        ),
+        Index("ix_agent_input_boundary", "account_role", "decision_kind", "decision_boundary"),
         CheckConstraint(
             "observed_at >= decision_boundary", name="ck_agent_input_observation_boundary"
         ),
@@ -361,8 +360,26 @@ class AgentDecisionRow(Base):
         CheckConstraint(
             "NOT (account_role = 'SUBMISSION' AND decision_kind = 'OPPORTUNITY') OR "
             "(outcome = 'NO_TRADE' AND reason_code = 'CALIBRATION_BINDING_NO_TRADE' "
+            "AND autonomy_authorized = false) OR "
+            "(outcome IN ('NO_TRADE', 'OPPORTUNITY_DECISION_PENDING', "
+            "'PROVIDER_FAILURE_NO_TRADE') "
             "AND autonomy_authorized = false) OR thesis_version_id IS NOT NULL",
             name="ck_submission_opportunity_lineage",
+        ),
+        Index(
+            "uq_agent_policy_decision_boundary",
+            "account_role",
+            "decision_kind",
+            "decision_boundary",
+            unique=True,
+            sqlite_where=text(
+                "outcome NOT IN ('OPPORTUNITY_DECISION_PENDING', "
+                "'PROVIDER_FAILURE_NO_TRADE', 'PROVIDER_FAILURE_NO_ACTION')"
+            ),
+            postgresql_where=text(
+                "outcome NOT IN ('OPPORTUNITY_DECISION_PENDING', "
+                "'PROVIDER_FAILURE_NO_TRADE', 'PROVIDER_FAILURE_NO_ACTION')"
+            ),
         ),
         CheckConstraint(
             "length(account_fingerprint) = 64 AND "
@@ -376,6 +393,35 @@ class AgentDecisionRow(Base):
             "policy_hash ~ '^[0-9a-f]{64}$' AND result_hash ~ '^[0-9a-f]{64}$'",
             name="ck_agent_decision_hashes",
         ).ddl_if(dialect="postgresql"),
+        CheckConstraint(
+            "(experiment_id IS NULL AND experiment_source_definition_hash IS NULL "
+            "AND experiment_protocol_hash IS NULL) OR "
+            "(experiment_id IS NOT NULL AND experiment_source_definition_hash IS NOT NULL "
+            "AND experiment_protocol_hash IS NOT NULL)",
+            name="ck_agent_decision_experiment_lineage",
+        ),
+        ForeignKeyConstraint(
+            (
+                "experiment_id",
+                "experiment_source_definition_hash",
+                "experiment_protocol_hash",
+            ),
+            (
+                "compiled_experiment_versions.experiment_id",
+                "compiled_experiment_versions.source_definition_hash",
+                "compiled_experiment_versions.protocol_hash",
+            ),
+            name="fk_agent_decision_experiment_compiled",
+            ondelete="RESTRICT",
+            match="FULL",
+        ),
+        UniqueConstraint(
+            "decision_id",
+            "experiment_id",
+            "experiment_source_definition_hash",
+            "experiment_protocol_hash",
+            name="uq_agent_decision_experiment_identity",
+        ),
     )
 
     decision_id: Mapped[UUID] = mapped_column(primary_key=True)
@@ -392,6 +438,9 @@ class AgentDecisionRow(Base):
     outcome: Mapped[str] = mapped_column(String(48))
     reason_code: Mapped[str] = mapped_column(String(64))
     policy_hash: Mapped[str] = mapped_column(String(64))
+    experiment_id: Mapped[UUID | None] = mapped_column()
+    experiment_source_definition_hash: Mapped[str | None] = mapped_column(String(64))
+    experiment_protocol_hash: Mapped[str | None] = mapped_column(String(64))
     result_payload: Mapped[dict[str, object]] = mapped_column(JSON_DOCUMENT)
     result_hash: Mapped[str] = mapped_column(String(64), unique=True)
     autonomy_authorized: Mapped[bool] = mapped_column(Boolean)
@@ -453,6 +502,37 @@ class EntryApprovalCertificateRow(Base):
             name="ck_entry_approval_quantity",
         ),
         CheckConstraint("expires_at > valid_from", name="ck_entry_approval_validity"),
+        CheckConstraint(
+            "(experiment_id IS NULL AND experiment_source_definition_hash IS NULL "
+            "AND experiment_protocol_hash IS NULL) OR "
+            "(experiment_id IS NOT NULL AND agent_decision_id IS NOT NULL "
+            "AND experiment_source_definition_hash IS NOT NULL "
+            "AND experiment_protocol_hash IS NOT NULL)",
+            name="ck_entry_approval_experiment_lineage",
+        ),
+        ForeignKeyConstraint(
+            (
+                "agent_decision_id",
+                "experiment_id",
+                "experiment_source_definition_hash",
+                "experiment_protocol_hash",
+            ),
+            (
+                "agent_decisions.decision_id",
+                "agent_decisions.experiment_id",
+                "agent_decisions.experiment_source_definition_hash",
+                "agent_decisions.experiment_protocol_hash",
+            ),
+            name="fk_entry_approval_experiment_decision",
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint(
+            "approval_id",
+            "experiment_id",
+            "experiment_source_definition_hash",
+            "experiment_protocol_hash",
+            name="uq_entry_approval_experiment_identity",
+        ),
     )
 
     approval_id: Mapped[UUID] = mapped_column(primary_key=True)
@@ -464,6 +544,9 @@ class EntryApprovalCertificateRow(Base):
     )
     account_role: Mapped[str] = mapped_column(ForeignKey("account_roles.role"))
     policy_hash: Mapped[str] = mapped_column(String(64))
+    experiment_id: Mapped[UUID | None] = mapped_column()
+    experiment_source_definition_hash: Mapped[str | None] = mapped_column(String(64))
+    experiment_protocol_hash: Mapped[str | None] = mapped_column(String(64))
     book_fingerprint: Mapped[str] = mapped_column(String(64))
     envelope_hash: Mapped[str] = mapped_column(String(64))
     approved_max_loss: Mapped[Decimal] = mapped_column(Numeric(18, 6))
@@ -706,6 +789,30 @@ class AssessmentCertificateRow(Base):
             name="ck_assessment_quantity",
         ),
         CheckConstraint("expires_at > created_at", name="ck_assessment_validity"),
+        CheckConstraint(
+            "(experiment_id IS NULL AND experiment_source_definition_hash IS NULL "
+            "AND experiment_protocol_hash IS NULL) OR "
+            "(experiment_id IS NOT NULL AND agent_decision_id IS NOT NULL "
+            "AND experiment_source_definition_hash IS NOT NULL "
+            "AND experiment_protocol_hash IS NOT NULL)",
+            name="ck_assessment_experiment_lineage",
+        ),
+        ForeignKeyConstraint(
+            (
+                "agent_decision_id",
+                "experiment_id",
+                "experiment_source_definition_hash",
+                "experiment_protocol_hash",
+            ),
+            (
+                "agent_decisions.decision_id",
+                "agent_decisions.experiment_id",
+                "agent_decisions.experiment_source_definition_hash",
+                "agent_decisions.experiment_protocol_hash",
+            ),
+            name="fk_assessment_experiment_decision",
+            ondelete="RESTRICT",
+        ),
     )
 
     certificate_id: Mapped[UUID] = mapped_column(primary_key=True)
@@ -724,6 +831,9 @@ class AssessmentCertificateRow(Base):
     quantity: Mapped[int] = mapped_column(Integer)
     expected_after_exposure: Mapped[dict[str, object] | None] = mapped_column(JSON_DOCUMENT)
     policy_hash: Mapped[str] = mapped_column(String(64))
+    experiment_id: Mapped[UUID | None] = mapped_column()
+    experiment_source_definition_hash: Mapped[str | None] = mapped_column(String(64))
+    experiment_protocol_hash: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     valid: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -733,11 +843,11 @@ class ExecutionIntentRow(Base):
     __tablename__ = "execution_intents"
     __table_args__ = (
         Index(
-            "uq_entry_event_day",
+            "ix_entry_event_day",
             "account_role",
             "event_key",
             "trading_day",
-            unique=True,
+            unique=False,
             postgresql_where=text("action = 'ENTRY'"),
             sqlite_where=text("action = 'ENTRY'"),
         ),
@@ -954,6 +1064,29 @@ class ManagedLifecyclePositionRow(Base):
             postgresql_where=text("closed_at IS NULL"),
             sqlite_where=text("closed_at IS NULL"),
         ),
+        CheckConstraint(
+            "(experiment_id IS NULL AND experiment_source_definition_hash IS NULL "
+            "AND experiment_protocol_hash IS NULL) OR "
+            "(experiment_id IS NOT NULL AND experiment_source_definition_hash IS NOT NULL "
+            "AND experiment_protocol_hash IS NOT NULL)",
+            name="ck_managed_position_experiment_lineage",
+        ),
+        ForeignKeyConstraint(
+            (
+                "entry_approval_id",
+                "experiment_id",
+                "experiment_source_definition_hash",
+                "experiment_protocol_hash",
+            ),
+            (
+                "entry_approval_certificates.approval_id",
+                "entry_approval_certificates.experiment_id",
+                "entry_approval_certificates.experiment_source_definition_hash",
+                "entry_approval_certificates.experiment_protocol_hash",
+            ),
+            name="fk_managed_position_experiment_approval",
+            ondelete="RESTRICT",
+        ),
     )
 
     managed_position_id: Mapped[UUID] = mapped_column(primary_key=True)
@@ -969,6 +1102,9 @@ class ManagedLifecyclePositionRow(Base):
         ForeignKey("entry_approval_certificates.approval_id"), unique=True
     )
     thesis_version_id: Mapped[UUID] = mapped_column(ForeignKey("thesis_versions.thesis_version_id"))
+    experiment_id: Mapped[UUID | None] = mapped_column()
+    experiment_source_definition_hash: Mapped[str | None] = mapped_column(String(64))
+    experiment_protocol_hash: Mapped[str | None] = mapped_column(String(64))
     entry_reconciliation_id: Mapped[UUID] = mapped_column(
         ForeignKey("whole_account_reconciliations.reconciliation_id"), unique=True
     )
@@ -1549,6 +1685,256 @@ class OwnerProviderSettingsRow(Base):
     active: Mapped[bool] = mapped_column(Boolean)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ReviewedExperimentDefinitionRow(Base):
+    __tablename__ = "reviewed_experiment_definitions"
+    __table_args__ = (
+        CheckConstraint("version = 1", name="ck_reviewed_experiment_version"),
+        CheckConstraint(
+            "lifecycle_state = 'REVIEWED'",
+            name="ck_reviewed_experiment_lifecycle",
+        ),
+        CheckConstraint(
+            "definition_hash NOT GLOB '*[^0-9a-f]*' AND length(definition_hash) = 64",
+            name="ck_reviewed_experiment_hash_sqlite",
+        ).ddl_if(dialect="sqlite"),
+        CheckConstraint(
+            "definition_hash ~ '^[0-9a-f]{64}$'",
+            name="ck_reviewed_experiment_hash_postgresql",
+        ).ddl_if(dialect="postgresql"),
+    )
+
+    experiment_id: Mapped[UUID] = mapped_column(primary_key=True)
+    version: Mapped[int] = mapped_column(Integer)
+    definition_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    lifecycle_state: Mapped[str] = mapped_column(String(16))
+    payload_text: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class CompiledExperimentVersionRow(Base):
+    __tablename__ = "compiled_experiment_versions"
+    __table_args__ = (
+        CheckConstraint("source_version = 1", name="ck_compiled_experiment_source_version"),
+        CheckConstraint("compiled_version = 1", name="ck_compiled_experiment_version"),
+        CheckConstraint(
+            "lifecycle_state = 'COMPILED'",
+            name="ck_compiled_experiment_lifecycle",
+        ),
+        CheckConstraint("arm_state = 'NOT_ARMED'", name="ck_compiled_experiment_arm"),
+        CheckConstraint("automation_state = 'OFF'", name="ck_compiled_experiment_automation"),
+        CheckConstraint(
+            "execution_eligible = false",
+            name="ck_compiled_experiment_execution",
+        ),
+        CheckConstraint(
+            "source_definition_hash NOT GLOB '*[^0-9a-f]*' AND length(source_definition_hash) = 64",
+            name="ck_compiled_experiment_source_hash_sqlite",
+        ).ddl_if(dialect="sqlite"),
+        CheckConstraint(
+            "source_definition_hash ~ '^[0-9a-f]{64}$'",
+            name="ck_compiled_experiment_source_hash_postgresql",
+        ).ddl_if(dialect="postgresql"),
+        CheckConstraint(
+            "protocol_hash NOT GLOB '*[^0-9a-f]*' AND length(protocol_hash) = 64",
+            name="ck_compiled_experiment_protocol_hash_sqlite",
+        ).ddl_if(dialect="sqlite"),
+        CheckConstraint(
+            "protocol_hash ~ '^[0-9a-f]{64}$'",
+            name="ck_compiled_experiment_protocol_hash_postgresql",
+        ).ddl_if(dialect="postgresql"),
+        UniqueConstraint(
+            "experiment_id",
+            "source_definition_hash",
+            "protocol_hash",
+            name="uq_compiled_experiment_authorization_identity",
+        ),
+    )
+
+    experiment_id: Mapped[UUID] = mapped_column(
+        ForeignKey("reviewed_experiment_definitions.experiment_id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    source_version: Mapped[int] = mapped_column(Integer)
+    compiled_version: Mapped[int] = mapped_column(Integer)
+    source_definition_hash: Mapped[str] = mapped_column(String(64))
+    protocol_hash: Mapped[str] = mapped_column(String(64))
+    lifecycle_state: Mapped[str] = mapped_column(String(16))
+    arm_state: Mapped[str] = mapped_column(String(16))
+    automation_state: Mapped[str] = mapped_column(String(16))
+    execution_eligible: Mapped[bool] = mapped_column(Boolean)
+    payload_text: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ExperimentArmStateRow(Base):
+    __tablename__ = "experiment_arm_states"
+    __table_args__ = (
+        CheckConstraint("authorization_revision > 0", name="ck_experiment_arm_revision"),
+        CheckConstraint(
+            "authorization_state IN ('ARMED', 'DISARMED')",
+            name="ck_experiment_arm_state",
+        ),
+        CheckConstraint(
+            "entry_authorized = (authorization_state = 'ARMED')",
+            name="ck_experiment_arm_entry_authority",
+        ),
+        CheckConstraint(
+            "existing_position_risk_management_preserved = true",
+            name="ck_experiment_arm_management_preserved",
+        ),
+        CheckConstraint("runtime_state = 'NOT_CONNECTED'", name="ck_experiment_arm_runtime"),
+        CheckConstraint("execution_eligible = false", name="ck_experiment_arm_execution"),
+        CheckConstraint("paper_trading_only = true", name="ck_experiment_arm_paper"),
+        CheckConstraint(
+            "source_definition_hash NOT GLOB '*[^0-9a-f]*' AND length(source_definition_hash) = 64",
+            name="ck_experiment_arm_source_hash_sqlite",
+        ).ddl_if(dialect="sqlite"),
+        CheckConstraint(
+            "protocol_hash NOT GLOB '*[^0-9a-f]*' AND length(protocol_hash) = 64",
+            name="ck_experiment_arm_protocol_hash_sqlite",
+        ).ddl_if(dialect="sqlite"),
+        CheckConstraint(
+            "last_event_hash NOT GLOB '*[^0-9a-f]*' AND length(last_event_hash) = 64",
+            name="ck_experiment_arm_event_hash_sqlite",
+        ).ddl_if(dialect="sqlite"),
+        ForeignKeyConstraint(
+            ("experiment_id", "source_definition_hash", "protocol_hash"),
+            (
+                "compiled_experiment_versions.experiment_id",
+                "compiled_experiment_versions.source_definition_hash",
+                "compiled_experiment_versions.protocol_hash",
+            ),
+            name="fk_experiment_arm_state_compiled_identity",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            (
+                "experiment_id",
+                "source_definition_hash",
+                "protocol_hash",
+                "authorization_revision",
+                "authorization_state",
+                "entry_authorized",
+                "last_event_hash",
+                "updated_at",
+            ),
+            (
+                "experiment_arm_events.experiment_id",
+                "experiment_arm_events.source_definition_hash",
+                "experiment_arm_events.protocol_hash",
+                "experiment_arm_events.authorization_revision",
+                "experiment_arm_events.authorization_state",
+                "experiment_arm_events.entry_authorized",
+                "experiment_arm_events.event_hash",
+                "experiment_arm_events.created_at",
+            ),
+            name="fk_experiment_arm_state_current_event",
+            ondelete="RESTRICT",
+        ),
+        Index(
+            "uq_one_armed_experiment",
+            "authorization_state",
+            unique=True,
+            sqlite_where=text("authorization_state = 'ARMED'"),
+            postgresql_where=text("authorization_state = 'ARMED'"),
+        ),
+    )
+
+    experiment_id: Mapped[UUID] = mapped_column(primary_key=True)
+    source_definition_hash: Mapped[str] = mapped_column(String(64))
+    protocol_hash: Mapped[str] = mapped_column(String(64))
+    authorization_revision: Mapped[int] = mapped_column(Integer)
+    authorization_state: Mapped[str] = mapped_column(String(16))
+    entry_authorized: Mapped[bool] = mapped_column(Boolean)
+    existing_position_risk_management_preserved: Mapped[bool] = mapped_column(Boolean)
+    runtime_state: Mapped[str] = mapped_column(String(16))
+    execution_eligible: Mapped[bool] = mapped_column(Boolean)
+    paper_trading_only: Mapped[bool] = mapped_column(Boolean)
+    last_event_hash: Mapped[str] = mapped_column(String(64))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ExperimentArmEventRow(Base):
+    __tablename__ = "experiment_arm_events"
+    __table_args__ = (
+        UniqueConstraint(
+            "experiment_id",
+            "authorization_revision",
+            name="uq_experiment_arm_event_revision",
+        ),
+        CheckConstraint("authorization_revision > 0", name="ck_experiment_arm_event_revision"),
+        CheckConstraint("action IN ('ARM', 'DISARM')", name="ck_experiment_arm_event_action"),
+        CheckConstraint(
+            "authorization_state IN ('ARMED', 'DISARMED')",
+            name="ck_experiment_arm_event_state",
+        ),
+        CheckConstraint(
+            "(action = 'ARM' AND authorization_state = 'ARMED') OR "
+            "(action = 'DISARM' AND authorization_state = 'DISARMED')",
+            name="ck_experiment_arm_event_action_state",
+        ),
+        CheckConstraint(
+            "entry_authorized = (authorization_state = 'ARMED')",
+            name="ck_experiment_arm_event_entry_authority",
+        ),
+        CheckConstraint(
+            "existing_position_risk_management_preserved = true",
+            name="ck_experiment_arm_event_management_preserved",
+        ),
+        CheckConstraint("runtime_state = 'NOT_CONNECTED'", name="ck_experiment_arm_event_runtime"),
+        CheckConstraint("execution_eligible = false", name="ck_experiment_arm_event_execution"),
+        CheckConstraint("paper_trading_only = true", name="ck_experiment_arm_event_paper"),
+        CheckConstraint(
+            "source_definition_hash NOT GLOB '*[^0-9a-f]*' AND length(source_definition_hash) = 64",
+            name="ck_experiment_arm_event_source_hash_sqlite",
+        ).ddl_if(dialect="sqlite"),
+        CheckConstraint(
+            "protocol_hash NOT GLOB '*[^0-9a-f]*' AND length(protocol_hash) = 64",
+            name="ck_experiment_arm_event_protocol_hash_sqlite",
+        ).ddl_if(dialect="sqlite"),
+        CheckConstraint(
+            "event_hash NOT GLOB '*[^0-9a-f]*' AND length(event_hash) = 64",
+            name="ck_experiment_arm_event_hash_sqlite",
+        ).ddl_if(dialect="sqlite"),
+        ForeignKeyConstraint(
+            ("experiment_id", "source_definition_hash", "protocol_hash"),
+            (
+                "compiled_experiment_versions.experiment_id",
+                "compiled_experiment_versions.source_definition_hash",
+                "compiled_experiment_versions.protocol_hash",
+            ),
+            name="fk_experiment_arm_event_compiled_identity",
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint(
+            "experiment_id",
+            "source_definition_hash",
+            "protocol_hash",
+            "authorization_revision",
+            "authorization_state",
+            "entry_authorized",
+            "event_hash",
+            "created_at",
+            name="uq_experiment_arm_event_state_binding",
+        ),
+    )
+
+    event_id: Mapped[UUID] = mapped_column(primary_key=True)
+    experiment_id: Mapped[UUID] = mapped_column(index=True)
+    source_definition_hash: Mapped[str] = mapped_column(String(64))
+    protocol_hash: Mapped[str] = mapped_column(String(64))
+    authorization_revision: Mapped[int] = mapped_column(Integer)
+    action: Mapped[str] = mapped_column(String(16))
+    authorization_state: Mapped[str] = mapped_column(String(16))
+    entry_authorized: Mapped[bool] = mapped_column(Boolean)
+    existing_position_risk_management_preserved: Mapped[bool] = mapped_column(Boolean)
+    runtime_state: Mapped[str] = mapped_column(String(16))
+    execution_eligible: Mapped[bool] = mapped_column(Boolean)
+    paper_trading_only: Mapped[bool] = mapped_column(Boolean)
+    event_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class EvidenceClassificationClaimRow(Base):

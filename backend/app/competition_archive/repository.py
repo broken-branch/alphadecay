@@ -18,6 +18,7 @@ from backend.app.domain.option_contract_symbol import (
     OptionContractSymbolError,
     parse_standard_option_contract_symbol,
 )
+from backend.app.experiment_lineage import optional_experiment_execution_lineage
 from backend.app.persistence.agent_authority import (
     agent_input_material,
     agent_result_material,
@@ -460,6 +461,11 @@ def _validate_decision_hashes(
             intent_id=intent_id,
             intent_digest=intent_digest,
             autonomy_authorized=decision.autonomy_authorized,
+            experiment_lineage=optional_experiment_execution_lineage(
+                decision.experiment_id,
+                decision.experiment_source_definition_hash,
+                decision.experiment_protocol_hash,
+            ),
         )
     )
     if snapshot.input_hash != expected_input or decision.result_hash != expected_result:

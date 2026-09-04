@@ -262,14 +262,17 @@ class AlpacaOpportunitySignalCollector:
             or any(day.weekday() >= 5 for day in dates)
         ):
             raise OpportunitySignalCollectionError("SIGNAL_CALENDAR_INVALID")
-        sessions_through_cutoff = tuple(day for day in dates if day <= request.pre_event_cutoff)
+        sessions_through_cutoff = tuple(day for day in dates if day <= request.pre_event_cutoff)[
+            -DAILY_CLOSE_COUNT:
+        ]
         later_sessions = tuple(day for day in dates if day > request.pre_event_cutoff)
         if (
             len(sessions_through_cutoff) != DAILY_CLOSE_COUNT
             or sessions_through_cutoff[-1] != request.pre_event_cutoff
             or not later_sessions
-            or later_sessions[0] != request.first_reaction_session
+            or request.first_reaction_session not in later_sessions
             or request.signal_session not in later_sessions
+            or request.first_reaction_session > request.signal_session
         ):
             raise OpportunitySignalCollectionError("SIGNAL_CALENDAR_CHRONOLOGY_INVALID")
         session_times = tuple(_calendar_times(item) for item in raw)
@@ -334,7 +337,11 @@ class AlpacaOpportunitySignalCollector:
             )
         )
         bars = _single_symbol_bars(raw, symbol, "SIGNAL_DAILY_BARS_INVALID")
-        if len(bars) > request.maximum_daily_bars_per_symbol or len(bars) != len(expected_sessions):
+        if len(bars) > request.maximum_daily_bars_per_symbol:
+            raise OpportunitySignalCollectionError("SIGNAL_DAILY_BAR_COUNT_INVALID")
+        wanted = set(expected_sessions)
+        bars = [bar for bar in bars if _bar_session(bar) in wanted]
+        if tuple(_bar_session(bar) for bar in bars) != tuple(expected_sessions):
             raise OpportunitySignalCollectionError("SIGNAL_DAILY_BAR_COUNT_INVALID")
         normalized = tuple(
             _normalize_daily_close(bar, symbol, session)
@@ -364,7 +371,14 @@ class AlpacaOpportunitySignalCollector:
             )
         )
         bars = _single_symbol_bars(raw, symbol, "SIGNAL_INTRADAY_BARS_INVALID")
-        if len(bars) != expected_count or len(bars) > request.maximum_intraday_bars_per_symbol:
+        if len(bars) > request.maximum_intraday_bars_per_symbol:
+            raise OpportunitySignalCollectionError("SIGNAL_INTRADAY_BAR_COUNT_INVALID")
+        bars = [
+            bar
+            for bar in bars
+            if _utc(bar.timestamp, "SIGNAL_INTRADAY_BAR_INVALID") < request.signal_boundary
+        ]
+        if len(bars) != expected_count:
             raise OpportunitySignalCollectionError("SIGNAL_INTRADAY_BAR_COUNT_INVALID")
         expected_starts = tuple(
             calendar.signal_open_at + index * _BAR_DURATION for index in range(expected_count)
@@ -413,6 +427,11 @@ def opportunity_signal_intraday_evidence_digest(
             "benchmark": [item.source_hash for item in benchmark],
         },
     )
+
+
+def _bar_session(bar: Bar) -> date:
+    started_at = _utc(bar.timestamp, "SIGNAL_DAILY_BAR_INVALID")
+    return started_at.astimezone(_NEW_YORK).date()
 
 
 def _normalize_daily_close(bar: Bar, symbol: str, session: date) -> SignalDailyClose:

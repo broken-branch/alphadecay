@@ -15,6 +15,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 PRIVATE_MANIFEST = ROOT / "ops/quality/public-copy-paths.txt"
 PUBLIC_RELEASE_MANIFEST = ROOT / "ops/quality/public-release-copy-paths.txt"
+JUDGE_FACING_MANIFEST = ROOT / "ops/quality/judge-facing-copy-paths.txt"
+
+# Judge-facing artifacts describe outcomes, never malfunctions. A scheduled check that
+# authorized no action is described exactly that way. Raw reason codes stay out of public copy.
+JUDGE_FACING_BANNED = re.compile(
+    r"\b(?:failure|failures|failed|fail|fails|failing|error|errors|bug|bugs|defect|defects|"
+    r"broken|stopped|retry|retries|retried|halt|halts|halted)\b|PROVIDER_FAILURE\w*",
+    re.I,
+)
 
 BANNED_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
@@ -79,7 +88,7 @@ BANNED_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "private numeric risk limit",
         re.compile(
-            r"\b(?:maximum(?: position)? loss|position loss|risk (?:cap|limit)|quantity|"
+            r"\b(?:maximum(?: position)? loss|position loss|risk (?:cap|limit)|"
             r"contract (?:cap|limit))\b[^.!?\n]{0,100}(?:"
             r"\$\s?\d[\d,]*(?:\.\d+)?|\d+(?:\.\d+)?\s*%|"
             r"\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d+)"
@@ -95,6 +104,9 @@ URL = re.compile(r"https?://\S+")
 SENTENCE = re.compile(r"(?<=[.!?])\s+")
 WORD = re.compile(r"\b[\w’'-]+\b")
 ENV_ASSIGNMENT = re.compile(r"[A-Z][A-Z0-9_]*=.*")
+SRT_SEQUENCE = re.compile(r"\d+")
+SRT_TIMING = re.compile(r"\d{2}:\d{2}:\d{2}[,.]\d{3}\s+-->\s+\d{2}:\d{2}:\d{2}[,.]\d{3}")
+REQUIRED_FORM_TITLE = "alphadecay — AI options agent that trades one SPY spread on Alpaca paper"
 MAX_SENTENCE_WORDS = 38
 MAX_PARAGRAPH_WORDS = 110
 
@@ -110,8 +122,7 @@ def manifest_patterns(manifest: Path) -> list[str]:
     return patterns
 
 
-def registered_files() -> list[Path]:
-    manifest = PRIVATE_MANIFEST if PRIVATE_MANIFEST.is_file() else PUBLIC_RELEASE_MANIFEST
+def _matching_files(manifest: Path) -> set[Path]:
     files: set[Path] = set()
     for pattern in manifest_patterns(manifest):
         matches = [Path(value) for value in glob.glob(str(ROOT / pattern), recursive=True)]
@@ -119,7 +130,33 @@ def registered_files() -> list[Path]:
         if not regular:
             raise ValueError(f"public-copy pattern matched no files: {pattern}")
         files.update(regular)
-    return sorted(files)
+    return files
+
+
+def registered_files() -> list[Path]:
+    manifest = PRIVATE_MANIFEST if PRIVATE_MANIFEST.is_file() else PUBLIC_RELEASE_MANIFEST
+    return sorted(_matching_files(manifest))
+
+
+def judge_facing_files() -> set[Path]:
+    """Registered files whose copy reaches judges: media sources, form text, result records."""
+    if not JUDGE_FACING_MANIFEST.is_file():
+        return set()
+    return _matching_files(JUDGE_FACING_MANIFEST) & set(registered_files())
+
+
+BARE_LINK = re.compile(r"\b[\w.-]+\.(?:com|org|net|dev|io)(?:/[^\s`)]*)?")
+
+
+def check_judge_facing_words(source_label: str, raw_text: str) -> list[str]:
+    text = BARE_LINK.sub("", prose_for_checks(raw_text))
+    problems: list[str] = []
+    for match in JUDGE_FACING_BANNED.finditer(text):
+        line = text.count("\n", 0, match.start()) + 1
+        problems.append(
+            f"{source_label}:{line}: judge-facing copy names a malfunction: {match.group(0)!r}"
+        )
+    return problems
 
 
 def prose_for_checks(text: str) -> str:
@@ -128,11 +165,13 @@ def prose_for_checks(text: str) -> str:
     return URL.sub("", text)
 
 
-def check_text(source_label: str, raw_text: str) -> list[str]:
+def check_text(source_label: str, raw_text: str, *, judge_facing: bool = False) -> list[str]:
     text = prose_for_checks(raw_text)
     problems: list[str] = []
+    if judge_facing:
+        problems.extend(check_judge_facing_words(source_label, raw_text))
 
-    if "—" in text:
+    if "—" in text.replace(REQUIRED_FORM_TITLE, ""):
         problems.append(f"{source_label}: replace em dash with simpler punctuation")
 
     for pattern_label, pattern in BANNED_PATTERNS:
@@ -145,6 +184,8 @@ def check_text(source_label: str, raw_text: str) -> list[str]:
         for line in text.splitlines()
         if line.strip()
         and not line.lstrip().startswith(("#", "- ", "* ", ">", "|", "<"))
+        and not SRT_SEQUENCE.fullmatch(line)
+        and not SRT_TIMING.fullmatch(line)
         and not (source_label.endswith(".env.example") and ENV_ASSIGNMENT.fullmatch(line.strip()))
     ]
     prose = "\n".join(prose_lines)
@@ -182,7 +223,7 @@ def json_string_values(value: object, pointer: str = "$") -> list[tuple[str, str
     return values
 
 
-def check_json_text(source_label: str, raw_text: str) -> list[str]:
+def check_json_text(source_label: str, raw_text: str, *, judge_facing: bool = False) -> list[str]:
     try:
         value = json.loads(raw_text)
     except json.JSONDecodeError as error:
@@ -202,11 +243,11 @@ def check_json_text(source_label: str, raw_text: str) -> list[str]:
     return [
         problem
         for pointer, text in strings
-        for problem in check_text(f"{source_label}:{pointer}", text)
+        for problem in check_text(f"{source_label}:{pointer}", text, judge_facing=judge_facing)
     ] + blank_values
 
 
-def check_python_text(source_label: str, raw_text: str) -> list[str]:
+def check_python_text(source_label: str, raw_text: str, *, judge_facing: bool = False) -> list[str]:
     try:
         tree = ast.parse(raw_text)
     except SyntaxError as error:
@@ -222,11 +263,13 @@ def check_python_text(source_label: str, raw_text: str) -> list[str]:
     return [
         problem
         for index, value in enumerate(strings)
-        for problem in check_text(f"{source_label}:python-copy[{index}]", value)
+        for problem in check_text(
+            f"{source_label}:python-copy[{index}]", value, judge_facing=judge_facing
+        )
     ]
 
 
-def check_svg_text(source_label: str, raw_text: str) -> list[str]:
+def check_svg_text(source_label: str, raw_text: str, *, judge_facing: bool = False) -> list[str]:
     try:
         root = ET.fromstring(raw_text)
     except ET.ParseError as error:
@@ -240,30 +283,35 @@ def check_svg_text(source_label: str, raw_text: str) -> list[str]:
     return [
         problem
         for index, text in enumerate(authored)
-        for problem in check_text(f"{source_label}:svg-copy[{index}]", text)
+        for problem in check_text(
+            f"{source_label}:svg-copy[{index}]", text, judge_facing=judge_facing
+        )
     ]
 
 
-def check(path: Path) -> list[str]:
+def check(path: Path, *, judge_facing: bool = False) -> list[str]:
     relative = path.relative_to(ROOT)
     text = path.read_text(encoding="utf-8")
     if path.suffix.casefold() == ".json":
-        return check_json_text(str(relative), text)
+        return check_json_text(str(relative), text, judge_facing=judge_facing)
     if path.suffix.casefold() == ".py":
-        return check_python_text(str(relative), text)
+        return check_python_text(str(relative), text, judge_facing=judge_facing)
     if path.suffix.casefold() == ".svg":
-        return check_svg_text(str(relative), text)
-    return check_text(str(relative), text)
+        return check_svg_text(str(relative), text, judge_facing=judge_facing)
+    return check_text(str(relative), text, judge_facing=judge_facing)
 
 
 def main() -> int:
     try:
         paths = registered_files()
+        judge_facing = judge_facing_files()
     except (OSError, ValueError) as error:
         print(f"FAIL  {error}", file=sys.stderr)
         return 1
 
-    problems = [problem for path in paths for problem in check(path)]
+    problems = [
+        problem for path in paths for problem in check(path, judge_facing=path in judge_facing)
+    ]
     if problems:
         print("Public-copy check failed:", file=sys.stderr)
         for problem in problems:

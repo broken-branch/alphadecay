@@ -7,6 +7,7 @@ from enum import StrEnum
 from uuid import UUID
 
 from backend.app.contracts.v1 import AccountRole, GreekExposure, PositionIntent
+from backend.app.experiment_lineage import ExperimentExecutionLineage
 from backend.app.order_limits import (
     MAX_STRUCTURAL_APPROVED_RISK,
     MAX_STRUCTURAL_OPTION_QUANTITY,
@@ -32,6 +33,23 @@ class IntentState(StrEnum):
 
 class ExecutionBlocked(ValueError):
     pass
+
+
+class ExecutionPendingCode(StrEnum):
+    ADVANCE = "EXECUTION_ADVANCE_PENDING"
+    LOOKUP_DEFERRED = "AMBIGUOUS_BROKER_LOOKUP_DEFERRED"
+    LOOKUP_ABSENT = "AMBIGUOUS_BROKER_LOOKUP_ABSENT"
+    CANCEL_LOOKUP_DEFERRED = "CANCEL_OUTCOME_LOOKUP_DEFERRED"
+    CANCEL_PENDING = "CANCEL_OUTCOME_PENDING"
+    CANCEL_NOT_TERMINAL = "CANCEL_OUTCOME_NOT_TERMINAL"
+
+
+class ExecutionPending(ExecutionBlocked):
+    def __init__(self, code: ExecutionPendingCode) -> None:
+        if not isinstance(code, ExecutionPendingCode):
+            raise TypeError("EXECUTION_PENDING_CODE_INVALID")
+        self.code = code
+        super().__init__(code.value)
 
 
 class AmbiguousBrokerResponse(RuntimeError):
@@ -255,6 +273,7 @@ class EntryApprovalAuthorization:
     valid_from: datetime
     expires_at: datetime
     valid: bool = True
+    experiment_lineage: ExperimentExecutionLineage | None = None
 
 
 @dataclass(frozen=True)
@@ -273,6 +292,7 @@ class AssessmentCertificate:
     created_at: datetime
     expires_at: datetime
     valid: bool = True
+    experiment_lineage: ExperimentExecutionLineage | None = None
 
 
 @dataclass(frozen=True)

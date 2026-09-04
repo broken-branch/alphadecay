@@ -4,7 +4,7 @@ import os
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from uuid import UUID, uuid4
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 import pytest
 from sqlalchemy import create_engine, event, select, text
@@ -33,6 +33,7 @@ from backend.app.persistence.sqlalchemy_models import (
     AccountRoleRow,
     AgentDecisionRow,
     AgentInputSnapshotRow,
+    AgentTickRow,
     Base,
     CompetitionEntryBudgetRow,
     EntryApprovalCertificateRow,
@@ -90,7 +91,7 @@ def _intent(
     consumed: bool = False,
     risk: Decimal = Decimal("500"),
 ) -> tuple[ExecutionIntentRow, EntryApprovalCertificateRow]:
-    approval_id = UUID(int=1000 + value)
+    approval_id = uuid5(NAMESPACE_URL, f"test-fixture-approval-{1000 + value}")
     envelope = OrderEnvelope(
         action=ExecutionAction.ENTRY,
         authorization_certificate_id=approval_id,
@@ -134,7 +135,7 @@ def _intent(
         "trading_day": envelope.trading_day.isoformat(),
     }
     intent = ExecutionIntentRow(
-        intent_id=UUID(int=value),
+        intent_id=uuid5(NAMESPACE_URL, f"test-fixture-intent-{value}"),
         account_role=AccountRole.DEVELOPMENT.value,
         intent_digest=intent_digest(envelope),
         action="ENTRY",
@@ -154,7 +155,11 @@ def _intent(
         state=state,
         claimed_by="SCHEDULER" if state == "CLAIMED" else None,
         claimed_at=BOUNDARY if state == "CLAIMED" else None,
-        claim_token=UUID(int=3000 + value) if state == "CLAIMED" else None,
+        claim_token=(
+            uuid5(NAMESPACE_URL, f"test-fixture-claim-{3000 + value}")
+            if state == "CLAIMED"
+            else None
+        ),
         claim_generation=1 if state == "CLAIMED" else 0,
         execution_epoch=1 if state == "CLAIMED" else 0,
         heartbeat_at=BOUNDARY if state == "CLAIMED" else None,
@@ -163,7 +168,7 @@ def _intent(
     )
     approval = EntryApprovalCertificateRow(
         approval_id=approval_id,
-        thesis_version_id=UUID(int=2000 + value),
+        thesis_version_id=uuid5(NAMESPACE_URL, f"test-fixture-thesis-version-{2000 + value}"),
         agent_decision_id=None,
         account_role=AccountRole.DEVELOPMENT.value,
         policy_hash=POLICY,
@@ -178,21 +183,44 @@ def _intent(
     return intent, approval
 
 
+def _tick(decision_id: UUID, tick_id: UUID) -> AgentTickRow:
+    return AgentTickRow(
+        tick_id=tick_id,
+        account_role=AccountRole.DEVELOPMENT.value,
+        account_fingerprint=ACCOUNT,
+        tick_key=f"tick-{tick_id}",
+        tick_boundary=BOUNDARY,
+        actor="SCHEDULER",
+        status="RESERVED",
+        reservation_token=uuid4(),
+        terminal_code=None,
+        decision_id=decision_id,
+        execution_certificate_id=None,
+        proof_hash=None,
+        created_at=BOUNDARY,
+        completed_at=None,
+    )
+
+
 def _managed_position(
     value: int, fingerprint: str
 ) -> tuple[ManagedLifecyclePositionRow, ManagedPositionSnapshotRow]:
-    position_id = UUID(int=value)
-    snapshot_id = UUID(int=value + 100)
+    position_id = uuid5(NAMESPACE_URL, f"test-fixture-position-{value}")
+    snapshot_id = uuid5(NAMESPACE_URL, f"test-fixture-snapshot-{value + 100}")
     position = ManagedLifecyclePositionRow(
         managed_position_id=position_id,
         account_role=AccountRole.DEVELOPMENT.value,
         account_fingerprint=ACCOUNT,
-        entry_execution_certificate_id=UUID(int=value + 200),
-        entry_intent_id=UUID(int=value + 300),
-        entry_approval_id=UUID(int=value + 400),
-        thesis_version_id=UUID(int=value + 500),
-        entry_reconciliation_id=UUID(int=value + 600),
-        current_reconciliation_state_id=UUID(int=value + 700),
+        entry_execution_certificate_id=uuid5(
+            NAMESPACE_URL, f"test-fixture-certificate-{value + 200}"
+        ),
+        entry_intent_id=uuid5(NAMESPACE_URL, f"test-fixture-intent-{value + 300}"),
+        entry_approval_id=uuid5(NAMESPACE_URL, f"test-fixture-approval-{value + 400}"),
+        thesis_version_id=uuid5(NAMESPACE_URL, f"test-fixture-thesis-version-{value + 500}"),
+        entry_reconciliation_id=uuid5(NAMESPACE_URL, f"test-fixture-reconciliation-{value + 600}"),
+        current_reconciliation_state_id=uuid5(
+            NAMESPACE_URL, f"test-fixture-reconciliation-state-{value + 700}"
+        ),
         current_snapshot_id=snapshot_id,
         active_position_fingerprint=fingerprint,
         activated_at=NOW - timedelta(days=1),
@@ -202,16 +230,18 @@ def _managed_position(
         snapshot_id=snapshot_id,
         managed_position_id=position_id,
         predecessor_snapshot_id=None,
-        transition_id=UUID(int=value + 800),
-        reconciliation_id=UUID(int=value + 900),
-        reconciliation_state_id=UUID(int=value + 700),
+        transition_id=uuid5(NAMESPACE_URL, f"test-fixture-transition-{value + 800}"),
+        reconciliation_id=uuid5(NAMESPACE_URL, f"test-fixture-reconciliation-{value + 900}"),
+        reconciliation_state_id=uuid5(
+            NAMESPACE_URL, f"test-fixture-reconciliation-state-{value + 700}"
+        ),
         normalized_inventory=[],
         inventory_hash=fingerprint,
         activity_manifest=[],
         activity_manifest_hash="8" * 64,
         cumulative_cashflow=Decimal("-100"),
         rolls_on_trading_day=0,
-        market_session_id=UUID(int=value + 1000),
+        market_session_id=uuid5(NAMESPACE_URL, f"test-fixture-market-session-{value + 1000}"),
         position_fingerprint=fingerprint,
         accepted_at=NOW - timedelta(days=1),
         snapshot_hash=f"{value % 10}" * 64,
@@ -327,7 +357,7 @@ def test_entry_history_rejects_counter_and_reservation_substitution() -> None:
         assert budget is not None
         budget.entries_used = 1
         budget.gross_approved_risk = Decimal("500")
-        budget.reserved_intent_id = UUID(int=999)
+        budget.reserved_intent_id = uuid5(NAMESPACE_URL, "test-fixture-intent-999")
         budget.reserved_risk = Decimal("500")
     with pytest.raises(OpportunityAuthorityError, match="ENTRY_RESERVATION_MISMATCH"):
         repository.load_entry_history(
@@ -406,9 +436,10 @@ def test_prior_decision_returns_hash_bound_absence_and_exact_record() -> None:
             autonomy_authorized=False,
         )
     )
-    snapshot_id = UUID(int=500)
-    decision_id = UUID(int=501)
+    snapshot_id = uuid5(NAMESPACE_URL, "test-fixture-snapshot-500")
+    decision_id = uuid5(NAMESPACE_URL, "test-fixture-decision-501")
     with sessions.begin() as session:
+        session.add(_tick(decision_id, uuid5(NAMESPACE_URL, "test-fixture-tick-502")))
         session.add(
             AgentInputSnapshotRow(
                 snapshot_id=snapshot_id,
@@ -427,7 +458,7 @@ def test_prior_decision_returns_hash_bound_absence_and_exact_record() -> None:
             AgentDecisionRow(
                 decision_id=decision_id,
                 thesis_version_id=None,
-                origin_tick_id=UUID(int=502),
+                origin_tick_id=uuid5(NAMESPACE_URL, "test-fixture-tick-502"),
                 input_snapshot_id=snapshot_id,
                 account_role=AccountRole.DEVELOPMENT.value,
                 account_fingerprint=ACCOUNT,
@@ -468,8 +499,10 @@ def test_prior_decision_recomputes_and_rejects_tampered_input() -> None:
             thesis_version_id=None,
         )
     )
-    snapshot_id = UUID(int=600)
+    snapshot_id = uuid5(NAMESPACE_URL, "test-fixture-snapshot-600")
+    decision_id = uuid5(NAMESPACE_URL, "test-fixture-decision-601")
     with sessions.begin() as session:
+        session.add(_tick(decision_id, uuid5(NAMESPACE_URL, "test-fixture-tick-602")))
         session.add(
             AgentInputSnapshotRow(
                 snapshot_id=snapshot_id,
@@ -486,9 +519,9 @@ def test_prior_decision_recomputes_and_rejects_tampered_input() -> None:
         )
         session.add(
             AgentDecisionRow(
-                decision_id=UUID(int=601),
+                decision_id=decision_id,
                 thesis_version_id=None,
-                origin_tick_id=UUID(int=602),
+                origin_tick_id=uuid5(NAMESPACE_URL, "test-fixture-tick-602"),
                 input_snapshot_id=snapshot_id,
                 account_role=AccountRole.DEVELOPMENT.value,
                 account_fingerprint=ACCOUNT,
@@ -542,8 +575,10 @@ def test_prior_decision_rejects_opportunity_substitution() -> None:
             autonomy_authorized=False,
         )
     )
-    snapshot_id = UUID(int=650)
+    snapshot_id = uuid5(NAMESPACE_URL, "test-fixture-snapshot-650")
+    decision_id = uuid5(NAMESPACE_URL, "test-fixture-decision-651")
     with sessions.begin() as session:
+        session.add(_tick(decision_id, uuid5(NAMESPACE_URL, "test-fixture-tick-652")))
         session.add(
             AgentInputSnapshotRow(
                 snapshot_id=snapshot_id,
@@ -560,9 +595,9 @@ def test_prior_decision_rejects_opportunity_substitution() -> None:
         )
         session.add(
             AgentDecisionRow(
-                decision_id=UUID(int=651),
+                decision_id=decision_id,
                 thesis_version_id=None,
-                origin_tick_id=UUID(int=652),
+                origin_tick_id=uuid5(NAMESPACE_URL, "test-fixture-tick-652"),
                 input_snapshot_id=snapshot_id,
                 account_role=AccountRole.DEVELOPMENT.value,
                 account_fingerprint=ACCOUNT,
@@ -591,7 +626,7 @@ def test_prior_decision_rejects_opportunity_substitution() -> None:
 def test_prior_approved_decision_revalidates_exact_intent_lineage() -> None:
     repository, sessions, engine = _repository()
     intent, approval = _intent(1)
-    decision_id = UUID(int=680)
+    decision_id = uuid5(NAMESPACE_URL, "test-fixture-decision-680")
     thesis_version_id = approval.thesis_version_id
     approval.agent_decision_id = decision_id
     normalized_input = {"opportunity_key": "event-1"}
@@ -621,10 +656,11 @@ def test_prior_approved_decision_revalidates_exact_intent_lineage() -> None:
             autonomy_authorized=True,
         )
     )
-    snapshot_id = UUID(int=681)
+    snapshot_id = uuid5(NAMESPACE_URL, "test-fixture-snapshot-681")
     with sessions.begin() as session:
         session.add_all(
             (
+                _tick(decision_id, uuid5(NAMESPACE_URL, "test-fixture-tick-682")),
                 AgentInputSnapshotRow(
                     snapshot_id=snapshot_id,
                     thesis_version_id=thesis_version_id,
@@ -640,7 +676,7 @@ def test_prior_approved_decision_revalidates_exact_intent_lineage() -> None:
                 AgentDecisionRow(
                     decision_id=decision_id,
                     thesis_version_id=thesis_version_id,
-                    origin_tick_id=UUID(int=682),
+                    origin_tick_id=uuid5(NAMESPACE_URL, "test-fixture-tick-682"),
                     input_snapshot_id=snapshot_id,
                     account_role=AccountRole.DEVELOPMENT.value,
                     account_fingerprint=ACCOUNT,
@@ -690,7 +726,7 @@ def test_latest_effective_greek_authority_is_explicit_and_hash_bound() -> None:
         for version, offset, marker in ((1, 2, "1"), (2, 1, "2")):
             session.add(
                 GreekAuthorityVersionRow(
-                    authority_id=UUID(int=700 + version),
+                    authority_id=uuid5(NAMESPACE_URL, f"test-fixture-authority-{700 + version}"),
                     version=version,
                     effective_at=NOW - timedelta(days=offset),
                     timestamp_contract_hash=marker * 64,
@@ -716,7 +752,7 @@ def test_greek_authority_rejects_nonmonotonic_versions() -> None:
         session.add_all(
             (
                 GreekAuthorityVersionRow(
-                    authority_id=UUID(int=801),
+                    authority_id=uuid5(NAMESPACE_URL, "test-fixture-authority-801"),
                     version=1,
                     effective_at=NOW - timedelta(days=1),
                     timestamp_contract_hash="1" * 64,
@@ -726,7 +762,7 @@ def test_greek_authority_rejects_nonmonotonic_versions() -> None:
                     created_at=NOW - timedelta(days=1),
                 ),
                 GreekAuthorityVersionRow(
-                    authority_id=UUID(int=802),
+                    authority_id=uuid5(NAMESPACE_URL, "test-fixture-authority-802"),
                     version=2,
                     effective_at=NOW - timedelta(days=2),
                     timestamp_contract_hash="4" * 64,
@@ -747,7 +783,7 @@ def test_greek_authority_rejects_missing_version_lineage() -> None:
     with sessions.begin() as session:
         session.add(
             GreekAuthorityVersionRow(
-                authority_id=UUID(int=850),
+                authority_id=uuid5(NAMESPACE_URL, "test-fixture-authority-850"),
                 version=2,
                 effective_at=NOW - timedelta(days=1),
                 timestamp_contract_hash="1" * 64,
@@ -764,12 +800,12 @@ def test_greek_authority_rejects_missing_version_lineage() -> None:
 
 def test_frozen_thesis_read_requires_exact_account_policy_and_identity() -> None:
     repository, sessions, engine = _repository()
-    thesis_id = UUID(int=900)
+    thesis_id = uuid5(NAMESPACE_URL, "test-fixture-thesis-900")
     with sessions.begin() as session:
         session.add(
             ThesisVersionRow(
                 thesis_version_id=thesis_id,
-                thesis_id=UUID(int=901),
+                thesis_id=uuid5(NAMESPACE_URL, "test-fixture-thesis-901"),
                 account_role=AccountRole.DEVELOPMENT.value,
                 version=1,
                 origin_hash=THESIS,
@@ -898,7 +934,7 @@ def test_postgres_migration_chain_supports_consistent_empty_authority_reads() ->
             )
             session.add(
                 GreekAuthorityVersionRow(
-                    authority_id=UUID(int=9000),
+                    authority_id=uuid5(NAMESPACE_URL, "test-fixture-authority-9000"),
                     version=1,
                     effective_at=BOUNDARY,
                     timestamp_contract_hash="1" * 64,
@@ -910,8 +946,8 @@ def test_postgres_migration_chain_supports_consistent_empty_authority_reads() ->
             )
             session.add(
                 ThesisVersionRow(
-                    thesis_version_id=UUID(int=9001),
-                    thesis_id=UUID(int=9002),
+                    thesis_version_id=uuid5(NAMESPACE_URL, "test-fixture-thesis-version-9001"),
+                    thesis_id=uuid5(NAMESPACE_URL, "test-fixture-thesis-9002"),
                     account_role=AccountRole.DEVELOPMENT.value,
                     version=1,
                     origin_hash="4" * 64,
@@ -935,7 +971,8 @@ def test_postgres_migration_chain_supports_consistent_empty_authority_reads() ->
         with sessions() as session:
             thesis_hash = session.scalar(
                 select(ThesisVersionRow.thesis_hash).where(
-                    ThesisVersionRow.thesis_version_id == UUID(int=9001)
+                    ThesisVersionRow.thesis_version_id
+                    == uuid5(NAMESPACE_URL, "test-fixture-thesis-version-9001")
                 )
             )
         assert isinstance(thesis_hash, str)
@@ -954,7 +991,7 @@ def test_postgres_migration_chain_supports_consistent_empty_authority_reads() ->
         )
         greek = repository.load_latest_greek_unit_authority(effective_at=NOW)
         thesis = repository.load_frozen_thesis(
-            thesis_version_id=UUID(int=9001),
+            thesis_version_id=uuid5(NAMESPACE_URL, "test-fixture-thesis-version-9001"),
             expected_account_fingerprint=ACCOUNT,
             expected_thesis_hash=thesis_hash,
             expected_policy_hash=POLICY,

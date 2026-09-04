@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, RefObject } from "react";
 import { copy } from "../content/copy";
-import { OwnerRequestError, ownerSettingsClient, type OwnerSettingsClient } from "./api";
+import { ownerSettingsClient, type OwnerSettingsClient } from "./api";
 import type { OwnerModelProvider, ProviderSettingsResponse } from "./contracts";
-
-type ViewState = "checking" | "signedOut" | "signedIn" | "unavailable";
+import type { OwnerSessionController } from "./useOwnerSession";
 
 const shortcutRows = [
   [copy.keyboardGuide.previousScenarioKey, copy.keyboardGuide.previousScenario],
@@ -67,17 +66,17 @@ export function OwnerSettings({
   open,
   onClose,
   triggerRef,
+  ownerSession,
   ownerControlsEnabled = true,
   client = ownerSettingsClient,
 }: {
   open: boolean;
   onClose: () => void;
   triggerRef: RefObject<HTMLButtonElement | null>;
+  ownerSession: OwnerSessionController;
   ownerControlsEnabled?: boolean;
   client?: OwnerSettingsClient;
 }) {
-  const [view, setView] = useState<ViewState>("checking");
-  const [settings, setSettings] = useState<ProviderSettingsResponse | null>(null);
   const [settingsValue, setSettingsValue] = useState("");
   const [selectedService, setSelectedService] = useState<OwnerModelProvider>("GEMINI");
   const [model, setModel] = useState("");
@@ -101,37 +100,15 @@ export function OwnerSettings({
   };
 
   useEffect(() => {
-    if (!open || !ownerControlsEnabled) return;
-    let active = true;
-    setView("checking");
-    setMessage(null);
-    client.read().then(
-      (result) => {
-        if (!active) return;
-        setSettings(result);
-        setView("signedIn");
-      },
-      (error: unknown) => {
-        if (!active) return;
-        setView(error instanceof OwnerRequestError && error.status === 403 ? "signedOut" : "unavailable");
-      },
-    );
-    return () => {
-      active = false;
-      clearSensitiveFields();
-    };
-  }, [client, open, ownerControlsEnabled]);
-
-  useEffect(() => {
     if (!open) return;
     const target =
-      view === "signedOut"
+      ownerSession.status === "signedOut"
         ? accessRef.current
-        : view === "signedIn"
+        : ownerSession.status === "signedIn"
           ? modelRef.current
           : panelRef.current;
     target?.focus();
-  }, [open, view]);
+  }, [open, ownerSession.status]);
 
   useEffect(() => {
     if (open) {
@@ -158,11 +135,8 @@ export function OwnerSettings({
     setBusy("login");
     setMessage(null);
     try {
-      await client.createSession(settingsValue);
+      await ownerSession.signIn(settingsValue);
       setSettingsValue("");
-      const result = await client.read();
-      setSettings(result);
-      setView("signedIn");
     } catch {
       setMessage(copy.ownerSettings.signInFailed);
     } finally {
@@ -183,7 +157,7 @@ export function OwnerSettings({
         api_key: providerValue,
         endpoint: selectedService === "GEMINI" ? null : endpoint,
       });
-      setSettings(result);
+      ownerSession.updateSettings(result);
       setMessage(copy.ownerSettings.saved);
     } catch {
       setMessage(copy.ownerSettings.saveFailed);
@@ -198,7 +172,7 @@ export function OwnerSettings({
     setMessage(null);
     try {
       const result = await client.clear();
-      setSettings(result);
+      ownerSession.updateSettings(result);
       setMessage(copy.ownerSettings.removed);
     } catch {
       setMessage(copy.ownerSettings.removeFailed);
@@ -212,10 +186,8 @@ export function OwnerSettings({
     setBusy("signout");
     setMessage(null);
     try {
-      await client.signOut();
+      await ownerSession.signOut();
       clearSensitiveFields();
-      setSettings(null);
-      setView("signedOut");
     } catch {
       setMessage(copy.ownerSettings.sessionFailed);
     } finally {
@@ -259,13 +231,13 @@ export function OwnerSettings({
           </dl>
         </section>
 
-        {ownerControlsEnabled && view === "checking" ? <p aria-live="polite">{copy.ownerSettings.checking}</p> : null}
-        {ownerControlsEnabled && view === "unavailable" ? (
+        {ownerControlsEnabled && ownerSession.status === "checking" ? <p aria-live="polite">{copy.ownerSettings.checking}</p> : null}
+        {ownerControlsEnabled && ownerSession.status === "unavailable" ? (
           <p className="form-message" role="alert">
             {copy.ownerSettings.sessionFailed}
           </p>
         ) : null}
-        {ownerControlsEnabled && view === "signedOut" ? (
+        {ownerControlsEnabled && ownerSession.status === "signedOut" ? (
           <form className="owner-form owner-form--login" onSubmit={signIn}>
             <h3>{copy.ownerSettings.signInTitle}</h3>
             <p className="muted">{copy.ownerSettings.signInHelp}</p>
@@ -274,6 +246,7 @@ export function OwnerSettings({
               <input
                 ref={accessRef}
                 type="password"
+                autoFocus
                 autoComplete="off"
                 minLength={16}
                 maxLength={256}
@@ -288,7 +261,7 @@ export function OwnerSettings({
             {message ? <p className="form-message" role="alert">{message}</p> : null}
           </form>
         ) : null}
-        {ownerControlsEnabled && view === "signedIn" && settings ? (
+        {ownerControlsEnabled && ownerSession.status === "signedIn" && ownerSession.settings ? (
           <div className="owner-settings-body">
             <div className="owner-session-line">
               <div>
@@ -306,7 +279,7 @@ export function OwnerSettings({
             </div>
             <section aria-labelledby="current-provider-title">
               <h3 id="current-provider-title">{copy.ownerSettings.currentTitle}</h3>
-              <ProviderStatus settings={settings} />
+              <ProviderStatus settings={ownerSession.settings} />
             </section>
             <form className="owner-form" onSubmit={save}>
               <div>
@@ -381,7 +354,7 @@ export function OwnerSettings({
                 <button type="submit" className="primary-button" disabled={busy !== null}>
                   {busy === "save" ? copy.ownerSettings.saving : copy.ownerSettings.save}
                 </button>
-                {settings.configured ? (
+                {ownerSession.settings.configured ? (
                   <button
                     type="button"
                     className="quiet-button semantic-adverse"
@@ -435,6 +408,8 @@ export function InformationDialog({
   const sections = privacy
     ? [
         [copy.legal.privacyReplayTitle, copy.legal.privacyReplayBody],
+        [copy.legal.privacyDraftTitle, copy.legal.privacyDraftBody],
+        [copy.legal.privacyCurationTitle, copy.legal.privacyCurationBody],
         [copy.legal.privacyOwnerTitle, copy.legal.privacyOwnerBody],
         [copy.legal.privacyKeyTitle, copy.legal.privacyKeyBody],
         [copy.legal.privacyFlowTitle, copy.legal.privacyFlowBody],

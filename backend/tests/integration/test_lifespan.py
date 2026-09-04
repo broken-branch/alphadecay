@@ -16,8 +16,12 @@ class Aggregate:
         self.service = object()
         self.autonomy = object()
         self.provider_settings = object()
+        self.strategy_curation = object()
         self.runtime = object()
         self.persistence = SimpleNamespace(
+            experiment_registry=object(),
+            experiment_performance_reader=object(),
+            experiment_window_reader=object(),
             performance_proof_reader=object(),
             performance_repository=object(),
         )
@@ -31,11 +35,14 @@ class Aggregate:
 
 
 def settings() -> SimpleNamespace:
+    owner_reference = SecretStr("dummy-owner-access-code-long-enough")
+    session_reference = SecretStr("dummy-session-secret-placeholder-01")
+    scheduler_reference = SecretStr("dummy-scheduler-token-placeholder-01")
     return SimpleNamespace(
-        app_owner_access_code=SecretStr("owner-access-code-long-enough"),
-        app_session_secret=SecretStr("s" * 32),
+        app_owner_access_code=owner_reference,
+        app_session_secret=session_reference,
         app_allowed_origin="https://alphadecay.example",
-        scheduler_token=SecretStr("t" * 32),
+        scheduler_token=scheduler_reference,
     )
 
 
@@ -69,8 +76,14 @@ def test_lifespan_publishes_complete_agent_then_unpublishes_before_close(
             assert target.state.agent_run_service is aggregate.service
             assert target.state.account_autonomy_service is aggregate.autonomy
             assert target.state.owner_provider_settings_service is aggregate.provider_settings
+            assert target.state.strategy_curation_service is aggregate.strategy_curation
             assert target.state.runtime_composition is aggregate.runtime
             assert target.state.persistence is aggregate.persistence
+            assert target.state.experiment_registry is aggregate.persistence.experiment_registry
+            assert (
+                target.state.experiment_window_reader
+                is aggregate.persistence.experiment_window_reader
+            )
             assert (
                 target.state.performance_proof_reader
                 is aggregate.persistence.performance_proof_reader

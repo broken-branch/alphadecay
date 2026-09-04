@@ -521,6 +521,87 @@ def test_market_collector_uses_explicit_feeds_and_deterministic_atm_tie_break() 
     assert stocks.bars_request.feed is DataFeed.IEX
 
 
+def indicative_snapshot(symbol: str, raw: dict[str, object]) -> OptionsSnapshot:
+    return OptionsSnapshot(symbol, raw)
+
+
+def indicative_quote(*, bid: float, ask: float, age: timedelta = timedelta(seconds=3)) -> dict:
+    return {"t": NOW - age, "bp": bid, "bs": 0 if bid == 0 else 10, "ap": ask, "as": 10}
+
+
+def indicative_chain(*, usable_atm: bool = True) -> dict[str, OptionsSnapshot]:
+    # The indicative options feed returns the whole expiry: far wings carry zero bids,
+    # stale quotes, no quote at all, or no implied volatility, and greeks may be null.
+    chain = {
+        "NVDA260918C00100000": indicative_snapshot(
+            "NVDA260918C00100000",
+            {
+                "latestQuote": indicative_quote(bid=0, ask=76, age=timedelta(hours=3)),
+                "impliedVolatility": None,
+                "greeks": None,
+            },
+        ),
+        "NVDA260918C00200000": indicative_snapshot(
+            "NVDA260918C00200000",
+            {"latestQuote": indicative_quote(bid=0.01, ask=0.02)},
+        ),
+        "NVDA260918C00300000": indicative_snapshot(
+            "NVDA260918C00300000", {"impliedVolatility": 1.5}
+        ),
+        "NVDA260918P00100000": indicative_snapshot(
+            "NVDA260918P00100000",
+            {"latestQuote": indicative_quote(bid=0, ask=0.01), "impliedVolatility": 2.1},
+        ),
+        "NVDA260918P00300000": indicative_snapshot(
+            "NVDA260918P00300000", {"latestQuote": indicative_quote(bid=120, ask=126)}
+        ),
+    }
+    if usable_atm:
+        chain["NVDA260918C00175000"] = indicative_snapshot(
+            "NVDA260918C00175000",
+            {
+                "latestQuote": indicative_quote(bid=6.1, ask=6.3),
+                "impliedVolatility": 0.30,
+                "greeks": None,
+            },
+        )
+        chain["NVDA260918C00180000"] = option_snapshot("NVDA260918C00180000", "0.90")
+        chain["NVDA260918P00175000"] = indicative_snapshot(
+            "NVDA260918P00175000",
+            {"latestQuote": indicative_quote(bid=5.9, ask=6.1), "impliedVolatility": 0.50},
+        )
+        chain["NVDA260918P00170000"] = option_snapshot("NVDA260918P00170000", "0.80")
+    return chain
+
+
+def indicative_collector(chain: dict[str, OptionsSnapshot]) -> AlpacaLifecycleMarketDataCollector:
+    return AlpacaLifecycleMarketDataCollector(
+        OptionChain(chain),
+        NoContracts(),
+        Stocks(quote(), BarSet({"NVDA": bars("NVDA", "170"), "QQQ": bars("QQQ", "400")})),
+        Calendars(),
+        Boundaries(),
+        clock=lambda: NOW - timedelta(seconds=2),
+    )
+
+
+def test_market_collector_derives_atm_iv_from_usable_indicative_contracts() -> None:
+    collector = indicative_collector(indicative_chain())
+
+    result = collector.collect(context=context(), trusted_at=NOW)
+
+    assert result.atm_iv.value == Decimal("0.4")
+    assert result.atm_iv.feed == "indicative"
+    assert result.atm_iv.call_source_hash != result.atm_iv.put_source_hash
+
+
+def test_market_collector_fails_closed_without_a_usable_atm_pair() -> None:
+    collector = indicative_collector(indicative_chain(usable_atm=False))
+
+    with pytest.raises(MarketDataError, match="ATM_IV_EVIDENCE_INCOMPLETE"):
+        collector.collect(context=context(), trusted_at=NOW)
+
+
 def test_market_collector_derives_one_bounded_same_structure_roll_candidate() -> None:
     current = {
         "NVDA260918C00170000": option_snapshot("NVDA260918C00170000", "0.30"),

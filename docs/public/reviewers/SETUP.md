@@ -32,7 +32,7 @@ npm run build
 uv run --python 3.12 uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Open `http://127.0.0.1:8000` and choose **Explore Demo**. No environment file or account is needed.
+Open `http://127.0.0.1:8000`. On **Experiments**, choose **Open Replay**. No environment file or account is needed. Replay is labeled **Fixed example · no account connection** and **REPLAY · SAMPLE DATA · NO ORDER SENT**.
 
 You can also call a Replay example from another terminal:
 
@@ -44,6 +44,8 @@ curl --fail --silent --show-error \
 
 The four scenarios use repository fixtures and an execution path that is switched off. They are product examples, not market results.
 
+In Replay, the four sections are **Decision**, **Thesis and rules**, **Decision path**, and **Record details**. The example selector shows **The original idea still holds**, **Time decay takes over**, **The original reason no longer holds**, and **The quote is too old to act on**.
+
 ## B. Review the operator deployment
 
 The connected service runs a persisted agent rather than the fixed Replay examples. It is not a general strategy builder or a ready-made trading plan. It expects an operator-authored policy, calibration record, risk budget, and event plan. The repository validates and stores those records, but it does not choose them for you. Use Replay unless you already have that material.
@@ -52,12 +54,14 @@ A connected deployment needs:
 
 - a PostgreSQL database
 - Alpaca paper account credentials
-- a Gemini key
+- a key for the selected AI provider
 - an HTTPS origin for the owner controls
 - strong owner, session, provider settings, and scheduler secrets
 - a reviewed policy, calibration record, and risk budget
 
-The full environment contract is in [`.env.example`](../../.env.example). Copy it to an ignored file and replace every placeholder required for your role:
+The app's **Settings** screen is titled **Setup and access**. **Try Replay** returns to the fixed example. **Run a connected copy** links to the setup requirements below.
+
+The full environment contract is in [`.env.example`](../../../.env.example). Copy it to an ignored file and replace every placeholder required for your role:
 
 ```bash
 cp .env.example .env.local

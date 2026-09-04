@@ -68,9 +68,7 @@ class ReadPort:
         self.calls.append("orders")
         return self.orders
 
-    def read_activities(
-        self, *, complete_from: datetime, through: datetime
-    ) -> ActivityManifest:
+    def read_activities(self, *, complete_from: datetime, through: datetime) -> ActivityManifest:
         self.calls.append("activities")
         assert complete_from == self.boundary - timedelta(days=2)
         assert through == self.boundary
@@ -88,9 +86,7 @@ class ReadPort:
 
 
 class MutableAliasingReadPort(ReadPort):
-    def read_activities(
-        self, *, complete_from: datetime, through: datetime
-    ) -> ActivityManifest:
+    def read_activities(self, *, complete_from: datetime, through: datetime) -> ActivityManifest:
         if self.calls.count("activities") == 1:
             self.activities[0]["type"] = "journal"
         return super().read_activities(

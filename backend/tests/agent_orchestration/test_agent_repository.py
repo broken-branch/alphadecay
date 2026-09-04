@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import create_engine, event, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -18,8 +19,15 @@ from backend.app.execution.models import (
     OrderEnvelope,
     OrderLegIntent,
 )
+from backend.app.experiment_lineage import (
+    ExperimentExecutionLineage,
+    optional_experiment_execution_lineage,
+)
+from backend.app.experiments.repository import SQLAlchemyExperimentRegistry
 from backend.app.order_limits import EntryBudgetLimits
+from backend.app.persistence.agent_codec import encode_agent_value
 from backend.app.persistence.agent_repository import AgentDecisionRepository
+from backend.app.persistence.agent_service_repository import SQLAlchemyAgentServiceRepository
 from backend.app.persistence.sqlalchemy_models import (
     AccountRoleRow,
     AgentDecisionRow,
@@ -31,6 +39,10 @@ from backend.app.persistence.sqlalchemy_models import (
     ThesisVersionRow,
 )
 from backend.app.persistence.sqlalchemy_repository import SQLAlchemyExecutionRepository
+from backend.app.policy import evaluate_opportunity
+from backend.app.services import AgentDecision
+from backend.tests.agent_orchestration.test_agent_run_service import approved_opportunity_bundle
+from backend.tests.experiments.fixtures import compile_request, reviewed_request
 
 FINGERPRINT = "a" * 64
 BOUNDARY = datetime(2026, 8, 29, 16, tzinfo=UTC)
@@ -164,6 +176,27 @@ def reserved_tick(
     )
 
 
+def compiled_experiment_lineage(sessions: sessionmaker) -> ExperimentExecutionLineage:
+    registry = SQLAlchemyExperimentRegistry(sessions)
+    source = registry.create(reviewed_request(), created_at=BOUNDARY)
+    compiled = registry.compile(
+        source.experiment_id,
+        compile_request(source.definition_hash),
+        created_at=BOUNDARY,
+    )
+    return ExperimentExecutionLineage(
+        experiment_id=source.experiment_id,
+        source_definition_hash=source.definition_hash,
+        protocol_hash=compiled.protocol_hash,
+    )
+
+
+def test_experiment_lineage_optional_boundary_rejects_partial_identity() -> None:
+    assert optional_experiment_execution_lineage(None, None, None) is None
+    with pytest.raises(ValueError, match="EXPERIMENT_EXECUTION_LINEAGE_INCOMPLETE"):
+        optional_experiment_execution_lineage(uuid4(), "6" * 64, None)
+
+
 def test_submission_calibration_no_trade_is_machine_binding_and_idempotent() -> None:
     repo, _ = repository()
     tick = reserved_tick(repo, AccountRole.SUBMISSION)
@@ -261,6 +294,265 @@ def test_decision_and_exact_authorization_intent_are_atomic_and_immutable() -> N
             tick_id=tick.tick_id,
             reservation_token=tick.reservation_token,
         )
+
+
+def test_experiment_decision_binds_compiled_lineage_through_entry_approval() -> None:
+    repo, sessions = repository(
+        role=AccountRole.DEVELOPMENT,
+        autonomous_enabled=True,
+        server_autonomy_enabled=True,
+    )
+    lineage = compiled_experiment_lineage(sessions)
+    authorization, envelope, intent_id = entry_proposal()
+    authorization = replace(authorization, experiment_lineage=lineage)
+    tick = reserved_tick(repo, AccountRole.DEVELOPMENT)
+
+    recorded = repo.record_decision(
+        account_role=AccountRole.DEVELOPMENT,
+        account_fingerprint=FINGERPRINT,
+        decision_kind="OPPORTUNITY",
+        decision_boundary=BOUNDARY,
+        observed_at=BOUNDARY,
+        normalized_input={"candidate": "SPY", "score": "0.8"},
+        outcome="ENTRY_APPROVED",
+        reason_code="POLICY_APPROVED",
+        policy_hash=envelope.policy_hash,
+        result_payload={"max_loss": "500"},
+        thesis_version_id=authorization.thesis_version_id,
+        authorization=authorization,
+        envelope=envelope,
+        intent_id=intent_id,
+        tick_id=tick.tick_id,
+        reservation_token=tick.reservation_token,
+        experiment_lineage=lineage,
+    )
+
+    assert recorded.experiment_lineage == lineage
+    assert repo.get_decision(recorded.decision_id).experiment_lineage == lineage
+    with sessions() as session:
+        decision = session.get(AgentDecisionRow, recorded.decision_id)
+        approval = session.get(EntryApprovalCertificateRow, authorization.approval_id)
+        assert decision is not None and approval is not None
+        assert decision.experiment_id == lineage.experiment_id
+        assert decision.experiment_source_definition_hash == lineage.source_definition_hash
+        assert decision.experiment_protocol_hash == lineage.protocol_hash
+        assert approval.experiment_id == lineage.experiment_id
+        assert approval.experiment_source_definition_hash == lineage.source_definition_hash
+        assert approval.experiment_protocol_hash == lineage.protocol_hash
+
+    with pytest.raises(IntegrityError), sessions.begin() as session:
+        approval = session.get(EntryApprovalCertificateRow, authorization.approval_id)
+        assert approval is not None
+        approval.experiment_protocol_hash = "9" * 64
+
+
+def test_experiment_decision_rejects_mismatched_approval_lineage() -> None:
+    repo, sessions = repository(
+        role=AccountRole.DEVELOPMENT,
+        autonomous_enabled=True,
+        server_autonomy_enabled=True,
+    )
+    lineage = compiled_experiment_lineage(sessions)
+    authorization, envelope, intent_id = entry_proposal()
+    authorization = replace(
+        authorization,
+        experiment_lineage=replace(lineage, protocol_hash="9" * 64),
+    )
+    tick = reserved_tick(repo, AccountRole.DEVELOPMENT)
+
+    with pytest.raises(ExecutionBlocked, match="EXPERIMENT_EXECUTION_LINEAGE_MISMATCH"):
+        repo.record_decision(
+            account_role=AccountRole.DEVELOPMENT,
+            account_fingerprint=FINGERPRINT,
+            decision_kind="OPPORTUNITY",
+            decision_boundary=BOUNDARY,
+            observed_at=BOUNDARY,
+            normalized_input={"candidate": "SPY"},
+            outcome="ENTRY_APPROVED",
+            reason_code="POLICY_APPROVED",
+            policy_hash=envelope.policy_hash,
+            result_payload={},
+            thesis_version_id=authorization.thesis_version_id,
+            authorization=authorization,
+            envelope=envelope,
+            intent_id=intent_id,
+            tick_id=tick.tick_id,
+            reservation_token=tick.reservation_token,
+            experiment_lineage=lineage,
+        )
+
+
+def test_experiment_decision_rejects_unregistered_compiled_lineage() -> None:
+    repo, _ = repository(role=AccountRole.DEVELOPMENT)
+    lineage = ExperimentExecutionLineage(
+        experiment_id=uuid4(),
+        source_definition_hash="8" * 64,
+        protocol_hash="9" * 64,
+    )
+    tick = reserved_tick(repo, AccountRole.DEVELOPMENT)
+
+    with pytest.raises(ExecutionBlocked, match="EXPERIMENT_EXECUTION_LINEAGE_INVALID"):
+        repo.record_decision(
+            account_role=AccountRole.DEVELOPMENT,
+            account_fingerprint=FINGERPRINT,
+            decision_kind="OPPORTUNITY",
+            decision_boundary=BOUNDARY,
+            observed_at=BOUNDARY,
+            normalized_input={"candidate": "SPY"},
+            outcome="NO_TRADE",
+            reason_code="POLICY_REJECTED",
+            policy_hash="c" * 64,
+            result_payload={},
+            thesis_version_id=UUID("ffffffff-ffff-ffff-ffff-ffffffffffff"),
+            tick_id=tick.tick_id,
+            reservation_token=tick.reservation_token,
+            experiment_lineage=lineage,
+        )
+
+
+def test_submission_order_preview_renders_exact_durable_order_and_authority() -> None:
+    repo, sessions = repository(
+        role=AccountRole.SUBMISSION,
+        autonomous_enabled=True,
+        server_autonomy_enabled=True,
+    )
+    bundle = approved_opportunity_bundle()
+    values = replace(
+        bundle.values,
+        account=replace(bundle.values.account, account_role=AccountRole.SUBMISSION),
+    )
+    opportunity = evaluate_opportunity(bundle.policy, values)
+    assert bundle.proposal is not None
+    authorization = replace(
+        bundle.proposal.authorization,
+        account_role=AccountRole.SUBMISSION,
+        thesis_version_id=UUID("ffffffff-ffff-ffff-ffff-ffffffffffff"),
+        valid_from=BOUNDARY,
+        expires_at=BOUNDARY + timedelta(minutes=5),
+    )
+    envelope = replace(
+        bundle.proposal.intent.envelope,
+        authorization_certificate_id=authorization.approval_id,
+    )
+    authorization = replace(authorization, envelope_hash=order_envelope_hash(envelope))
+    with sessions.begin() as session:
+        thesis = session.get(ThesisVersionRow, authorization.thesis_version_id)
+        assert thesis is not None
+        thesis.policy_hash = envelope.policy_hash
+    tick = reserved_tick(repo, AccountRole.SUBMISSION)
+    agent_decision = AgentDecision(
+        code="ENTRY_APPROVED",
+        decided_at=BOUNDARY,
+        thesis_version_id=authorization.thesis_version_id,
+        opportunity=opportunity,
+        normalized_input=values,
+    )
+    repo.record_decision(
+        account_role=AccountRole.SUBMISSION,
+        account_fingerprint=FINGERPRINT,
+        decision_kind="OPPORTUNITY",
+        decision_boundary=BOUNDARY,
+        observed_at=BOUNDARY,
+        normalized_input={"typed": encode_agent_value(values)},
+        outcome="ENTRY_APPROVED",
+        reason_code="ENTRY_APPROVED",
+        policy_hash=envelope.policy_hash,
+        result_payload={"typed": encode_agent_value(agent_decision)},
+        thesis_version_id=authorization.thesis_version_id,
+        authorization=authorization,
+        envelope=envelope,
+        intent_id=bundle.proposal.intent.intent_id,
+        tick_id=tick.tick_id,
+        reservation_token=tick.reservation_token,
+    )
+    preview = SQLAlchemyAgentServiceRepository(
+        repo, server_autonomy_enabled=True
+    ).submission_order_preview(bundle.proposal.intent.intent_id)
+
+    assert preview.thesis_code == "TEST_THESIS"
+    assert preview.strategy == "BULL_CALL_DEBIT"
+    assert preview.reason_codes == ("ENTRY_APPROVED",)
+    assert preview.risk_cap == Decimal("500")
+    assert preview.legs == envelope.legs
+    assert preview.quantity == 4
+    assert preview.limit_price == Decimal("1.20")
+    assert preview.maximum_loss == Decimal("480.00")
+    assert preview.account_role is AccountRole.SUBMISSION
+    assert preview.account_fingerprint == FINGERPRINT
+    assert preview.book_fingerprint == FINGERPRINT
+    assert preview.approval_id == authorization.approval_id
+    assert preview.policy_hash == opportunity.policy_hash
+    assert preview.envelope_hash == order_envelope_hash(envelope)
+    assert len(preview.decision_result_hash) == 64
+
+
+def test_submission_order_preview_rejects_current_account_authority_drift() -> None:
+    repo, sessions = repository(
+        role=AccountRole.SUBMISSION,
+        autonomous_enabled=True,
+        server_autonomy_enabled=True,
+    )
+    bundle = approved_opportunity_bundle()
+    values = replace(
+        bundle.values,
+        account=replace(bundle.values.account, account_role=AccountRole.SUBMISSION),
+    )
+    opportunity = evaluate_opportunity(bundle.policy, values)
+    assert bundle.proposal is not None
+    authorization = replace(
+        bundle.proposal.authorization,
+        account_role=AccountRole.SUBMISSION,
+        thesis_version_id=UUID("ffffffff-ffff-ffff-ffff-ffffffffffff"),
+        valid_from=BOUNDARY,
+        expires_at=BOUNDARY + timedelta(minutes=5),
+    )
+    envelope = replace(
+        bundle.proposal.intent.envelope,
+        authorization_certificate_id=authorization.approval_id,
+    )
+    authorization = replace(authorization, envelope_hash=order_envelope_hash(envelope))
+    with sessions.begin() as session:
+        thesis = session.get(ThesisVersionRow, authorization.thesis_version_id)
+        assert thesis is not None
+        thesis.policy_hash = envelope.policy_hash
+    tick = reserved_tick(repo, AccountRole.SUBMISSION)
+    repo.record_decision(
+        account_role=AccountRole.SUBMISSION,
+        account_fingerprint=FINGERPRINT,
+        decision_kind="OPPORTUNITY",
+        decision_boundary=BOUNDARY,
+        observed_at=BOUNDARY,
+        normalized_input={"typed": encode_agent_value(values)},
+        outcome="ENTRY_APPROVED",
+        reason_code="ENTRY_APPROVED",
+        policy_hash=envelope.policy_hash,
+        result_payload={
+            "typed": encode_agent_value(
+                AgentDecision(
+                    code="ENTRY_APPROVED",
+                    decided_at=BOUNDARY,
+                    thesis_version_id=authorization.thesis_version_id,
+                    opportunity=opportunity,
+                    normalized_input=values,
+                )
+            )
+        },
+        thesis_version_id=authorization.thesis_version_id,
+        authorization=authorization,
+        envelope=envelope,
+        intent_id=bundle.proposal.intent.intent_id,
+        tick_id=tick.tick_id,
+        reservation_token=tick.reservation_token,
+    )
+    with sessions.begin() as session:
+        account = session.get(AccountRoleRow, AccountRole.SUBMISSION.value)
+        assert account is not None
+        account.account_fingerprint = "b" * 64
+
+    with pytest.raises(ExecutionBlocked, match="SUBMISSION_ORDER_PREVIEW_AUTHORITY_INVALID"):
+        SQLAlchemyAgentServiceRepository(
+            repo, server_autonomy_enabled=True
+        ).submission_order_preview(bundle.proposal.intent.intent_id)
 
 
 def test_opportunity_decision_rejects_a_thesis_frozen_after_its_boundary() -> None:

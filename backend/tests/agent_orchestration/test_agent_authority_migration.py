@@ -9,10 +9,69 @@ MIGRATIONS = Path(__file__).parents[3] / "migrations"
 def test_agent_authority_migration_is_discovered_after_historical_chain() -> None:
     migrations = discover_migrations(MIGRATIONS)
 
-    assert [item.version for item in migrations] == list(range(1, 27))
+    assert [item.version for item in migrations] == list(range(1, 37))
     assert migrations[11].filename == "0012_agent_decision_authority.sql"
     assert migrations[22].filename == "0023_competition_record_archive.sql"
     assert migrations[23].filename == "0024_submission_opportunity_authority.sql"
+    assert migrations[26].filename == "0027_submission_opportunity_baseline_material.sql"
+    assert migrations[27].filename == "0028_structural_pilot_policy_hash.sql"
+    assert migrations[28].filename == "0029_provider_failure_retry_authority.sql"
+    assert migrations[28].sha256 == (
+        "b1a04109b18b65088bba7c9d851e950deaad00cc24b50d27a43d3038cd608b69"
+    )
+    assert migrations[32].filename == "0033_experiment_execution_lineage.sql"
+
+
+def test_experiment_execution_lineage_migration_binds_authoritative_evidence() -> None:
+    migration = (MIGRATIONS / "0033_experiment_execution_lineage.sql").read_text()
+
+    for table in (
+        "agent_decisions",
+        "entry_approval_certificates",
+        "assessment_certificates",
+        "managed_lifecycle_positions",
+    ):
+        assert f"ALTER TABLE {table}" in migration
+    for field in (
+        "experiment_id",
+        "experiment_source_definition_hash",
+        "experiment_protocol_hash",
+    ):
+        assert field in migration
+    assert "REFERENCES compiled_experiment_versions" in migration
+    assert "fk_entry_approval_experiment_decision" in migration
+    assert "fk_assessment_experiment_decision" in migration
+    assert "fk_managed_position_experiment_approval" in migration
+    assert "EXPERIMENT_AUTHORIZATION_DECISION_LINEAGE_INVALID" in migration
+    assert "EXPERIMENT_MANAGED_POSITION_LINEAGE_INVALID" in migration
+    assert "EXPERIMENT_ASSESSMENT_POSITION_LINEAGE_INVALID" in migration
+    assessment_guard = migration.split(
+        "CREATE FUNCTION experiment_assessment_position_lineage_guard()",
+        maxsplit=1,
+    )[1].split("CREATE CONSTRAINT TRIGGER", maxsplit=1)[0]
+    assert "IF NEW.experiment_id IS NULL" not in assessment_guard
+    assert "position.experiment_id IS DISTINCT FROM NEW.experiment_id" in assessment_guard
+    assert (
+        "position.experiment_source_definition_hash\n"
+        "            IS DISTINCT FROM NEW.experiment_source_definition_hash" in assessment_guard
+    )
+    assert (
+        "position.experiment_protocol_hash\n"
+        "            IS DISTINCT FROM NEW.experiment_protocol_hash" in assessment_guard
+    )
+
+
+def test_provider_failure_retry_migration_preserves_audit_and_policy_authority() -> None:
+    migration = (MIGRATIONS / "0029_provider_failure_retry_authority.sql").read_text()
+
+    assert "ALTER TABLE agent_input_snapshots DROP CONSTRAINT" in migration
+    assert "CREATE INDEX ix_agent_input_boundary" in migration
+    assert "CREATE UNIQUE INDEX uq_agent_policy_decision_boundary" in migration
+    assert "PROVIDER_FAILURE_NO_TRADE" in migration
+    assert "PROVIDER_FAILURE_NO_ACTION" in migration
+    assert "OPPORTUNITY_DECISION_PENDING" in migration
+    assert "tick.decision_id IS DISTINCT FROM NEW.decision_id" in migration
+    assert "tick.actor <> 'SCHEDULER'" in migration
 
 
 def test_order_status_migration_updates_status_authority_and_tick_guard() -> None:

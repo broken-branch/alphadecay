@@ -1,88 +1,47 @@
-# Verify the project
+# Reproducibility
 
-The repository provides separate checks for code, Replay, provider connections, deployment, and competition results. Each section below says what its evidence does and does not establish.
+AlphaDecay separates four claims that are easy to blur: the code passes its checks, Replay is deterministic, development providers were reachable, and a competition result was published. Each has a different artifact.
 
-## Check the repository
+## One development receipt
 
-Install the locked dependencies:
+[`PROVIDER_REHEARSAL_PROOF.json`](PROVIDER_REHEARSAL_PROOF.json) records one read-only development rehearsal. It reports eleven provider requests, none that changed the account, one official MCP `get_clock` call, the pinned CLI dry run, and an unchanged account book. The run stopped because it could not identify a managed position.
+
+The receipt includes hashes for its sealed private summary and operator source. Private account and provider records are not published. This proves that the named connections worked during that rehearsal and that the application stopped safely. It does not establish a fill, a competition result, or profit and loss. [`CLI_PROOF.json`](CLI_PROOF.json) contains the CLI portion in a separately inspectable form.
+
+## Replay
+
+Start the app with the command in the root [README](../../README.md), then compare the four fixed scenarios with the [fixture test](../../backend/tests/integration/test_replay_api.py):
+
+```bash
+for scenario in THESIS_INTACT THETA_TAKEOVER CATALYST_BROKEN STALE_QUOTE; do
+  curl -fsS -X POST "http://127.0.0.1:8000/api/replays/$scenario" |
+    jq '{scenario, action: .assessment.action, input_hash, assessment_hash}'
+done
+```
+
+The expected actions are `HOLD`, `ROLL`, `CLOSE`, and `NO_ACTION`. Check that the browser and API agree on the action, rationale, input hash, assessment hash, current exposure, expected exposure, and rejected alternatives. This verifies the same fixed policy against repository fixtures. Replay is not a provider or market test.
+
+## Repository checks
+
+Install the locked dependencies before running the gate:
 
 ```bash
 uv sync --python 3.12 --frozen --all-groups
 npm ci
-```
-
-Run the backend, contract, and policy checks:
-
-```bash
 uv run --python 3.12 pytest -q
-uv run --python 3.12 ruff check \
-  backend ops/contracts \
-  ops/release/generate_third_party_notices.py \
-  ops/release/test_third_party_notices.py
-uv run --python 3.12 python -m ops.contracts.generate_openapi
-git diff --exit-code -- contracts/openapi-v1.json
-```
-
-Run the browser and license checks:
-
-```bash
 npm test -- --run
 npm run typecheck
 npm run build
-uv run --python 3.12 python -m ops.release.generate_third_party_notices --check
-```
-
-The notice check matches every Python and browser package shipped with the app to the installed lock version. It fails when a package is missing, its license is unknown or incompatible, or the checked notice has changed.
-
-Check public copy, links, and the Render Blueprint:
-
-```bash
 python3 ops/quality/public_copy_check.py
-python3 ops/quality/render_blueprint_check.py
-python3 ops/quality/public_link_check.py --root . README.md docs/public/*.md
+python3 ops/quality/public_link_check.py --root . README.md docs/public/*.md docs/public/reviewers/*.md
 ```
 
-Some PostgreSQL tests skip when no local database is available. A release check should run them against a disposable PostgreSQL instance and record the database version with the result.
+The backend suite covers policy, persistence, broker recovery, public records, and provider boundaries. Some database tests skip without PostgreSQL; release qualification runs them against a disposable PostgreSQL instance. Browser tests cover the rendered contract. The copy and link checks reject unregistered prose and broken public paths.
 
-## Check Replay
+Locked dependency and retained-license checks live in [the dependency inventory test](../../ops/release/test_locked_dependency_inventory.py) and [the third-party notices test](../../ops/release/test_third_party_notices.py). A release policy file, kept out of the public tree, defines which files can enter the sanitized repository and blocks private project material.
 
-Start the local app using [Setup](SETUP.md), then run all four examples. Keep this label visible:
+## Competition result
 
-```text
-REPLAY · SAMPLE DATA · NO ORDER SENT
-```
+`GET /api/competition-record` is the published lifecycle source. `GET /api/proof` is the separate account checkpoint. A broker claim requires a terminal paper order with no unresolved remainder and a whole-account match. Lifecycle observation also checks the position against reconciled account evidence; a later eligible entry does not turn that observation into a clean-book assumption. The [competition checkpoint receipt](COMPETITION_CHECKPOINT_PROOF.json) can support the account state without exposing its identifier.
 
-For each example, compare the API response with the page:
-
-- fixture and policy hashes;
-- intended, current, and expected exposure;
-- selected action and rejected alternatives;
-- the separate result showing that execution was disabled.
-
-This checks the path from a fixed fixture to the policy result. It does not check current provider data, a paper order, or profit and loss.
-
-## Check the competition strategy status
-
-After reviewing the development results, we selected a bearish competition candidate and fixed it before opening its holdout once. Validation produced too few qualifying trades, and too much of the result depended on one trade. The candidate was rejected, so alphadecay sent no competition order.
-
-[`COMPETITION_CHECKPOINT_PROOF.json`](COMPETITION_CHECKPOINT_PROOF.json) records that narrow result alongside a current account checkpoint. It omits the ticker, dates, private thresholds, provider records, and account identifiers. The Competition Record API remains `NOT_PUBLISHED` because no competition order was sent.
-
-## Check the provider receipt
-
-The repository includes typed Alpaca, MCP, and Gemini adapters with fixture tests. [`PROVIDER_REHEARSAL_PROOF.json`](PROVIDER_REHEARSAL_PROOF.json) is the sanitized receipt from one development account rehearsal. It records eleven provider requests that read data, none that changed it, an unchanged account book, one MCP `get_clock` call, and the pinned CLI dry run. The service stopped because it could not identify one managed position.
-
-The receipt is bound to the local sealed summary and operator source hashes. Its private account and provider records are not published. It proves that the connections worked and that the service stopped safely. It does not prove a fill, a positive lifecycle assessment, a competition result, or profit and loss.
-
-Do not run a credentialed smoke test as part of an anonymous reproduction, and do not publish a provider's raw response.
-
-## Check broker and deployment claims
-
-A broker claim requires a terminal paper order, no unresolved remainder, and reconciliation of the whole account in a record labeled with its account role. This revision includes the two autonomy gates and a development rehearsal that made no writes. It does not include a public terminal broker record or proof of a real autonomous order.
-
-The public Render URL and GitHub repository are available without signing in. The health response gives the deployed Render commit and runtime mode. The Dockerfile and Render Blueprint let another person rebuild the service. The running demo proves deployment, not provider access, an order, or a return.
-
-## Check performance claims
-
-Competition performance can come only from the dedicated paper account and its sealed starting balance. The public response omits account, order, position, and activity identifiers. If no eligible trade exists, the accurate status is `NO_TRADE`. If a scheduled capture is missing or unusable, the page reports that instead of choosing an older result.
-
-Paper performance is simulated. It is not evidence of live returns.
+If a route says `NOT_PUBLISHED`, that is the result of the publication check, not evidence of `NO_TRADE`, a fill, or zero return. The root README keeps unresolved outcome fields as named result tokens until the verified record is inserted. Paper results remain simulated and do not predict live performance.

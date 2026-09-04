@@ -307,6 +307,25 @@ def test_envelope_matches_the_exact_approved_candidate_and_risk() -> None:
     )
 
 
+def test_entry_envelope_preserves_initial_preview_and_bounded_replacement_limit() -> None:
+    inputs = _inputs()
+    candidate = inputs.values.candidate
+    assert candidate is not None
+    candidate = replace(
+        candidate,
+        approved_limit=Decimal("1.10"),
+        maximum_limit=Decimal("1.20"),
+    )
+    values = replace(inputs.values, candidate=candidate)
+    decision = evaluate_opportunity(inputs.policy, values)
+
+    built = build_development_entry_proposal(replace(inputs, values=values, decision=decision))
+
+    assert built.envelope.minimum_limit == Decimal("1.10")
+    assert built.envelope.maximum_limit == Decimal("1.20")
+    assert built.envelope.approved_max_loss == Decimal("480.00")
+
+
 class _Authority:
     def observe(self) -> ObservedPaperAccountAuthority:
         return ObservedPaperAccountAuthority(

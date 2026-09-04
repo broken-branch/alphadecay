@@ -4,7 +4,7 @@ import hashlib
 import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Protocol
 from uuid import UUID
@@ -396,6 +396,7 @@ class AlpacaOptionContractCollector:
 
     def contracts_for(self, symbols: tuple[str, ...]) -> Mapping[str, OptionContract]:
         roots: dict[str, set[str]] = {}
+        expirations: dict[str, tuple[date, date]] = {}
         for symbol in symbols:
             try:
                 contract = parse_standard_option_contract_symbol(symbol)
@@ -404,14 +405,22 @@ class AlpacaOptionContractCollector:
                     raise ExecutionEvidenceError(error.code) from error
                 raise ExecutionEvidenceError("OPTION_CONTRACT_SYMBOL_INVALID") from error
             roots.setdefault(contract.root_symbol, set()).add(symbol)
+            window = expirations.get(contract.root_symbol)
+            expirations[contract.root_symbol] = (
+                min(window[0], contract.expiration_date) if window else contract.expiration_date,
+                max(window[1], contract.expiration_date) if window else contract.expiration_date,
+            )
         collected: dict[str, OptionContract] = {}
         for root in sorted(roots):
             page_token: str | None = None
             seen_tokens: set[str] = set()
+            earliest, latest = expirations[root]
             for _ in range(self._max_pages):
                 response = self._client.get_option_contracts(
                     GetOptionContractsRequest(
                         root_symbol=root,
+                        expiration_date_gte=earliest,
+                        expiration_date_lte=latest,
                         limit=1000,
                         page_token=page_token,
                     )
@@ -581,20 +590,14 @@ class AlpacaLifecycleAccountCollector:
         trusted_at: datetime,
     ) -> LifecycleAccountEvidence:
         started = _utc(self._clock())
-        if started > trusted_at:
+        if started - trusted_at > timedelta(seconds=30):
             raise ExecutionEvidenceError("PROVIDER_TIMESTAMP_FUTURE")
         first_account = self._trading.account()
         first_positions = self._trading.positions()
         first_orders = self._trading.open_orders()
-        known_hashes = tuple(
-            sorted(
-                value
-                for transition in context.lifecycle_transitions
-                for value in transition.activity_hashes
-            )
-        )
+        known_hashes = context.account_activity_hashes
         activities, pagination = self._activities.collect_lifecycle(
-            since=context.lifecycle_origin_at,
+            since=context.account_lifecycle_origin_at,
             until=first_account.observed_at,
             observed_account_fingerprint=context.account_fingerprint,
             known_activity_hashes=known_hashes,
@@ -604,7 +607,7 @@ class AlpacaLifecycleAccountCollector:
         final_positions = self._trading.positions()
         final_orders = self._trading.open_orders()
         completed = _utc(self._clock())
-        if completed > trusted_at:
+        if completed - trusted_at > timedelta(seconds=30):
             raise ExecutionEvidenceError("PROVIDER_TIMESTAMP_FUTURE")
         return LifecycleAccountEvidence(
             sweep=SweepObservation(
@@ -690,14 +693,18 @@ class AlpacaWholeAccountSweepPort:
 
 def _initial_funding_context(
     expectation: ReconciliationExpectation,
-) -> InitialFundingContext:
+) -> InitialFundingContext | None:
     funding = tuple(
         activity
         for activity in expectation.known_activities
         if activity.activity_type == ActivityType.INITIAL_FUNDING
     )
-    if len(funding) != 1:
+    if len(funding) > 1:
         raise ExecutionEvidenceError("INITIAL_FUNDING_EXPECTATION_INVALID")
+    if not funding:
+        # Successor reconciliation states carry only in-window activities; the funding
+        # journal predates every window and needs no classification context.
+        return None
     item = funding[0]
     if (
         item.symbol is not None
@@ -717,10 +724,14 @@ def _initial_funding_context(
 
 
 def _signed_quantity(position: Position) -> Decimal:
+    """Alpaca reports a short position with a negative quantity; the sign must match the side."""
     quantity = _finite_decimal(position.qty, "POSITION_QUANTITY_INVALID")
-    if quantity <= 0:
+    side = position.side.value
+    if quantity == 0 or (side == "long" and quantity < 0) or (side == "short" and quantity > 0):
         raise ExecutionEvidenceError("POSITION_QUANTITY_INVALID")
-    return quantity if position.side.value == "long" else -quantity
+    if side not in {"long", "short"}:
+        raise ExecutionEvidenceError("POSITION_QUANTITY_INVALID")
+    return quantity if side == "long" else -abs(quantity)
 
 
 def _client_id_for_provider(value: object, orders: Mapping[str, Order]) -> str | None:

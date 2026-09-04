@@ -202,18 +202,14 @@ def test_submission_plan_adapter_reads_exact_submission_authority() -> None:
         (None, None, "OPPORTUNITY_PLAN_MISSING"),
         (
             SimpleNamespace(
-                persisted=SimpleNamespace(
-                    plan_id=uuid4(), frozen_at=NOW - timedelta(minutes=1)
-                )
+                persisted=SimpleNamespace(plan_id=uuid4(), frozen_at=NOW - timedelta(minutes=1))
             ),
             None,
             "OPPORTUNITY_BASELINE_MISSING",
         ),
         (
             SimpleNamespace(
-                persisted=SimpleNamespace(
-                    plan_id=uuid4(), frozen_at=NOW + timedelta(minutes=1)
-                )
+                persisted=SimpleNamespace(plan_id=uuid4(), frozen_at=NOW + timedelta(minutes=1))
             ),
             None,
             "OPPORTUNITY_PLAN_NOT_YET_EFFECTIVE",
@@ -242,9 +238,7 @@ def test_history_adapter_binds_snapshot_book_and_exact_repository_hashes() -> No
         entry_intent_count=2,
         authority_hash=HISTORY_HASH,
     )
-    adapter = SQLAlchemyOpportunityHistoryAdapter(
-        _AuthorityRepository(history=history), evidence
-    )
+    adapter = SQLAlchemyOpportunityHistoryAdapter(_AuthorityRepository(history=history), evidence)
 
     result = adapter.load(
         expected_account_fingerprint=ACCOUNT,
@@ -346,16 +340,13 @@ def test_prior_greek_observation_and_thesis_adapters_preserve_authority() -> Non
     )
     assert mapped.source_hash == prior.source_hash
     assert mapped.outcome is OpportunityOutcome.NO_TRADE
-    assert SQLAlchemyOpportunityGreekAuthorityAdapter(authorities).load(
-        effective_at=NOW
-    ) is greek
+    assert SQLAlchemyOpportunityGreekAuthorityAdapter(authorities).load(effective_at=NOW) is greek
 
     plan, _, loaded_baseline = _plan_and_baseline()
     evidence = _EvidenceRepository(plan, loaded_baseline)
     observation_spec = object()
     assert (
-        SQLAlchemyOpportunityObservationAdapter(evidence).append(observation_spec)
-        == "observation"
+        SQLAlchemyOpportunityObservationAdapter(evidence).append(observation_spec) == "observation"
     )
     assert evidence.appended is observation_spec
 

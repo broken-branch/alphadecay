@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -28,7 +29,7 @@ from backend.app.persistence.opportunity_evidence import (
     opportunity_observation_digest,
 )
 from backend.app.policy import OpportunityOutcome, OpportunityPolicy, evaluate_opportunity
-from backend.app.policy.opportunity import derive_opportunity_direction
+from backend.app.policy.opportunity import TradingHaltState, derive_opportunity_direction
 from backend.app.services.acquisition import (
     AcquisitionFailure,
     AcquisitionKind,
@@ -162,6 +163,41 @@ class OpportunityThesisPort(Protocol):
     def persist(self, draft: FrozenThesisVersion) -> FrozenThesisVersion: ...
 
 
+class _HaltStatusUnknown(RuntimeError):
+    """The halt authority has not confirmed the session yet, so the read is retryable evidence."""
+
+    code = "TRADING_HALT_STATUS_UNKNOWN"
+
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def _confirmed_halt(snapshot: HaltAuthoritySnapshot) -> HaltAuthoritySnapshot:
+    if snapshot.trading_halt_state is TradingHaltState.UNKNOWN:
+        _LOGGER.warning(
+            "halt authority unknown at read: state=%s observed_at=%s acknowledged_at=%s "
+            "last_trade_at=%s last_event_at=%s last_sequence=%s transitions=%s rejected=%s",
+            getattr(snapshot.state, "value", snapshot.state),
+            snapshot.observed_at.isoformat() if snapshot.observed_at else None,
+            snapshot.acknowledged_at.isoformat() if snapshot.acknowledged_at else None,
+            snapshot.last_trade_at.isoformat() if snapshot.last_trade_at else None,
+            snapshot.last_event_at.isoformat() if snapshot.last_event_at else None,
+            snapshot.last_sequence,
+            snapshot.transition_count,
+            snapshot.last_rejected_event_hash,
+        )
+        raise _HaltStatusUnknown(_HaltStatusUnknown.code)
+    return snapshot
+
+
+def _unavailable_code(stage: str, error: BaseException) -> str:
+    """Name the stage that failed and, when the error carries a code, the underlying cause."""
+    cause = getattr(error, "code", None)
+    if isinstance(cause, str) and cause and len(cause) <= 96 and cause.replace("_", "").isalnum():
+        return f"OPPORTUNITY_{stage}_UNAVAILABLE__{cause}"
+    return f"OPPORTUNITY_{stage}_UNAVAILABLE"
+
+
 class ProductionOpportunityComposer:
     def __init__(
         self,
@@ -236,7 +272,9 @@ class ProductionOpportunityComposer:
         )
         halt = self._stage(
             "HALT",
-            lambda: self._halts.read(symbol=policy.underlying, trusted_at=snapshot.trusted_at),
+            lambda: _confirmed_halt(
+                self._halts.read(symbol=policy.underlying, trusted_at=snapshot.trusted_at)
+            ),
         )
         signals = OpportunitySignalAuthority(
             snapshot_source_hash=signal_evidence.authority.snapshot_source_hash,
@@ -573,11 +611,11 @@ class ProductionOpportunityComposer:
             if code == "SNAPSHOT" and error.code == NON_STANDARD_CONTRACT_UNSUPPORTED:
                 raise AcquisitionFailure(AcquisitionKind.OPPORTUNITY, error.code) from error
             raise AcquisitionFailure(
-                AcquisitionKind.OPPORTUNITY, f"OPPORTUNITY_{code}_UNAVAILABLE"
+                AcquisitionKind.OPPORTUNITY, _unavailable_code(code, error)
             ) from error
         except Exception as error:
             raise AcquisitionFailure(
-                AcquisitionKind.OPPORTUNITY, f"OPPORTUNITY_{code}_UNAVAILABLE"
+                AcquisitionKind.OPPORTUNITY, _unavailable_code(code, error)
             ) from error
 
     @staticmethod
@@ -588,5 +626,5 @@ class ProductionOpportunityComposer:
             raise
         except Exception as error:
             raise AcquisitionFailure(
-                AcquisitionKind.OPPORTUNITY, f"OPPORTUNITY_{code}_UNAVAILABLE"
+                AcquisitionKind.OPPORTUNITY, _unavailable_code(code, error)
             ) from error

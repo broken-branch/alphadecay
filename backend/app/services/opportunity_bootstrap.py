@@ -35,10 +35,19 @@ class OpportunityBootstrapRepository(Protocol):
     def seal_baseline(self, seal: OpportunityBaselineSeal) -> PersistedOpportunityBaseline: ...
 
     def load_plan(
-        self, opportunity_key: str, *, version: int | None = None
+        self,
+        opportunity_key: str,
+        *,
+        version: int | None = None,
+        account_role: AccountRole = AccountRole.DEVELOPMENT,
     ) -> OpportunityPlanAuthority | None: ...
 
-    def load_baseline(self, plan_id: UUID) -> OpportunityBaselineAuthority | None: ...
+    def load_baseline(
+        self,
+        plan_id: UUID,
+        *,
+        account_role: AccountRole = AccountRole.DEVELOPMENT,
+    ) -> OpportunityBaselineAuthority | None: ...
 
 
 @dataclass(frozen=True)
@@ -151,64 +160,61 @@ _REQUEST_KEYS = {
 }
 
 
-def parse_development_opportunity_bootstrap(
-    value: object,
+def parse_opportunity_bootstrap(
+    value: object, *, account_role: AccountRole
 ) -> OpportunityBootstrapInput:
+    _role(account_role)
     payload = _mapping(value)
-    if set(payload) != {"account_role", "plan", "baseline"}:
+    if set(payload) != {"account_role", "submission_baseline_id", "plan", "baseline"}:
         raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_PAYLOAD_INVALID")
-    if payload["account_role"] != AccountRole.DEVELOPMENT.value:
-        raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_DEVELOPMENT_ONLY")
+    if payload["account_role"] != account_role.value:
+        raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_AUTHORITY_MISMATCH")
+    submission_baseline_id = _submission_baseline_id(
+        payload["submission_baseline_id"], account_role
+    )
     try:
         plan = _parse_plan(_mapping(payload["plan"]))
-        baseline = _parse_baseline(_mapping(payload["baseline"]))
+        baseline = _parse_baseline(
+            _mapping(payload["baseline"]),
+            account_role=account_role,
+            submission_baseline_id=submission_baseline_id,
+        )
     except (OpportunityEvidenceError, TypeError, ValueError, OverflowError) as error:
         raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_PAYLOAD_INVALID") from error
-    _identities(plan, baseline)
+    _identities(plan, baseline, account_role=account_role)
     return OpportunityBootstrapInput(plan=plan, baseline=baseline)
 
 
-def parse_development_opportunity_plan(value: object) -> OpportunityPlanSpec:
+def parse_opportunity_plan(value: object, *, account_role: AccountRole) -> OpportunityPlanSpec:
+    _role(account_role)
     payload = _mapping(value)
     try:
-        return _parse_plan(payload)
+        plan = _parse_plan(payload)
     except (OpportunityEvidenceError, TypeError, ValueError, OverflowError) as error:
         raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_PAYLOAD_INVALID") from error
+    if plan.account_role is not account_role:
+        raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_AUTHORITY_MISMATCH")
+    return plan
 
 
-def development_opportunity_bootstrap_payload(
+def opportunity_bootstrap_payload(
     bootstrap: OpportunityBootstrapInput,
 ) -> dict[str, object]:
     if type(bootstrap) is not OpportunityBootstrapInput:
         raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_INPUT_INVALID")
-    _identities(bootstrap.plan, bootstrap.baseline)
+    account_role = bootstrap.plan.account_role
+    _role(account_role)
+    _identities(bootstrap.plan, bootstrap.baseline, account_role=account_role)
     plan = bootstrap.plan
     baseline = bootstrap.baseline
-    policy = _json_value(plan.policy)
-    if not isinstance(policy, dict):
-        raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_PAYLOAD_INVALID")
     payload: dict[str, object] = {
-        "account_role": AccountRole.DEVELOPMENT.value,
-        "plan": {
-            "opportunity_key": plan.opportunity_key,
-            "version": plan.version,
-            "underlying": plan.underlying,
-            "event_session": plan.event_session.isoformat(),
-            "pre_event_session": plan.pre_event_session.isoformat(),
-            "reaction_session": plan.reaction_session.isoformat(),
-            "signal_session": plan.signal_session.isoformat(),
-            "daily_start_session": plan.daily_start_session.isoformat(),
-            "allowed_event_codes": list(plan.allowed_event_codes),
-            "evidence_window_start": plan.evidence_window_start.isoformat(),
-            "evidence_window_end": plan.evidence_window_end.isoformat(),
-            "policy": policy,
-            "request_contract": _request_material(plan.request_contract),
-            "thesis_code": plan.thesis_code,
-            "thesis_target_contract": plan.thesis_target_contract,
-            "exposure_limit_contract": plan.exposure_limit_contract,
-            "invalidation_codes": list(plan.invalidation_codes),
-            "frozen_at": plan.frozen_at.isoformat(),
-        },
+        "account_role": account_role.value,
+        "submission_baseline_id": (
+            str(baseline.submission_baseline_id)
+            if baseline.submission_baseline_id is not None
+            else None
+        ),
+        "plan": opportunity_plan_payload(plan),
         "baseline": {
             "plan_id": str(baseline.plan_id),
             "account_fingerprint": baseline.account_fingerprint,
@@ -227,21 +233,55 @@ def development_opportunity_bootstrap_payload(
             "captured_at": baseline.captured_at.isoformat(),
         },
     }
-    parse_development_opportunity_bootstrap(payload)
+    parse_opportunity_bootstrap(payload, account_role=account_role)
     return payload
 
 
-def bootstrap_development_opportunity(
+def opportunity_plan_payload(plan: OpportunityPlanSpec) -> dict[str, object]:
+    if type(plan) is not OpportunityPlanSpec:
+        raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_INPUT_INVALID")
+    policy = _json_value(plan.policy)
+    if not isinstance(policy, dict):
+        raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_PAYLOAD_INVALID")
+    payload: dict[str, object] = {
+        "opportunity_key": plan.opportunity_key,
+        "version": plan.version,
+        "underlying": plan.underlying,
+        "event_session": plan.event_session.isoformat(),
+        "pre_event_session": plan.pre_event_session.isoformat(),
+        "reaction_session": plan.reaction_session.isoformat(),
+        "signal_session": plan.signal_session.isoformat(),
+        "daily_start_session": plan.daily_start_session.isoformat(),
+        "allowed_event_codes": list(plan.allowed_event_codes),
+        "evidence_window_start": plan.evidence_window_start.isoformat(),
+        "evidence_window_end": plan.evidence_window_end.isoformat(),
+        "policy": policy,
+        "request_contract": _request_material(plan.request_contract),
+        "thesis_code": plan.thesis_code,
+        "thesis_target_contract": plan.thesis_target_contract,
+        "exposure_limit_contract": plan.exposure_limit_contract,
+        "invalidation_codes": list(plan.invalidation_codes),
+        "frozen_at": plan.frozen_at.isoformat(),
+    }
+    parse_opportunity_plan(payload, account_role=plan.account_role)
+    return payload
+
+
+def bootstrap_opportunity(
     bootstrap: OpportunityBootstrapInput,
     *,
+    account_role: AccountRole,
     persist: bool = False,
     repository: OpportunityBootstrapRepository | None = None,
 ) -> OpportunityBootstrapResult:
+    _role(account_role)
     if type(bootstrap) is not OpportunityBootstrapInput:
         raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_INPUT_INVALID")
     if type(persist) is not bool:
         raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_MODE_INVALID")
-    plan_id, plan_hash, baseline_id, baseline_hash = _identities(bootstrap.plan, bootstrap.baseline)
+    plan_id, plan_hash, baseline_id, baseline_hash = _identities(
+        bootstrap.plan, bootstrap.baseline, account_role=account_role
+    )
     if not persist:
         return OpportunityBootstrapResult(
             mode="PREVIEW",
@@ -260,8 +300,9 @@ def bootstrap_development_opportunity(
     loaded_plan = repository.load_plan(
         bootstrap.plan.opportunity_key,
         version=bootstrap.plan.version,
+        account_role=account_role,
     )
-    loaded_baseline = repository.load_baseline(plan_id)
+    loaded_baseline = repository.load_baseline(plan_id, account_role=account_role)
 
     expected_plan = (plan_id, plan_hash)
     expected_baseline = (baseline_id, baseline_hash)
@@ -290,6 +331,8 @@ def bootstrap_development_opportunity(
 def _identities(
     plan: OpportunityPlanSpec,
     baseline: OpportunityBaselineSeal,
+    *,
+    account_role: AccountRole,
 ) -> tuple[UUID, str, UUID, str]:
     if type(plan) is not OpportunityPlanSpec or type(baseline) is not OpportunityBaselineSeal:
         raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_INPUT_INVALID")
@@ -299,9 +342,9 @@ def _identities(
     except OpportunityEvidenceError as error:
         raise OpportunityBootstrapError(error.code) from error
     if (
-        plan.account_role is not AccountRole.DEVELOPMENT
-        or plan.request_contract.account_role is not AccountRole.DEVELOPMENT
-        or baseline.account_role is not AccountRole.DEVELOPMENT
+        plan.account_role is not account_role
+        or plan.request_contract.account_role is not account_role
+        or baseline.account_role is not account_role
         or baseline.plan_id != plan_id
         or baseline.account_fingerprint != plan.request_contract.expected_account_fingerprint
         or baseline.captured_at < plan.frozen_at
@@ -341,7 +384,12 @@ def _parse_plan(payload: dict[str, object]) -> OpportunityPlanSpec:
     )
 
 
-def _parse_baseline(payload: dict[str, object]) -> OpportunityBaselineSeal:
+def _parse_baseline(
+    payload: dict[str, object],
+    *,
+    account_role: AccountRole,
+    submission_baseline_id: UUID | None,
+) -> OpportunityBaselineSeal:
     if set(payload) != _BASELINE_KEYS:
         raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_PAYLOAD_INVALID")
     return OpportunityBaselineSeal(
@@ -360,6 +408,63 @@ def _parse_baseline(payload: dict[str, object]) -> OpportunityBaselineSeal:
         book_hash=_string(payload, "book_hash"),
         history_hash=_string(payload, "history_hash"),
         captured_at=_datetime(payload, "captured_at"),
+        account_role=account_role,
+        submission_baseline_id=submission_baseline_id,
+    )
+
+
+def _role(value: AccountRole) -> None:
+    if type(value) is not AccountRole or value not in {
+        AccountRole.DEVELOPMENT,
+        AccountRole.SUBMISSION,
+    }:
+        raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_ROLE_INVALID")
+
+
+def _submission_baseline_id(value: object, account_role: AccountRole) -> UUID | None:
+    if account_role is AccountRole.DEVELOPMENT:
+        if value is not None:
+            raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_AUTHORITY_MISMATCH")
+        return None
+    if type(value) is not str:
+        raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_SUBMISSION_BASELINE_REQUIRED")
+    try:
+        return UUID(value)
+    except ValueError:
+        raise OpportunityBootstrapError(
+            "OPPORTUNITY_BOOTSTRAP_SUBMISSION_BASELINE_REQUIRED"
+        ) from None
+
+
+def parse_development_opportunity_bootstrap(value: object) -> OpportunityBootstrapInput:
+    payload = _mapping(value).copy()
+    payload.setdefault("submission_baseline_id", None)
+    return parse_opportunity_bootstrap(payload, account_role=AccountRole.DEVELOPMENT)
+
+
+def parse_development_opportunity_plan(value: object) -> OpportunityPlanSpec:
+    return parse_opportunity_plan(value, account_role=AccountRole.DEVELOPMENT)
+
+
+def development_opportunity_bootstrap_payload(
+    bootstrap: OpportunityBootstrapInput,
+) -> dict[str, object]:
+    if bootstrap.plan.account_role is not AccountRole.DEVELOPMENT:
+        raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_AUTHORITY_MISMATCH")
+    return opportunity_bootstrap_payload(bootstrap)
+
+
+def bootstrap_development_opportunity(
+    bootstrap: OpportunityBootstrapInput,
+    *,
+    persist: bool = False,
+    repository: OpportunityBootstrapRepository | None = None,
+) -> OpportunityBootstrapResult:
+    return bootstrap_opportunity(
+        bootstrap,
+        account_role=AccountRole.DEVELOPMENT,
+        persist=persist,
+        repository=repository,
     )
 
 

@@ -49,8 +49,11 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_terminal_entry_materialization_satisfies_postgres_lineage_guards() -> None:
-    source_sessions, source_engine, retained = _repository()
+@pytest.mark.parametrize("account_role", (AccountRole.DEVELOPMENT, AccountRole.SUBMISSION))
+def test_terminal_entry_materialization_satisfies_postgres_lineage_guards(
+    account_role: AccountRole,
+) -> None:
+    source_sessions, source_engine, retained = _repository(account_role)
     admin = create_engine(os.environ[POSTGRES_URL_ENV])
     schema = f"entry_materialization_{uuid4().hex}"
     with admin.begin() as connection:
@@ -64,6 +67,7 @@ def test_terminal_entry_materialization_satisfies_postgres_lineage_guards() -> N
         cursor = dbapi_connection.cursor()
         cursor.execute(f'SET search_path TO "{schema}"')
         cursor.close()
+
     sessions = sessionmaker(engine, expire_on_commit=False)
     models = (
         AccountRoleRow,
@@ -142,11 +146,12 @@ def test_terminal_entry_materialization_satisfies_postgres_lineage_guards() -> N
                     "INSERT INTO agent_ticks "
                     "(tick_id,account_role,account_fingerprint,tick_key,tick_boundary,actor,"
                     "status,reservation_token,decision_id,created_at) VALUES "
-                    "(:tick,'DEVELOPMENT',:fingerprint,'entry-preparation-failure',"
+                    "(:tick,:role,:fingerprint,'entry-preparation-failure',"
                     ":boundary,'SCHEDULER','RESERVED',:token,:decision,:boundary)"
                 ),
                 {
                     "tick": preparation_tick_id,
+                    "role": account_role.value,
                     "fingerprint": retained.account_fingerprint,
                     "boundary": ENTRY_AT,
                     "token": preparation_token,
@@ -174,11 +179,12 @@ def test_terminal_entry_materialization_satisfies_postgres_lineage_guards() -> N
                     "INSERT INTO agent_ticks "
                     "(tick_id,account_role,account_fingerprint,tick_key,tick_boundary,actor,"
                     "status,reservation_token,decision_id,created_at) VALUES "
-                    "(:tick,'DEVELOPMENT',:fingerprint,'entry-materialization-failure',"
+                    "(:tick,:role,:fingerprint,'entry-materialization-failure',"
                     ":boundary,'SCHEDULER','RESERVED',:token,:decision,:boundary)"
                 ),
                 {
                     "tick": tick_id,
+                    "role": account_role.value,
                     "fingerprint": retained.account_fingerprint,
                     "boundary": ENTRY_AT,
                     "token": reservation_token,
@@ -196,13 +202,16 @@ def test_terminal_entry_materialization_satisfies_postgres_lineage_guards() -> N
         assert completed.execution_certificate_id == CERTIFICATE_ID
         assert completed.terminal_code == "ENTRY_FILLED_MATERIALIZATION_FAILED"
         restarted = AgentDecisionRepository(sessions)
-        assert restarted.reserve_tick(
-            account_role=AccountRole.DEVELOPMENT,
-            account_fingerprint=retained.account_fingerprint,
-            actor="SCHEDULER",
-            trusted_at=ENTRY_AT,
-            tick_key="entry-materialization-failure",
-        ) == completed
+        assert (
+            restarted.reserve_tick(
+                account_role=account_role,
+                account_fingerprint=retained.account_fingerprint,
+                actor="SCHEDULER",
+                trusted_at=ENTRY_AT,
+                tick_key="entry-materialization-failure",
+            )
+            == completed
+        )
 
         position_id = materializer.materialize(
             execution_certificate_id=CERTIFICATE_ID,
@@ -217,7 +226,7 @@ def test_terminal_entry_materialization_satisfies_postgres_lineage_guards() -> N
         )
         loaded = SQLAlchemyLifecycleRepository(sessions).load(
             ObservedPaperAccountAuthority(
-                AccountRole.DEVELOPMENT,
+                account_role,
                 retained.account_fingerprint,
                 True,
                 True,

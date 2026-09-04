@@ -4,7 +4,7 @@ import asyncio
 from dataclasses import MISSING, replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 import pytest
 
@@ -24,13 +24,17 @@ from backend.app.execution import (
     ExecutionAction,
     ExecutionBlocked,
     ExecutionCertificate,
+    ExecutionPending,
+    ExecutionPendingCode,
     OrderEnvelope,
     OrderLegIntent,
     intent_digest,
     order_envelope_hash,
 )
 from backend.app.execution.models import ExecutionIntent, IntentState
+from backend.app.experiment_lineage import ExperimentExecutionLineage
 from backend.app.lifecycle import LifecycleLaunchAuthority
+from backend.app.persistence.agent_authority import agent_result_material, canonical_agent_hash
 from backend.app.persistence.agent_codec import decode_agent_value, encode_agent_value
 from backend.app.policy import (
     AccountOpportunityState,
@@ -71,7 +75,7 @@ NOW = datetime(2026, 8, 29, 15, tzinfo=UTC)
 CALIBRATION_BOUNDARY = datetime(2026, 8, 28, 20, tzinfo=UTC)
 FINGERPRINT = "a" * 64
 TICK_ID = UUID("00000000-0000-0000-0000-000000000801")
-RESERVATION_TOKEN = UUID("00000000-0000-0000-0000-000000000809")
+RESERVATION_ID = UUID("00000000-0000-0000-0000-000000000809")
 AUTHORIZATION_ID = UUID("00000000-0000-0000-0000-000000000802")
 INTENT_ID = UUID("00000000-0000-0000-0000-000000000803")
 LIFECYCLE_AUTHORIZATION_ID = UUID("00000000-0000-0000-0000-000000000807")
@@ -158,8 +162,10 @@ class ForbiddenAcquisition:
 class FailingAcquisition:
     def __init__(self, kind: AcquisitionKind) -> None:
         self.kind = kind
+        self.calls = 0
 
     async def acquire(self, authority, trusted_at, tick_id, *, actor):
+        self.calls += 1
         assert tick_id == TICK_ID
         assert actor in {Actor.OWNER, Actor.SCHEDULER}
         raise AcquisitionFailure(self.kind, "PROVIDER_UNAVAILABLE")
@@ -190,9 +196,10 @@ class RecordingDecisions:
         self.completion_reservations: list[UUID] = []
         self.return_proposal = return_proposal
         self.approved_intent: ExecutionIntent | None = None
+        self.submission_previews: list[UUID] = []
 
     def begin_tick(self, authority, actor, trusted_at):
-        return AgentTick(TICK_ID, RESERVATION_TOKEN, authority, actor, trusted_at)
+        return AgentTick(TICK_ID, RESERVATION_ID, authority, actor, trusted_at)
 
     def permanent_latch(self, authority):
         return PermanentAccountLatch(False)
@@ -221,6 +228,13 @@ class RecordingDecisions:
             ),
             proof_hash="d" * 64,
         )
+
+    def submission_order_preview(self, intent_id: UUID):
+        self.submission_previews.append(intent_id)
+        return object()
+
+    def pending_submission_lifecycle_intents(self, _authority):
+        return ()
 
 
 class LatchedDecisions(RecordingDecisions):
@@ -398,9 +412,42 @@ class RecordingLifecycleTerminalMaterializer:
 class BlockedRuntime:
     class Execution:
         def execute(self, *_args, **_kwargs):
-            raise ExecutionBlocked("EXECUTION_ADVANCE_PENDING")
+            raise ExecutionPending(ExecutionPendingCode.ADVANCE)
 
     execution = Execution()
+
+
+class PendingThenRecoveredRuntime:
+    class Execution(RecordingRuntime.Execution):
+        def __init__(self, pending_code: ExecutionPendingCode) -> None:
+            super().__init__("FILLED")
+            self.completed = False
+            self.pending_code = pending_code
+
+        def execute(self, intent_id: UUID, actor: Actor, now: datetime):
+            if not self.calls:
+                self.calls.append((intent_id, actor, now))
+                raise ExecutionPending(self.pending_code)
+            certificate = super().execute(intent_id, actor, now)
+            self.completed = True
+            return certificate
+
+    def __init__(self, pending_code: ExecutionPendingCode) -> None:
+        self.execution = self.Execution(pending_code)
+
+
+class PendingUntilExecutionCompletesMaterializer(RecordingMaterializer):
+    def __init__(self, runtime: PendingThenRecoveredRuntime) -> None:
+        super().__init__()
+        self.runtime = runtime
+        self.recovery_calls = 0
+
+    def recover_pending(self, *, account_role, account_fingerprint):
+        self.recovery_calls += 1
+        return ()
+
+    def pending_execution_intents(self, *, account_role, account_fingerprint):
+        return () if self.runtime.execution.completed else (INTENT_ID,)
 
 
 def opportunity_policy() -> OpportunityPolicy:
@@ -584,6 +631,20 @@ def approved_opportunity_bundle() -> OpportunityAcquisition:
     )
 
 
+def approved_submission_opportunity_bundle() -> OpportunityAcquisition:
+    bundle = approved_opportunity_bundle()
+    values = replace(
+        bundle.values,
+        account=replace(bundle.values.account, account_role=AccountRole.SUBMISSION),
+    )
+    assert bundle.proposal is not None
+    proposal = AuthorizationIntentProposal(
+        replace(bundle.proposal.authorization, account_role=AccountRole.SUBMISSION),
+        replace(bundle.proposal.intent, account_role=AccountRole.SUBMISSION),
+    )
+    return replace(bundle, values=values, proposal=proposal)
+
+
 def with_entry_envelope(
     bundle: OpportunityAcquisition,
     envelope: OrderEnvelope,
@@ -734,7 +795,7 @@ def test_submission_calibration_is_terminal_before_acquisition_or_intent() -> No
     assert result.approved_intent_id is None
     assert acquisition.calls == 0
     assert decisions.proposals == [None]
-    assert decisions.completion_reservations == [RESERVATION_TOKEN]
+    assert decisions.completion_reservations == [RESERVATION_ID]
     assert decisions.decisions[0].calibration.decision_boundary == CALIBRATION_BOUNDARY
     assert materializer.recoveries == []
 
@@ -872,6 +933,61 @@ def test_autonomous_scheduler_dispatches_only_exact_policy_approved_entry() -> N
     assert materializer.prepares == [(INTENT_ID, bundle.launch_authority, NOW)]
 
 
+def test_submission_order_preview_is_rendered_from_durable_intent_before_dispatch() -> None:
+    bundle = approved_submission_opportunity_bundle()
+    decisions = RecordingDecisions(return_proposal=True)
+
+    class PreviewOrderedRuntime(RecordingRuntime):
+        class Execution(RecordingRuntime.Execution):
+            def execute(self, intent_id: UUID, actor: Actor, now: datetime):
+                assert decisions.submission_previews == [intent_id]
+                return super().execute(intent_id, actor, now)
+
+    runtime = PreviewOrderedRuntime()
+    result = asyncio.run(
+        AgentRunService(
+            account_authority=FixedAuthority(),
+            clock=FixedClock(),
+            calibration=FixedCalibration(),
+            acquisition=FixedAcquisition(bundle, role=AccountRole.SUBMISSION),
+            decisions=decisions,
+            runtime=runtime,
+            server_autonomy_enabled=True,
+            submission_opportunity_enabled=True,
+            entry_materializer=RecordingMaterializer(),
+        ).run(Actor.SCHEDULER)
+    )
+
+    assert result.terminal_code == "FILLED"
+    assert decisions.submission_previews == [INTENT_ID]
+
+
+def test_submission_dispatch_fails_closed_when_durable_preview_is_unavailable() -> None:
+    bundle = approved_submission_opportunity_bundle()
+
+    class UnavailablePreviewDecisions(RecordingDecisions):
+        def submission_order_preview(self, intent_id: UUID):
+            raise ExecutionBlocked("SUBMISSION_ORDER_PREVIEW_UNAVAILABLE")
+
+    runtime = RecordingRuntime()
+    result = asyncio.run(
+        AgentRunService(
+            account_authority=FixedAuthority(),
+            clock=FixedClock(),
+            calibration=FixedCalibration(),
+            acquisition=FixedAcquisition(bundle, role=AccountRole.SUBMISSION),
+            decisions=UnavailablePreviewDecisions(return_proposal=True),
+            runtime=runtime,
+            server_autonomy_enabled=True,
+            submission_opportunity_enabled=True,
+            entry_materializer=RecordingMaterializer(),
+        ).run(Actor.SCHEDULER)
+    )
+
+    assert result.terminal_code == "SUBMISSION_ORDER_PREVIEW_UNAVAILABLE"
+    assert runtime.execution.calls == []
+
+
 def test_filled_entry_materialization_failure_is_terminal_and_not_redispatched() -> None:
     bundle = approved_opportunity_bundle()
     runtime = RecordingRuntime()
@@ -980,14 +1096,22 @@ def test_prepared_entry_recovery_advances_exact_intent_before_new_acquisition() 
 
 def test_authorized_submission_recovers_pending_entry_before_acquisition() -> None:
     materializer = PendingExecutionMaterializer()
-    runtime = RecordingRuntime()
+    decisions = RecordingDecisions()
+
+    class PreviewOrderedRuntime(RecordingRuntime):
+        class Execution(RecordingRuntime.Execution):
+            def execute(self, intent_id: UUID, actor: Actor, now: datetime):
+                assert decisions.submission_previews == [intent_id]
+                return super().execute(intent_id, actor, now)
+
+    runtime = PreviewOrderedRuntime()
     result = asyncio.run(
         AgentRunService(
             account_authority=FixedAuthority(),
             clock=FixedClock(),
             calibration=FixedCalibration(),
             acquisition=FailingAcquisition(AcquisitionKind.OPPORTUNITY),
-            decisions=RecordingDecisions(),
+            decisions=decisions,
             runtime=runtime,
             server_autonomy_enabled=True,
             submission_opportunity_enabled=True,
@@ -997,14 +1121,99 @@ def test_authorized_submission_recovers_pending_entry_before_acquisition() -> No
 
     assert result.terminal_code == "PROVIDER_FAILURE_NO_TRADE"
     assert runtime.execution.calls == [(INTENT_ID, Actor.SCHEDULER, NOW)]
+    assert decisions.submission_previews == [INTENT_ID]
     assert materializer.recovery_calls == 2
 
 
-def test_unresolved_prepared_entry_blocks_new_acquisition_without_new_intent() -> None:
+def test_submission_recovery_fails_closed_when_durable_preview_is_unavailable() -> None:
+    materializer = PendingExecutionMaterializer()
+
+    class UnavailablePreviewDecisions(RecordingDecisions):
+        def submission_order_preview(self, intent_id: UUID):
+            raise ExecutionBlocked("SUBMISSION_ORDER_PREVIEW_UNAVAILABLE")
+
+    runtime = RecordingRuntime()
+    acquisition = ForbiddenAcquisition()
+    with pytest.raises(ExecutionBlocked, match="SUBMISSION_ORDER_PREVIEW_UNAVAILABLE"):
+        asyncio.run(
+            AgentRunService(
+                account_authority=FixedAuthority(),
+                clock=FixedClock(),
+                calibration=FixedCalibration(),
+                acquisition=acquisition,
+                decisions=UnavailablePreviewDecisions(),
+                runtime=runtime,
+                server_autonomy_enabled=True,
+                submission_opportunity_enabled=True,
+                entry_materializer=materializer,
+            ).run(Actor.SCHEDULER)
+        )
+
+    assert runtime.execution.calls == []
+    assert acquisition.calls == 0
+
+
+@pytest.mark.parametrize("pending_code", tuple(ExecutionPendingCode))
+def test_pending_prepared_entry_persists_accepted_tick_then_recovers_on_later_tick(
+    pending_code: ExecutionPendingCode,
+) -> None:
+    runtime = PendingThenRecoveredRuntime(pending_code)
+    materializer = PendingUntilExecutionCompletesMaterializer(runtime)
+    acquisition = FailingAcquisition(AcquisitionKind.OPPORTUNITY)
+    decisions = RecordingDecisions()
+
+    class AdvancingClock:
+        values = iter((NOW, NOW + timedelta(minutes=5)))
+
+        def now(self) -> datetime:
+            return next(self.values)
+
+    service = AgentRunService(
+        account_authority=FixedAuthority(),
+        clock=AdvancingClock(),
+        calibration=FixedCalibration(),
+        acquisition=acquisition,
+        decisions=decisions,
+        runtime=runtime,
+        server_autonomy_enabled=True,
+        submission_opportunity_enabled=True,
+        entry_materializer=materializer,
+    )
+
+    pending = asyncio.run(service.run(Actor.SCHEDULER))
+
+    assert pending.terminal_code == "ENTRY_EXECUTION_RECOVERY_PENDING"
+    assert pending.decision.code == "ENTRY_EXECUTION_RECOVERY_PENDING"
+    assert pending.approved_intent_id is None
+    assert decisions.proposals == [None]
+    assert decisions.completion_reservations == [RESERVATION_ID]
+    assert decisions.submission_previews == [INTENT_ID]
+    assert acquisition.calls == 0
+    assert materializer.recovery_calls == 1
+
+    recovered = asyncio.run(service.run(Actor.SCHEDULER))
+
+    assert recovered.terminal_code == "PROVIDER_FAILURE_NO_TRADE"
+    assert runtime.execution.calls == [
+        (INTENT_ID, Actor.SCHEDULER, NOW),
+        (INTENT_ID, Actor.SCHEDULER, NOW + timedelta(minutes=5)),
+    ]
+    assert decisions.submission_previews == [INTENT_ID, INTENT_ID]
+    assert materializer.recovery_calls == 3
+
+
+def test_nonpending_entry_execution_block_still_fails_closed() -> None:
     materializer = PendingExecutionMaterializer()
     acquisition = ForbiddenAcquisition()
 
-    with pytest.raises(ExecutionBlocked, match="EXECUTION_ADVANCE_PENDING"):
+    class RejectedRuntime:
+        class Execution:
+            def execute(self, *_args, **_kwargs):
+                raise ExecutionBlocked("BROKER_PREFLIGHT_BLOCKED")
+
+        execution = Execution()
+
+    with pytest.raises(ExecutionBlocked, match="BROKER_PREFLIGHT_BLOCKED"):
         asyncio.run(
             AgentRunService(
                 account_authority=DevelopmentAuthority(),
@@ -1012,7 +1221,7 @@ def test_unresolved_prepared_entry_blocks_new_acquisition_without_new_intent() -
                 calibration=FixedCalibration(),
                 acquisition=acquisition,
                 decisions=RecordingDecisions(),
-                runtime=BlockedRuntime(),
+                runtime=RejectedRuntime(),
                 server_autonomy_enabled=True,
                 entry_materializer=materializer,
             ).run(Actor.SCHEDULER)
@@ -1132,7 +1341,10 @@ def test_future_launch_boundary_rejects_entry_before_dispatch() -> None:
     assert runtime.execution.calls == []
 
 
-@pytest.mark.parametrize("substitution", ("vertical", "event", "day"))
+@pytest.mark.parametrize(
+    "substitution",
+    ("vertical", "event", "day", "minimum_limit", "maximum_limit", "approved_max_loss"),
+)
 def test_entry_proposal_rejects_substituted_material(substitution: str) -> None:
     approved = approved_opportunity_bundle()
     assert approved.proposal is not None
@@ -1147,10 +1359,19 @@ def test_entry_proposal_rejects_substituted_material(substitution: str) -> None:
         )
     elif substitution == "event":
         envelope = replace(envelope, event_key="OTHER_EVENT")
-    else:
+    elif substitution == "day":
         envelope = replace(
             envelope,
             trading_day=envelope.trading_day + timedelta(days=1),
+        )
+    elif substitution == "minimum_limit":
+        envelope = replace(envelope, minimum_limit=envelope.minimum_limit - Decimal("0.01"))
+    elif substitution == "maximum_limit":
+        envelope = replace(envelope, maximum_limit=envelope.maximum_limit + Decimal("0.01"))
+    else:
+        envelope = replace(
+            envelope,
+            approved_max_loss=envelope.approved_max_loss + Decimal("1"),
         )
     bundle = with_entry_envelope(approved, envelope)
     decisions = RecordingDecisions(return_proposal=True)
@@ -1680,9 +1901,15 @@ def test_agent_codec_round_trips_all_persisted_policy_types_canonically() -> Non
     lifecycle = risk_close_lifecycle_bundle()
     lifecycle_result = evaluate_assessment(lifecycle.values)
     calibration = FixedCalibration().binding_for(FixedAuthority().observe())
+    experiment_lineage = ExperimentExecutionLineage(
+        UUID("90000000-0000-0000-0000-000000000001"),
+        "6" * 64,
+        "7" * 64,
+    )
 
     for value in (
         calibration,
+        experiment_lineage,
         opportunity.values,
         opportunity_result,
         lifecycle.values,
@@ -1691,3 +1918,65 @@ def test_agent_codec_round_trips_all_persisted_policy_types_canonically() -> Non
         encoded = encode_agent_value(value)
         assert decode_agent_value(encoded) == value
         assert encode_agent_value(decode_agent_value(encoded)) == encoded
+
+
+def test_agent_codec_legacy_decision_stays_parent_byte_compatible() -> None:
+    decision = AgentDecision(
+        code="NO_ACTION",
+        decided_at=datetime(2026, 9, 1, 17, tzinfo=UTC),
+    )
+
+    encoded = encode_agent_value(decision)
+
+    assert encoded == {
+        "codec": "alphadecay.agent-value.v1",
+        "value": {
+            "$type": "dataclass",
+            "class": "backend.app.services.agent.AgentDecision",
+            "fields": {
+                "code": "NO_ACTION",
+                "decided_at": {
+                    "$type": "datetime",
+                    "value": "2026-09-01T17:00:00+00:00",
+                },
+                "thesis_version_id": None,
+                "calibration": None,
+                "submission_authority": None,
+                "opportunity": None,
+                "lifecycle": None,
+                "provider_failure_code": None,
+                "provider_failure_kind": None,
+                "normalized_input": None,
+            },
+        },
+    }
+    assert decode_agent_value(encoded) == decision
+    result_hash = canonical_agent_hash(
+        agent_result_material(
+            input_hash="1" * 64,
+            outcome="NO_ACTION",
+            reason_code="NO_ACTION",
+            policy_hash="2" * 64,
+            thesis_version_id=None,
+            result_payload={"typed": encoded},
+            authorization_id=None,
+            intent_id=None,
+            intent_digest=None,
+            autonomy_authorized=False,
+        )
+    )
+    assert result_hash == "1c3f87a48f4b21b8ac334a5610875a29a0c8bf9568907ca5cd1474a643bafa6f"
+    assert uuid5(NAMESPACE_URL, f"alphadecay:agent-decision:{result_hash}") == UUID(
+        "33eb4d91-1a87-540b-9735-0f93ec8c705b"
+    )
+    lineaged = replace(
+        decision,
+        experiment_lineage=ExperimentExecutionLineage(
+            UUID("90000000-0000-0000-0000-000000000001"),
+            "6" * 64,
+            "7" * 64,
+        ),
+    )
+    lineaged_payload = encode_agent_value(lineaged)
+    assert "experiment_lineage" in lineaged_payload["value"]["fields"]
+    assert decode_agent_value(lineaged_payload) == lineaged

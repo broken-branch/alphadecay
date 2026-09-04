@@ -655,9 +655,7 @@ def _archive_members(data: bytes, coordinate: str, artifact_path: str) -> dict[s
         raise ComplianceError(f"NON_ARCHIVE_PACKAGE_BLOB: {coordinate}")
     if zip_archive:
         if not zipfile.is_zipfile(io.BytesIO(data)):
-            error_code = (
-                "NON_ARCHIVE_WHEEL_BLOB" if wheel_archive else "NON_ARCHIVE_PACKAGE_BLOB"
-            )
+            error_code = "NON_ARCHIVE_WHEEL_BLOB" if wheel_archive else "NON_ARCHIVE_PACKAGE_BLOB"
             raise ComplianceError(f"{error_code}: {coordinate}")
         try:
             eocd = data.rfind(b"PK\x05\x06", max(0, len(data) - 65_557))
@@ -695,9 +693,7 @@ def _archive_members(data: bytes, coordinate: str, artifact_path: str) -> dict[s
                     else:
                         members[name] = archive.read(info)
         except zipfile.BadZipFile as error:
-            error_code = (
-                "NON_ARCHIVE_WHEEL_BLOB" if wheel_archive else "NON_ARCHIVE_PACKAGE_BLOB"
-            )
+            error_code = "NON_ARCHIVE_WHEEL_BLOB" if wheel_archive else "NON_ARCHIVE_PACKAGE_BLOB"
             raise ComplianceError(f"{error_code}: {coordinate}") from error
     else:
         try:
@@ -1354,13 +1350,17 @@ def _ofl_manifest(export: Path, path: str, digest: str) -> dict[str, Any]:
     if _sha256(data) != digest:
         raise ComplianceError("OFL font provenance hash drift")
     value = _json_bytes(data, "OFL font provenance")
-    if set(value) != {
-        "fonts",
-        "license",
-        "repository_url",
-        "schema_version",
-        "source_revision",
-    } or value.get("schema_version") != 1:
+    if (
+        set(value)
+        != {
+            "fonts",
+            "license",
+            "repository_url",
+            "schema_version",
+            "source_revision",
+        }
+        or value.get("schema_version") != 1
+    ):
         raise ComplianceError("OFL font provenance fields are invalid")
     revision = _string(value.get("source_revision"), "OFL font source revision")
     if re.fullmatch(r"[0-9a-f]{40}", revision) is None:
@@ -1397,9 +1397,7 @@ def _ofl_manifest(export: Path, path: str, digest: str) -> dict[str, Any]:
     }
 
 
-def _materialize_ofl_asset_evidence(
-    export: Path, registry: dict[str, Any]
-) -> dict[str, Any]:
+def _materialize_ofl_asset_evidence(export: Path, registry: dict[str, Any]) -> dict[str, Any]:
     raw_assets = registry.get("assets")
     if not isinstance(raw_assets, list):
         raise ComplianceError("assets evidence must be a list")
@@ -1440,8 +1438,7 @@ def _materialize_ofl_asset_evidence(
                     f"{font['upstream_path']}"
                 ),
                 "creation_method": (
-                    "unmodified upstream "
-                    + PurePosixPath(path).suffix.removeprefix(".").upper()
+                    "unmodified upstream " + PurePosixPath(path).suffix.removeprefix(".").upper()
                 ),
                 "license_expression": OFL_LICENSE,
                 "ofl_evidence": {
@@ -1466,9 +1463,7 @@ def _materialize_ofl_asset_evidence(
 
     materialized = {
         **registry,
-        "assets": sorted(
-            [*retained, *generated.values()], key=lambda item: item["path"]
-        ),
+        "assets": sorted([*retained, *generated.values()], key=lambda item: item["path"]),
     }
     _assets(export, materialized["assets"])
     return materialized
@@ -1532,9 +1527,7 @@ def _assets(export: Path, raw_assets: object) -> list[dict[str, Any]]:
             }
             parent = PurePosixPath(path).parent
             license_path = _relative(evidence["license_path"], f"{path} OFL license path")
-            provenance_path = _relative(
-                evidence["provenance_path"], f"{path} OFL provenance path"
-            )
+            provenance_path = _relative(evidence["provenance_path"], f"{path} OFL provenance path")
             if (
                 PurePosixPath(license_path).parent != parent
                 or PurePosixPath(provenance_path).parent != parent
@@ -1562,9 +1555,10 @@ def _assets(export: Path, raw_assets: object) -> list[dict[str, Any]]:
             elif manifest["provenance_sha256"] != evidence["provenance_sha256"]:
                 raise ComplianceError("OFL font provenance path has conflicting hashes")
             manifest["provenance_sha256"] = evidence["provenance_sha256"]
-            if manifest["license"]["release_path"] != license_path or manifest["license"][
-                "sha256"
-            ] != evidence["license_sha256"]:
+            if (
+                manifest["license"]["release_path"] != license_path
+                or manifest["license"]["sha256"] != evidence["license_sha256"]
+            ):
                 raise ComplianceError(f"{path} OFL manifest does not bind its retained license")
             font = manifest["fonts"].get(path)
             if font is None or font["sha256"] != digest:
@@ -1587,9 +1581,7 @@ def _assets(export: Path, raw_assets: object) -> list[dict[str, Any]]:
         raise ComplianceError(
             "public-export path mismatch: " + ", ".join(sorted(unregistered | absent))
         )
-    provenance_files = {
-        path for path in release_files if path.endswith(OFL_PROVENANCE_SUFFIX)
-    }
+    provenance_files = {path for path in release_files if path.endswith(OFL_PROVENANCE_SUFFIX)}
     if provenance_files != set(manifests):
         raise ComplianceError(
             "unused OFL font provenance files: "

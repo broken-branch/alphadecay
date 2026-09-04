@@ -87,6 +87,7 @@ def _write_mcp_fixture_server(
     directory: Path,
     *,
     tool_payload_source: str,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> Path:
     executable = directory / "alpaca-mcp-server"
     tool_names = json.dumps(sorted(EXPOSED_TOOL_SURFACE))
@@ -136,12 +137,13 @@ for line in sys.stdin:
 """
     )
     executable.chmod(0o700)
+    monkeypatch.setattr("backend.app.alpaca.mcp.sys.executable", str(directory / "python"))
     return executable
 
 
 @pytest.fixture
 def fake_mcp_executable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    _write_mcp_fixture_server(tmp_path, tool_payload_source="{}")
+    _write_mcp_fixture_server(tmp_path, tool_payload_source="{}", monkeypatch=monkeypatch)
     monkeypatch.setenv("PATH", f"{tmp_path}:{os.environ['PATH']}")
 
 
@@ -149,7 +151,7 @@ def test_launch_spec_has_frozen_no_shell_argv_and_isolated_environment(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _write_mcp_fixture_server(tmp_path, tool_payload_source="{}")
+    _write_mcp_fixture_server(tmp_path, tool_payload_source="{}", monkeypatch=monkeypatch)
     monkeypatch.setenv("PATH", f"{tmp_path}:{os.environ['PATH']}")
     spec = build_launch_spec(api_key="fixture-key", secret_key="fixture-secret")
 
@@ -166,6 +168,67 @@ def test_launch_spec_has_frozen_no_shell_argv_and_isolated_environment(
     }
     assert "fixture-key" not in repr(spec)
     assert "fixture-secret" not in repr(spec)
+
+
+def _isolate_runtime_executable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    binary_directory = tmp_path / "bin"
+    binary_directory.mkdir()
+    interpreter = binary_directory / "python"
+    interpreter.write_text("", encoding="utf-8")
+    interpreter.chmod(0o700)
+    monkeypatch.setattr("backend.app.alpaca.mcp.sys.executable", str(interpreter))
+    monkeypatch.setenv("PATH", "")
+    return binary_directory
+
+
+def test_launch_spec_finds_server_beside_runtime_interpreter_without_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    binary_directory = _isolate_runtime_executable(tmp_path, monkeypatch)
+    executable = _write_mcp_fixture_server(
+        binary_directory, tool_payload_source="{}", monkeypatch=monkeypatch
+    )
+
+    spec = build_launch_spec(api_key="fixture-key", secret_key="fixture-secret")
+
+    assert spec.argv == (str(executable),)
+
+
+def test_launch_spec_rejects_missing_runtime_server_without_leaking_credentials(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _isolate_runtime_executable(tmp_path, monkeypatch)
+    api_key = "dummy-api-key"
+    secret_key = "dummy-secret-key"
+
+    with pytest.raises(MCPBoundaryError, match="MCP_EXECUTABLE_MISSING") as raised:
+        build_launch_spec(api_key=api_key, secret_key=secret_key)
+
+    assert api_key not in str(raised.value)
+    assert secret_key not in str(raised.value)
+
+
+@pytest.mark.parametrize("kind", ["non_executable", "symlink"])
+def test_launch_spec_rejects_unsafe_runtime_server(
+    kind: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    binary_directory = _isolate_runtime_executable(tmp_path, monkeypatch)
+    executable = binary_directory / "alpaca-mcp-server"
+    if kind == "non_executable":
+        executable.write_text("", encoding="utf-8")
+        executable.chmod(0o600)
+    else:
+        target = tmp_path / "server-target"
+        target.write_text("", encoding="utf-8")
+        target.chmod(0o700)
+        executable.symlink_to(target)
+
+    with pytest.raises(MCPBoundaryError, match="MCP_EXECUTABLE_INVALID"):
+        build_launch_spec(api_key="fixture-key", secret_key="fixture-secret")
 
 
 def test_exact_22_tool_surface_and_narrow_runtime_allowlist_are_frozen() -> None:
@@ -200,7 +263,7 @@ def test_connected_client_returns_bounded_normalized_data_and_sanitized_audit(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _write_mcp_fixture_server(tmp_path, tool_payload_source="{}")
+    _write_mcp_fixture_server(tmp_path, tool_payload_source="{}", monkeypatch=monkeypatch)
     monkeypatch.setenv("PATH", f"{tmp_path}:{os.environ['PATH']}")
     payload = {
         "quotes": {
@@ -250,7 +313,7 @@ def test_connected_client_preserves_the_structured_result_size_cap(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _write_mcp_fixture_server(tmp_path, tool_payload_source="{}")
+    _write_mcp_fixture_server(tmp_path, tool_payload_source="{}", monkeypatch=monkeypatch)
     monkeypatch.setenv("PATH", f"{tmp_path}:{os.environ['PATH']}")
     fake = _FakeMCPClient(payload={"blob": "x" * 200})
     client = AlpacaMCPResearchClient(
@@ -540,6 +603,7 @@ def test_stdio_child_receives_only_the_frozen_environment(
     _write_mcp_fixture_server(
         tmp_path,
         tool_payload_source='{"environment": dict(os.environ)}',
+        monkeypatch=monkeypatch,
     )
     monkeypatch.setenv("PATH", f"{tmp_path}:{os.environ['PATH']}")
     expected_environment = {
@@ -570,6 +634,7 @@ def test_stdio_transport_rejects_an_oversized_frame_before_result_parsing(
     _write_mcp_fixture_server(
         tmp_path,
         tool_payload_source='{"blob": "x" * 20_000}',
+        monkeypatch=monkeypatch,
     )
     monkeypatch.setenv("PATH", f"{tmp_path}:{os.environ['PATH']}")
     client = AlpacaMCPResearchClient(

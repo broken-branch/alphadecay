@@ -146,9 +146,7 @@ def test_submission_routes_empty_exact_role_to_opportunity() -> None:
 
     assert result is opportunity.result
     assert routes.calls == [FINGERPRINT]
-    assert opportunity.calls == [
-        (authority(AccountRole.SUBMISSION), NOW, TICK_ID, Actor.SCHEDULER)
-    ]
+    assert opportunity.calls == [(authority(AccountRole.SUBMISSION), NOW, TICK_ID, Actor.SCHEDULER)]
     assert lifecycle.calls == []
 
 
@@ -195,26 +193,81 @@ def test_owner_safe_stop_does_not_consume_same_boundary_scheduler_success() -> N
     assert lifecycle.calls == []
 
 
-@pytest.mark.parametrize("actor", [Actor.OWNER, Actor.SCHEDULER])
-def test_one_matching_managed_position_routes_to_lifecycle(actor: Actor) -> None:
-    target, routes, opportunity, lifecycle = router(managed_route())
+@pytest.mark.parametrize("value", [managed_route(), ambiguous_route()])
+def test_open_positions_route_owner_ticks_to_lifecycle(value) -> None:
+    target, routes, opportunity, lifecycle = router(value)
 
-    result = acquire(target, actor=actor)
+    result = acquire(target, actor=Actor.OWNER)
 
     assert result is lifecycle.result
     assert routes.calls == [FINGERPRINT]
     assert opportunity.calls == []
-    assert lifecycle.calls == [(authority(), NOW, TICK_ID, actor)]
+    assert lifecycle.calls == [(authority(), NOW, TICK_ID, Actor.OWNER)]
+
+
+@pytest.mark.parametrize("value", [managed_route(), ambiguous_route()])
+def test_scheduler_prefers_an_open_entry_window_over_open_positions(value) -> None:
+    target, routes, opportunity, lifecycle = router(value)
+
+    result = acquire(target, actor=Actor.SCHEDULER)
+
+    assert result is opportunity.result
+    assert routes.calls == [FINGERPRINT]
+    assert opportunity.calls == [(authority(), NOW, TICK_ID, Actor.SCHEDULER)]
+    assert lifecycle.calls == []
+
+
+class ClosedWindowAcquisition(Acquisition):
+    def __init__(self, code: str) -> None:
+        super().__init__(None)
+        self.code = code
+
+    async def acquire(self, account, trusted_at, tick_id, *, actor):
+        self.calls.append((account, trusted_at, tick_id, actor))
+        raise AcquisitionFailure(AcquisitionKind.OPPORTUNITY, self.code)
+
+
+@pytest.mark.parametrize("value", [managed_route(), ambiguous_route()])
+def test_scheduler_assesses_open_positions_once_the_entry_window_is_closed(value) -> None:
+    routes = Routes(value)
+    opportunity = ClosedWindowAcquisition("OPPORTUNITY_ENTRY_WINDOW_CLOSED")
+    lifecycle = Acquisition(object())
+    target = DevelopmentAcquisitionRouter(routes, opportunity, lifecycle)
+
+    result = acquire(target, actor=Actor.SCHEDULER)
+
+    assert result is lifecycle.result
+    assert len(opportunity.calls) == 1
+    assert lifecycle.calls == [(authority(), NOW, TICK_ID, Actor.SCHEDULER)]
+
+
+def test_other_opportunity_failures_still_propagate_with_open_positions() -> None:
+    routes = Routes(managed_route())
+    opportunity = ClosedWindowAcquisition("OPPORTUNITY_DECISION_BOUNDARY_NOT_REACHED")
+    lifecycle = Acquisition(object())
+    target = DevelopmentAcquisitionRouter(routes, opportunity, lifecycle)
+
+    assert_failure(target, "OPPORTUNITY_DECISION_BOUNDARY_NOT_REACHED", AcquisitionKind.OPPORTUNITY)
+    assert lifecycle.calls == []
+
+
+def test_closed_window_without_positions_propagates() -> None:
+    routes = Routes(empty_route())
+    opportunity = ClosedWindowAcquisition("OPPORTUNITY_ENTRY_WINDOW_CLOSED")
+    lifecycle = Acquisition(object())
+    target = DevelopmentAcquisitionRouter(routes, opportunity, lifecycle)
+
+    assert_failure(target, "OPPORTUNITY_ENTRY_WINDOW_CLOSED", AcquisitionKind.OPPORTUNITY)
+    assert lifecycle.calls == []
 
 
 @pytest.mark.parametrize(
     ("value", "code"),
     [
         (managed_route(fingerprint="d" * 64), "MANAGED_POSITION_AUTHORITY_MISMATCH"),
-        (ambiguous_route(), "ACTIVE_MANAGED_POSITION_NOT_UNIQUE"),
     ],
 )
-def test_ambiguous_or_mismatched_position_authority_fails_before_acquisition(
+def test_mismatched_position_authority_fails_before_acquisition(
     value,
     code: str,
 ) -> None:

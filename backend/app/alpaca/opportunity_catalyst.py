@@ -5,7 +5,7 @@ import json
 import re
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Protocol
 
@@ -79,7 +79,7 @@ class RetainedMCPNewsCatalystResearch(CatalystResearchPort):
         try:
             raw = await self._runtime.call("get_news", arguments)
             result = validate_mcp_research_result(raw, "get_news", arguments)
-            if result.audit.completed_at > trusted_at:
+            if result.audit.completed_at - trusted_at > timedelta(seconds=30):
                 raise OpportunityCatalystAdapterError("RESEARCH_AFTER_TRUSTED_TIME")
             clusters, records = normalize_mcp_news(
                 result,

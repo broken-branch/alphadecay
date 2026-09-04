@@ -6,7 +6,7 @@
   "license": "MIT",
   "scripts": {
     "build": "vite build",
-    "test": "vitest run",
+    "test": "NODE_OPTIONS=--no-experimental-webstorage vitest run",
     "test:contracts": "vitest run frontend/src/contracts",
     "typecheck": "tsc --noEmit"
   },

@@ -20,16 +20,20 @@ from backend.app.contracts.v1 import (
     PositionListResponse,
 )
 from backend.app.policy import (
+    STRUCTURAL_BEARISH_OTM_PILOT_ID,
+    STRUCTURAL_BULLISH_OTM_PILOT_ID,
+    STRUCTURAL_BULLISH_PILOT_ID,
     AccountOpportunityState,
     CatalystQuality,
     OpportunityDirection,
     OpportunityInput,
     OpportunityOutcome,
     OpportunityPolicy,
+    OpportunityReason,
     VerticalStrategy,
     evaluate_opportunity,
 )
-from backend.app.policy.opportunity import TradingHaltState
+from backend.app.policy.opportunity import TradingHaltState, derive_opportunity_direction
 from backend.app.services.opportunity_selection import (
     CandidateSelectionAuthority,
     CandidateSelectionResult,
@@ -97,13 +101,15 @@ def _option(
     *,
     quote_at: datetime = BOUNDARY,
     expiry: date = EXPIRY,
+    underlying: str = "ACME",
+    delta: Decimal | None = None,
 ) -> OpportunityOption:
     strike_decimal = Decimal(strike)
     occ_strike = f"{int(strike_decimal * 1000):08d}"
-    symbol = f"ACME{expiry:%y%m%d}{right}{occ_strike}"
+    symbol = f"{underlying}{expiry:%y%m%d}{right}{occ_strike}"
     option = OpportunityOption(
         symbol=symbol,
-        underlying="ACME",
+        underlying=underlying,
         expiry=expiry,
         right=right,
         strike=strike_decimal,
@@ -114,7 +120,7 @@ def _option(
         quote_at=quote_at,
         retrieved_at=TRUSTED_AT,
         implied_volatility=Decimal("0.3"),
-        delta=Decimal("0.5") if right == "C" else Decimal("-0.5"),
+        delta=delta if delta is not None else Decimal("0.5") if right == "C" else Decimal("-0.5"),
         gamma=Decimal("0.03"),
         theta_per_day=Decimal("-0.08"),
         vega_per_iv_point=Decimal("0.17"),
@@ -153,6 +159,7 @@ def _snapshot(
     *,
     open_orders: tuple[dict[str, object], ...] = (),
 ) -> OpportunityMarketSnapshot:
+    underlying_symbol = options[0].underlying
     account = AccountResponse(
         role=AccountRole.DEVELOPMENT,
         paper=True,
@@ -200,7 +207,7 @@ def _snapshot(
         ),
     )
     underlying = OpportunityBar(
-        symbol="ACME",
+        symbol=underlying_symbol,
         started_at=BOUNDARY - timedelta(minutes=5),
         completed_at=BOUNDARY,
         open=Decimal("100"),
@@ -694,3 +701,352 @@ def test_duplicate_semantic_contract_or_direction_string_fails_closed() -> None:
         2,
         _authority(snapshot=valid_snapshot),
     ) == CandidateSelectionResult(None, SelectionReason.INPUT_INVALID)
+
+
+def test_structural_bullish_pilot_fixes_direction_and_ranks_nearest_38_dte() -> None:
+    expiry_37 = BOUNDARY.date() + timedelta(days=37)
+    expiry_38 = BOUNDARY.date() + timedelta(days=38)
+    options = (
+        _option(
+            "C", "100", "2.40", "2.44", expiry=expiry_38, underlying="SPY", delta=Decimal("0.60")
+        ),
+        _option(
+            "C", "104", "0.60", "0.62", expiry=expiry_38, underlying="SPY", delta=Decimal("0.35")
+        ),
+        _option(
+            "C", "100", "2.20", "2.22", expiry=expiry_37, underlying="SPY", delta=Decimal("0.61")
+        ),
+        _option(
+            "C", "104", "0.70", "0.71", expiry=expiry_37, underlying="SPY", delta=Decimal("0.36")
+        ),
+        _option("P", "100", "2.00", "2.02", expiry=expiry_38, underlying="SPY"),
+        _option("P", "104", "0.80", "0.82", expiry=expiry_38, underlying="SPY"),
+        _option("C", "120", "1.00", "1.20", expiry=expiry_38, underlying="SPY"),
+    )
+    snapshot = _snapshot(options)
+    policy = _policy(
+        opportunity_key=STRUCTURAL_BULLISH_PILOT_ID,
+        underlying="SPY",
+        minimum_dte=30,
+        maximum_dte=45,
+        maximum_option_quote_age=timedelta(seconds=20),
+        maximum_leg_quote_skew=timedelta(seconds=3),
+        maximum_relative_spread=Decimal("0.05"),
+        minimum_candidate_score=0,
+        minimum_debit_width_fraction=Decimal("0.01"),
+        maximum_debit_width_fraction=Decimal("0.99"),
+        maximum_position_loss=Decimal("1125"),
+        maximum_lifetime_risk=Decimal("1125"),
+        maximum_equity_risk_fraction=Decimal("0.01125"),
+        maximum_quantity=5,
+    )
+
+    result = select_vertical_candidate(
+        snapshot,
+        policy,
+        OpportunityDirection.BEARISH,
+        5,
+        _authority(
+            snapshot=snapshot,
+            available_risk=Decimal("1125"),
+            available_buying_power=Decimal("1125"),
+        ),
+    )
+
+    assert result.reason is SelectionReason.SELECTED
+    assert result.candidate is not None
+    assert result.candidate.strategy is VerticalStrategy.BULL_CALL_DEBIT
+    assert result.candidate.dte == 38
+    assert tuple(leg.strike for leg in result.candidate.legs) == (
+        Decimal("100"),
+        Decimal("104"),
+    )
+    assert result.candidate.quantity == 5
+    assert result.candidate.approved_limit == Decimal("1.81")
+    assert result.candidate.maximum_limit == Decimal("1.84")
+
+
+@pytest.mark.parametrize(
+    ("opportunity_key", "direction", "strategy", "bought_strike", "sold_strike"),
+    (
+        (
+            STRUCTURAL_BULLISH_OTM_PILOT_ID,
+            OpportunityDirection.BULLISH,
+            VerticalStrategy.BULL_CALL_DEBIT,
+            Decimal("100"),
+            Decimal("104"),
+        ),
+        (
+            STRUCTURAL_BEARISH_OTM_PILOT_ID,
+            OpportunityDirection.BEARISH,
+            VerticalStrategy.BEAR_PUT_DEBIT,
+            Decimal("100"),
+            Decimal("96"),
+        ),
+    ),
+)
+def test_otm_profiles_select_when_beta_delta_band_has_no_structure(
+    opportunity_key: str,
+    direction: OpportunityDirection,
+    strategy: VerticalStrategy,
+    bought_strike: Decimal,
+    sold_strike: Decimal,
+) -> None:
+    expiry = BOUNDARY.date() + timedelta(days=38)
+    options = (
+        _option("C", "100", "2.00", "2.04", expiry=expiry, underlying="SPY", delta=Decimal("0.45")),
+        _option("C", "104", "0.40", "0.42", expiry=expiry, underlying="SPY", delta=Decimal("0.30")),
+        _option(
+            "P", "100", "2.10", "2.14", expiry=expiry, underlying="SPY", delta=Decimal("-0.45")
+        ),
+        _option("P", "96", "0.50", "0.52", expiry=expiry, underlying="SPY", delta=Decimal("-0.30")),
+    )
+    snapshot = _snapshot(options)
+    authority = _authority(
+        snapshot=snapshot,
+        available_risk=Decimal("225"),
+        available_buying_power=Decimal("225"),
+    )
+    policy_values = {
+        "underlying": "SPY",
+        "minimum_dte": 30,
+        "maximum_dte": 45,
+        "maximum_option_quote_age": timedelta(seconds=20),
+        "maximum_leg_quote_skew": timedelta(seconds=3),
+        "maximum_relative_spread": Decimal("0.05"),
+        "minimum_candidate_score": 0,
+        "minimum_debit_width_fraction": Decimal("0.01"),
+        "maximum_debit_width_fraction": Decimal("0.99"),
+        "maximum_position_loss": Decimal("225"),
+        "maximum_lifetime_risk": Decimal("225"),
+        "maximum_quantity": 1,
+    }
+
+    beta = select_vertical_candidate(
+        snapshot,
+        _policy(opportunity_key=STRUCTURAL_BULLISH_PILOT_ID, **policy_values),
+        OpportunityDirection.BULLISH,
+        1,
+        authority,
+    )
+    selected = select_vertical_candidate(
+        snapshot,
+        _policy(opportunity_key=opportunity_key, **policy_values),
+        direction,
+        1,
+        authority,
+    )
+
+    assert beta == CandidateSelectionResult(None, SelectionReason.NO_ELIGIBLE_STRUCTURE)
+    assert selected.reason is SelectionReason.SELECTED
+    assert selected.candidate is not None
+    assert selected.candidate.strategy is strategy
+    assert tuple(leg.strike for leg in selected.candidate.legs) == (
+        bought_strike,
+        sold_strike,
+    )
+    if strategy is VerticalStrategy.BEAR_PUT_DEBIT:
+        assert selected.candidate.legs[1].strike == selected.candidate.legs[0].strike - Decimal("4")
+
+
+def test_structural_bullish_pilot_rejects_each_frozen_contract_gate() -> None:
+    expiry = BOUNDARY.date() + timedelta(days=38)
+    policy = _policy(
+        opportunity_key=STRUCTURAL_BULLISH_PILOT_ID,
+        underlying="SPY",
+        minimum_dte=30,
+        maximum_dte=45,
+        maximum_option_quote_age=timedelta(seconds=20),
+        maximum_leg_quote_skew=timedelta(seconds=3),
+        maximum_relative_spread=Decimal("0.05"),
+        minimum_candidate_score=0,
+        minimum_debit_width_fraction=Decimal("0.01"),
+        maximum_debit_width_fraction=Decimal("0.99"),
+        maximum_position_loss=Decimal("225"),
+        maximum_lifetime_risk=Decimal("225"),
+        maximum_quantity=1,
+    )
+    invalid_pairs = (
+        (
+            _option(
+                "C", "100", "2.40", "2.44", expiry=expiry, underlying="SPY", delta=Decimal("0.54")
+            ),
+            _option("C", "104", "0.60", "0.62", expiry=expiry, underlying="SPY"),
+        ),
+        (
+            _option(
+                "C", "100", "2.40", "2.44", expiry=expiry, underlying="SPY", delta=Decimal("0.60")
+            ),
+            _option("C", "105", "0.60", "0.62", expiry=expiry, underlying="SPY"),
+        ),
+        (
+            _option(
+                "C", "100", "3.00", "3.04", expiry=expiry, underlying="SPY", delta=Decimal("0.60")
+            ),
+            _option("C", "104", "0.60", "0.62", expiry=expiry, underlying="SPY"),
+        ),
+        (
+            _option(
+                "C", "100", "2.40", "2.54", expiry=expiry, underlying="SPY", delta=Decimal("0.60")
+            ),
+            _option("C", "104", "0.60", "0.62", expiry=expiry, underlying="SPY"),
+        ),
+    )
+
+    for options in invalid_pairs:
+        snapshot = _snapshot(options)
+        result = select_vertical_candidate(
+            snapshot,
+            policy,
+            OpportunityDirection.BULLISH,
+            1,
+            _authority(
+                snapshot=snapshot,
+                available_risk=Decimal("225"),
+                available_buying_power=Decimal("225"),
+            ),
+        )
+        assert result.candidate is None
+
+
+def test_structural_bullish_pilot_direction_does_not_follow_bearish_signals() -> None:
+    policy = _policy(
+        opportunity_key=STRUCTURAL_BULLISH_PILOT_ID,
+        underlying="SPY",
+    )
+
+    assert (
+        derive_opportunity_direction(
+            policy,
+            vwap_distance=Decimal("-0.02"),
+            relative_return=Decimal("-0.01"),
+            bull_trend_hits=0,
+            bear_trend_hits=3,
+        )
+        is OpportunityDirection.BULLISH
+    )
+
+
+def test_structural_bullish_pilot_does_not_add_generic_promotion_vetoes() -> None:
+    expiry = BOUNDARY.date() + timedelta(days=38)
+    options = (
+        _option("C", "100", "2.40", "2.44", expiry=expiry, underlying="SPY", delta=Decimal("0.60")),
+        _option("C", "104", "0.60", "0.62", expiry=expiry, underlying="SPY"),
+    )
+    snapshot = _snapshot(options)
+    policy = _policy(
+        opportunity_key=STRUCTURAL_BULLISH_PILOT_ID,
+        underlying="SPY",
+        maximum_position_loss=Decimal("225"),
+        maximum_lifetime_risk=Decimal("225"),
+        maximum_quantity=1,
+    )
+    selection = select_vertical_candidate(
+        snapshot,
+        policy,
+        OpportunityDirection.BULLISH,
+        1,
+        _authority(
+            snapshot=snapshot,
+            available_risk=Decimal("225"),
+            available_buying_power=Decimal("225"),
+        ),
+    )
+    assert selection.candidate is not None
+    values = OpportunityInput(
+        opportunity_key=policy.opportunity_key,
+        underlying=policy.underlying,
+        observed_decision_boundary=BOUNDARY,
+        evaluated_at=TRUSTED_AT,
+        completed_bar_at=BOUNDARY,
+        decision_boundary_complete=True,
+        prior_decision_outcome=None,
+        data_quality=DataQuality.COMPLETE,
+        market_open=True,
+        trading_halted=TradingHaltState.NOT_HALTED,
+        underlying_observed_at=BOUNDARY,
+        catalyst_observed_at=BOUNDARY,
+        catalyst_quality=CatalystQuality.MISSING,
+        catalyst_score=0,
+        vwap_distance=Decimal("-0.02"),
+        relative_return=Decimal("-0.01"),
+        beta=Decimal("9"),
+        bull_trend_hits=0,
+        bear_trend_hits=3,
+        absolute_first_reaction=Decimal("9"),
+        candidate=selection.candidate,
+        account=AccountOpportunityState(
+            account_role=AccountRole.DEVELOPMENT,
+            book_fingerprint=DIGEST,
+            baseline_clean=True,
+            clean_equity=Decimal("100000"),
+            open_position_count=0,
+            open_order_count=0,
+            filled_entry_count=0,
+            lifetime_approved_risk=Decimal("0"),
+            entry_reservation_active=False,
+            reserved_approved_risk=Decimal("0"),
+            event_already_attempted=False,
+        ),
+    )
+
+    decision = evaluate_opportunity(policy, values)
+
+    assert decision.outcome is OpportunityOutcome.ENTRY_APPROVED
+    assert decision.direction is OpportunityDirection.BULLISH
+    assert decision.approved_max_loss == Decimal("184.00")
+
+
+def test_explicit_zero_replacement_ceiling_fails_closed() -> None:
+    policy = _policy()
+    snapshot = _snapshot((_option("C", "100", "2.00", "2.02"), _option("C", "105", "1.00", "1.02")))
+    selection = select_vertical_candidate(
+        snapshot,
+        policy,
+        OpportunityDirection.BULLISH,
+        1,
+        _authority(snapshot=snapshot),
+    )
+    assert selection.candidate is not None
+    candidate = replace(selection.candidate, maximum_limit=Decimal("0"))
+    values = OpportunityInput(
+        opportunity_key=policy.opportunity_key,
+        underlying=policy.underlying,
+        observed_decision_boundary=BOUNDARY,
+        evaluated_at=TRUSTED_AT,
+        completed_bar_at=BOUNDARY,
+        decision_boundary_complete=True,
+        prior_decision_outcome=None,
+        data_quality=DataQuality.COMPLETE,
+        market_open=True,
+        trading_halted=TradingHaltState.NOT_HALTED,
+        underlying_observed_at=BOUNDARY,
+        catalyst_observed_at=BOUNDARY,
+        catalyst_quality=CatalystQuality.CLEAR,
+        catalyst_score=30,
+        vwap_distance=Decimal("0.02"),
+        relative_return=Decimal("0.01"),
+        beta=Decimal("1.5"),
+        bull_trend_hits=3,
+        bear_trend_hits=0,
+        absolute_first_reaction=Decimal("0.1"),
+        candidate=candidate,
+        account=AccountOpportunityState(
+            account_role=AccountRole.DEVELOPMENT,
+            book_fingerprint=DIGEST,
+            baseline_clean=True,
+            clean_equity=Decimal("100000"),
+            open_position_count=0,
+            open_order_count=0,
+            filled_entry_count=0,
+            lifetime_approved_risk=Decimal("0"),
+            entry_reservation_active=False,
+            reserved_approved_risk=Decimal("0"),
+            event_already_attempted=False,
+        ),
+    )
+
+    decision = evaluate_opportunity(policy, values)
+
+    assert decision.outcome is OpportunityOutcome.NO_TRADE
+    assert decision.reason_codes == (OpportunityReason.OPTION_CANDIDATE_INVALID,)

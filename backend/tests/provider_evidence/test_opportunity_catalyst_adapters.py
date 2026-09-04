@@ -170,9 +170,7 @@ def test_research_rejects_more_results_than_the_requested_limit() -> None:
         match="RESULT_LIMIT_EXCEEDED",
     ):
         asyncio.run(
-            RetainedMCPNewsCatalystResearch(MCP(result({"news": news}))).research(
-                plan(), TRUSTED
-            )
+            RetainedMCPNewsCatalystResearch(MCP(result({"news": news}))).research(plan(), TRUSTED)
         )
 
 
@@ -195,7 +193,7 @@ def test_research_rejects_more_results_than_the_requested_limit() -> None:
             "RESULT_SCHEMA_INVALID",
         ),
         (
-            result(completed_at=TRUSTED + timedelta(seconds=1)),
+            result(completed_at=TRUSTED + timedelta(seconds=31)),
             TRUSTED,
             "RESEARCH_AFTER_TRUSTED_TIME",
         ),
@@ -218,9 +216,7 @@ def binding(**changes: object) -> CatalystClassifierBinding:
 
 class Classifier:
     def __init__(self) -> None:
-        self.calls: list[
-            tuple[EvidenceClassificationContext, tuple[SourceCluster, ...]]
-        ] = []
+        self.calls: list[tuple[EvidenceClassificationContext, tuple[SourceCluster, ...]]] = []
 
     def classify_context(
         self,

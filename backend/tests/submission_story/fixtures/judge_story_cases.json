@@ -1,0 +1,69 @@
+[
+  {
+    "shape": "no_trade",
+    "expected_decision": "NO_TRADE",
+    "expected_outcome": "NO_TRADE",
+    "expected_stages": [
+      "PLAN_FROZEN",
+      "SCHEDULED_CHECK",
+      "ENTRY_DECISION",
+      "CURRENT_STATE"
+    ],
+    "expected_statuses": [
+      "FROZEN",
+      "NO_TRADE",
+      "NO_TRADE",
+      "NO_TRADE"
+    ]
+  },
+  {
+    "shape": "open",
+    "expected_decision": "ENTRY_APPROVED",
+    "expected_outcome": "FILLED_OPEN",
+    "expected_stages": [
+      "PLAN_FROZEN",
+      "ENTRY_DECISION",
+      "ENTRY_ORDER",
+      "ENTRY_RECONCILIATION",
+      "LIFECYCLE_TICK",
+      "CURRENT_STATE"
+    ],
+    "expected_statuses": [
+      "FROZEN",
+      "ENTRY_APPROVED",
+      "FILLED",
+      "FILLED",
+      "HOLD",
+      "FILLED_OPEN"
+    ]
+  },
+  {
+    "shape": "closed",
+    "expected_decision": "ENTRY_APPROVED",
+    "expected_outcome": "CLOSED",
+    "expected_stages": [
+      "PLAN_FROZEN",
+      "SCHEDULED_CHECK",
+      "ENTRY_DECISION",
+      "ENTRY_ORDER",
+      "ENTRY_RECONCILIATION",
+      "LIFECYCLE_TICK",
+      "LIFECYCLE_TICK",
+      "EXIT_ORDER",
+      "EXIT_ORDER",
+      "CURRENT_STATE"
+    ],
+    "expected_statuses": [
+      "FROZEN",
+      "OPPORTUNITY_DECISION_PENDING",
+      "ENTRY_APPROVED",
+      "FILLED",
+      "FILLED",
+      "HOLD",
+      "CLOSE",
+      "CANCELED",
+      "FILLED",
+      "CLOSED"
+    ]
+  }
+]

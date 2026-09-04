@@ -8,16 +8,16 @@ import re
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-DEFAULT_REVIEWED_WORD_RANGE = (650, 750)
+DEFAULT_REVIEWED_WORD_RANGE = (430, 560)
 EXPECTED_PAGE_COUNT = 1
 PAGE_SIZE = "Letter"
 PAGE_WIDTH_IN = 8.5
 PAGE_HEIGHT_IN = 11.0
 PAGE_MARGIN_IN = 0.36
-BODY_FONT_SIZE_PT = 9.0
-BODY_LINE_HEIGHT = 1.23
+BODY_FONT_SIZE_PT = 10.3
+BODY_LINE_HEIGHT = 1.3
 COLUMN_GAP_IN = 0.34
-ARCHITECTURE_MAX_HEIGHT_IN = 1.6
+ARCHITECTURE_MAX_HEIGHT_IN = 1.95
 _UNRESOLVED = re.compile(r"\[\[|\bTBD(?:_[A-Z0-9_]+)?\b|\bPLACEHOLDER\b")
 _WORD = re.compile(r"(?<![\w])(?:\$?[\w]+(?:[./'-][\w]+)*%?)(?![\w])")
 _INLINE_MARKUP = re.compile(r"`([^`\n]+)`|\[([^\]\n]+)\]\((https://[^\s)]+)\)")
@@ -25,7 +25,7 @@ _ALLOWED_LINKS = frozenset(
     {
         "https://alphadecay.onrender.com",
         "https://alphadecay.onrender.com/api/competition-record",
-        "https://alphadecay.onrender.com/docs#/Replay/anonymous_replay",
+        "https://alphadecay.onrender.com/docs#/Anonymous/anonymous_replay",
         "https://github.com/broken-branch/alphadecay/actions",
     }
 )
@@ -102,8 +102,7 @@ def _inline(text: str) -> str:
             if url not in _ALLOWED_LINKS:
                 raise ValueError("one-page link is not an approved public destination")
             rendered.append(
-                f'<a href="{html.escape(url, quote=True)}">'
-                f"{html.escape(label, quote=True)}</a>"
+                f'<a href="{html.escape(url, quote=True)}">{html.escape(label, quote=True)}</a>'
             )
         offset = match.end()
     rendered.append(html.escape(text[offset:], quote=True))
@@ -182,9 +181,8 @@ def render_html(
         diagram = (
             '<figure class="architecture">'
             f'<img src="{_inline(_architecture_asset(architecture_asset))}" '
-            'alt="Alpaca MCP research flows through bounded model classification and fixed '
-            'policy before a paper Trading API action; the Alpaca CLI remains outside the '
-            'application.">'
+            'alt="Alpaca MCP research evidence flows through bounded model tags and fixed policy '
+            'before the Trading API can send and verify one complete spread order.">'
             "</figure>"
         )
 
@@ -232,12 +230,12 @@ def render_html(
     main {{ columns: 2; column-gap: {COLUMN_GAP_IN}in; column-rule: 1px solid #dedbe3; }}
     section {{ margin: 0 0 0.075in; }}
     .architecture {{
-      margin: 0.09in 0; padding: 0.055in;
-      border: 1px solid #b9b5ae; border-radius: 4px;
+      margin: 0.09in 0; padding: 0; overflow: hidden;
+      border: 0; border-radius: 4px; background: #0d0d0d;
     }}
     .architecture img {{
       display: block; width: 100%; max-height: {ARCHITECTURE_MAX_HEIGHT_IN}in;
-      object-fit: contain;
+      object-fit: cover;
     }}
     h2 {{
       break-after: avoid; margin: 0 0 0.035in;

@@ -15,6 +15,7 @@ from backend.app.lifecycle.research import (
     BoundedLifecycleResearch,
     LifecycleResearchError,
     LifecycleResearchSource,
+    normalize_mcp_news,
 )
 
 NOW = datetime(2026, 8, 29, 16, tzinfo=UTC)
@@ -405,6 +406,26 @@ def test_news_text_and_window_are_bounded(change: dict[str, object], code: str) 
 
     with pytest.raises(LifecycleResearchError, match=code):
         run(adapter)
+
+
+def test_raw_news_rejects_a_timezone_less_created_at() -> None:
+    data = {
+        "_alpaca_mcp_security": "untrusted",
+        "data": {
+            "news": [
+                {
+                    "id": "news-1",
+                    "headline": "PANW files its quarterly report.",
+                    "created_at": "2026-08-20T15:00:00",
+                    "source": "wire",
+                }
+            ],
+            "next_page_token": None,
+        },
+    }
+
+    with pytest.raises(LifecycleResearchError, match="RESULT_SCHEMA_INVALID"):
+        normalize_mcp_news(result("get_news", data, 1), START, NOW)
 
 
 def test_corporate_action_detail_must_rejoin_the_selected_summary() -> None:

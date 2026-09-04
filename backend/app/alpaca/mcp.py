@@ -3,7 +3,10 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
+import stat
 import subprocess
+import sys
 from collections.abc import AsyncIterator, Callable, Iterable, Mapping
 from contextlib import AsyncExitStack, asynccontextmanager, suppress
 from dataclasses import dataclass
@@ -501,11 +504,9 @@ class AlpacaMCPResearchClient:
 def build_launch_spec(*, api_key: str, secret_key: str) -> MCPLaunchSpec:
     if not api_key or not secret_key:
         raise MCPBoundaryError("MCP_CREDENTIAL_MISSING")
-    executable = which("alpaca-mcp-server")
-    if executable is None:
-        raise MCPBoundaryError("MCP_EXECUTABLE_MISSING")
+    executable = _resolve_mcp_executable()
     return MCPLaunchSpec(
-        argv=(str(Path(executable).resolve()),),
+        argv=(str(executable),),
         environment=MappingProxyType(
             {
                 "ALPACA_API_KEY": api_key,
@@ -516,6 +517,30 @@ def build_launch_spec(*, api_key: str, secret_key: str) -> MCPLaunchSpec:
             }
         ),
     )
+
+
+def _resolve_mcp_executable() -> Path:
+    sibling = Path(sys.executable).absolute().with_name("alpaca-mcp-server")
+    if sibling.exists() or sibling.is_symlink():
+        return _validated_executable(sibling)
+    installed = which("alpaca-mcp-server")
+    if installed is None:
+        raise MCPBoundaryError("MCP_EXECUTABLE_MISSING")
+    return _validated_executable(Path(installed).absolute())
+
+
+def _validated_executable(path: Path) -> Path:
+    try:
+        metadata = path.lstat()
+    except OSError as exc:
+        raise MCPBoundaryError("MCP_EXECUTABLE_INVALID") from exc
+    if (
+        not stat.S_ISREG(metadata.st_mode)
+        or not stat.S_IMODE(metadata.st_mode) & 0o111
+        or not os.access(path, os.X_OK)
+    ):
+        raise MCPBoundaryError("MCP_EXECUTABLE_INVALID")
+    return path
 
 
 def validate_tool_surface(tool_names: Iterable[str]) -> None:

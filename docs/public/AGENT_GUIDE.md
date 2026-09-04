@@ -1,96 +1,52 @@
-# Quick tour and API guide
+# API guide
 
-You can look through alphadecay in one visit. The public competition record and Replay need no account, API key, trade plan, or model setup.
+The public API gives a reviewer three useful checks: run the fixed Replay policy, read the published competition timeline, and inspect the separate account checkpoint. The hosted [OpenAPI document](https://alphadecay.onrender.com/openapi.json) defines the response fields, and the browser-friendly [API reference](https://alphadecay.onrender.com/docs) exposes the same routes.
 
-## Browser tour
-
-1. Open [alphadecay.onrender.com](https://alphadecay.onrender.com). The app checks the published competition record before choosing the first view.
-
-2. If competition history has been published, **Competition Record** opens first. Read the paper `NO_TRADE` decisions or position timeline. A separate account snapshot appears below the timeline when one is available.
-
-3. If no competition history is available, **Explore Demo** opens first. Read **Opening checks**. The production agent freezes an event plan before the signal and calculates direction after the event. Replay uses a fixed sample direction and spread instead of running those steps again.
-
-4. Use **Scenario replay · no setup** to switch between `THESIS_INTACT`, `THETA_TAKEOVER`, `CATALYST_BROKEN`, and `STALE_QUOTE`.
-
-5. Check **Decision**, **Thesis vs. position**, **Agent run**, and **Decision record**. The four samples end in `HOLD`, `ROLL`, `CLOSE`, and `NO_ACTION` respectively. Keep `REPLAY · SAMPLE DATA · NO ORDER SENT` in view.
-
-The Replay examples are synthetic fixtures. Replay does not ask you to supply a plan or direction. It does not call Alpaca, an AI provider, MCP, or the CLI. It cannot place an order, and you do not need to return later to see an outcome.
-
-## Anonymous API path
-
-Set one base URL for the public app.
+Set the deployment once:
 
 ```bash
 BASE_URL=https://alphadecay.onrender.com
 ```
 
-For a local build, use this instead.
-
-```bash
-BASE_URL=http://127.0.0.1:8000
-```
-
-Check the service.
-
-```bash
-curl -fsS "$BASE_URL/api/health" | jq
-```
-
-Run one Replay and keep the useful fields.
+## 1. Run Replay
 
 ```bash
 curl -fsS -X POST "$BASE_URL/api/replays/THETA_TAKEOVER" |
-  jq '{scenario, action: .assessment.action, rationale: .assessment.rationale_code, quality: .assessment.quality, execution_enabled, input_hash, assessment_hash}'
+  jq '{scenario, action: .assessment.action, reason: .assessment.rationale_code, quality: .assessment.quality, execution_enabled, input_hash, assessment_hash}'
 ```
 
-Run all four.
+`THETA_TAKEOVER` returns the policy's sample `ROLL` decision. The other accepted names are `THESIS_INTACT`, `CATALYST_BROKEN`, and `STALE_QUOTE`, which produce the fixture's `HOLD`, `CLOSE`, and `NO_ACTION` paths. `execution_enabled` is `false` for every Replay response. The [fixture tests](../../backend/tests/integration/test_replay_api.py) pin the scenarios, hashes, and decisions.
 
-```bash
-for scenario in THESIS_INTACT THETA_TAKEOVER CATALYST_BROKEN STALE_QUOTE; do
-  curl -fsS -X POST "$BASE_URL/api/replays/$scenario" |
-    jq '{scenario, action: .assessment.action, rationale: .assessment.rationale_code, quality: .assessment.quality, execution_enabled}'
-done
-```
+Replay uses synthetic fixtures and does not ask you to supply a plan or direction. It does not call Alpaca, an AI provider, MCP, or the CLI, and it cannot place an order. The browser keeps its sample-data label visible.
 
-Read the published timeline for the competition paper account.
+## 2. Read the competition timeline
 
 ```bash
 curl -fsS "$BASE_URL/api/competition-record" |
   jq '{publication_status, records: [.records[] | {kind, occurred_at, payload}]}'
 ```
 
-`/api/competition-record` returns published paper `NO_TRADE` decisions and position events in order. When nothing has been published, it returns `NOT_PUBLISHED` with no records. It contains no account or broker identifiers.
+This route contains published paper `NO_TRADE` decisions or position events in chronological order. A position record can include its opening, scheduled review, roll, and close. Each lifecycle review combines that position's record with the reconciled account evidence needed to observe it safely. `NOT_PUBLISHED` with an empty list means no record has been released; it does not imply a trade or a zero result. The [archive repository tests](../../backend/tests/competition_archive/test_repository.py) verify the publication boundary and sanitized response.
 
-Read the separate account performance snapshot.
+## 3. Read the account checkpoint
 
 ```bash
-curl -fsS "$BASE_URL/api/proof" | jq
+curl -fsS "$BASE_URL/api/proof" |
+  jq '{publication_status, point}'
 ```
 
-`/api/proof` reports whether an account performance snapshot was published and whether its measurement is complete, missing, or unknown. It keeps account equity change separate from the lifecycle timeline. A server running Replay mode returns `NOT_PUBLISHED` until the owner deliberately publishes an eligible snapshot.
+The checkpoint reports whether the dedicated paper-account measurement was published and whether it is complete, missing, or unknown. It is separate from the position timeline and is not an organizer score. The [proof contract tests](../../backend/tests/contracts/test_performance_proof_contract.py) cover the public shape and omission of account identifiers.
 
-## Response meanings
+## Reading a response
 
-- `assessment.action` is the fixed policy result: `HOLD`, `CLOSE`, `ROLL`, or `NO_ACTION`.
+In Replay, `assessment.action` is `HOLD`, `CLOSE`, `ROLL`, or `NO_ACTION`; `rationale_code` names the selected rule; and `quality` identifies complete, stale, missing, or unknown inputs. `input_hash` binds the fixture while `assessment_hash` binds the policy output. The `presentation` object contains judge-readable fields, and `certificate` contains the saved thesis, expected exposure, rejected alternatives, and execution state.
 
-- `assessment.rationale_code` is the stable reason code for that result.
+Competition records use `kind` to separate entry decisions from position events. The proof endpoint keeps account performance out of that lifecycle. Both routes return only data that the owner deliberately published through no-selector endpoints tested in the [competition archive suite](../../backend/tests/competition_archive).
 
-- `assessment.quality` shows whether the sample had complete, stale, missing, or unknown decision data.
+The service health check remains available at `GET /api/health`. It reports the exact build and `REPLAY_ONLY` or `CONNECTED` runtime mode. For local use, replace `BASE_URL` with `http://127.0.0.1:8000`.
 
-- `execution_enabled` is always `false` in Replay.
+## Status and errors
 
-- `input_hash` identifies the exact sample input. `assessment_hash` identifies the policy result.
+These calls are deliberately read-only. A missing publication returns a stable status or `404`; it never falls through to an owner record. Invalid Replay names are rejected before policy evaluation. The response does not contain credentials or account, order, position, activity, or provider identifiers. You can verify the deployed source by comparing the commit from `/api/health` with the public repository commit.
 
-- `presentation` contains the opening record, later market reading, synthetic evidence, and the list of integrations not run by Replay.
-
-- `certificate` contains the saved thesis, decision, expected exposure after the action, and the record showing that execution was disabled.
-
-- `competition-record.records` contains published history from the competition paper account. `NO_TRADE` is a recorded agent outcome; `POSITION` carries its opening, review, roll, and close events.
-
-- `proof.point` is the separate account performance measurement. It is not the lifecycle record or a score calculated by the organizer.
-
-The route schema lists the four accepted scenario names. Use the [OpenAPI document](https://alphadecay.onrender.com/openapi.json) with tools, or open the [API Reference](https://alphadecay.onrender.com/docs) in a browser. The hosted schema lists only public routes. A connected local copy also documents its protected owner and scheduler routes.
-
-## Scope
-
-Replay is a compact demonstration of the lifecycle policy, not an options scanner or a custom strategy builder. The production runtime starts from an event plan approved by the operator, calculates direction from data observed after the event, and checks an eligible spread with limited risk. Its selected model classifies a bounded evidence set; fixed application policy still chooses the action. Public Replay shows the decision trail immediately with fixed, invented data and does not call that model.
+The owner-only experiment performance route is documented in OpenAPI for a connected build, but it is not one of the three public proof calls. It requires the signed owner session, a matching request-protection token, and an allowed origin. Reading a private projection does not publish it.

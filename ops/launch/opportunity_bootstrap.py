@@ -11,6 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
+from backend.app.contracts.v1 import AccountRole
 from backend.app.persistence.opportunity_evidence import (
     OpportunityEvidenceError,
     SQLAlchemyOpportunityEvidenceRepository,
@@ -22,8 +23,8 @@ from backend.app.persistence.runtime import (
 )
 from backend.app.services.opportunity_bootstrap import (
     OpportunityBootstrapError,
-    bootstrap_development_opportunity,
-    parse_development_opportunity_bootstrap,
+    bootstrap_opportunity,
+    parse_opportunity_bootstrap,
 )
 
 _INPUT_LIMIT = 1024 * 1024
@@ -32,7 +33,12 @@ _DATABASE_URL_LIMIT = 4096
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Validate a DEVELOPMENT opportunity plan and complete account baseline"
+        description="Validate an exact-role opportunity plan and complete account baseline"
+    )
+    parser.add_argument(
+        "--role",
+        default=AccountRole.DEVELOPMENT.value,
+        choices=(AccountRole.DEVELOPMENT.value, AccountRole.SUBMISSION.value),
     )
     parser.add_argument("--input", required=True, type=Path)
     parser.add_argument(
@@ -51,16 +57,23 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _parser()
     args = parser.parse_args(argv)
+    account_role = AccountRole(args.role)
     if args.persist != (args.database_url_file is not None):
         parser.error("--persist and --database-url-file must be supplied together")
 
     engine = None
     try:
-        payload = json.loads(_read_regular_file(args.input, _INPUT_LIMIT).decode("utf-8"))
-        bootstrap = parse_development_opportunity_bootstrap(payload)
+        input_reader = (
+            _read_private_file if account_role is AccountRole.SUBMISSION else _read_regular_file
+        )
+        payload = json.loads(input_reader(args.input, _INPUT_LIMIT).decode("utf-8"))
+        if account_role is AccountRole.DEVELOPMENT and isinstance(payload, dict):
+            payload = payload.copy()
+            payload.setdefault("submission_baseline_id", None)
+        bootstrap = parse_opportunity_bootstrap(payload, account_role=account_role)
         repository = None
         if args.persist:
-            database_url = _read_regular_file(args.database_url_file, _DATABASE_URL_LIMIT).decode(
+            database_url = _read_private_file(args.database_url_file, _DATABASE_URL_LIMIT).decode(
                 "utf-8"
             )
             if database_url != database_url.strip() or "\n" in database_url or "\r" in database_url:
@@ -70,8 +83,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             repository = SQLAlchemyOpportunityEvidenceRepository(
                 sessionmaker(engine, expire_on_commit=False)
             )
-        result = bootstrap_development_opportunity(
+        result = bootstrap_opportunity(
             bootstrap,
+            account_role=account_role,
             persist=args.persist,
             repository=repository,
         )
@@ -90,7 +104,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         if engine is not None:
             engine.dispose()
 
-    print(json.dumps(result.sanitized_payload(), sort_keys=True, separators=(",", ":")))
+    output = result.sanitized_payload()
+    output["account_role"] = account_role.value
+    print(json.dumps(output, sort_keys=True, separators=(",", ":")))
     return 0
 
 
@@ -107,6 +123,25 @@ def _read_regular_file(path: Path, limit: int) -> bytes:
             result.extend(chunk)
             if len(result) > limit:
                 raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_INPUT_INVALID")
+        return bytes(result)
+    finally:
+        os.close(descriptor)
+
+
+def _read_private_file(path: Path, limit: int) -> bytes:
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) & 0o077:
+            raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_PRIVATE_FILE_INVALID")
+        result = bytearray()
+        while True:
+            chunk = os.read(descriptor, min(64 * 1024, limit + 1 - len(result)))
+            if not chunk:
+                break
+            result.extend(chunk)
+            if len(result) > limit:
+                raise OpportunityBootstrapError("OPPORTUNITY_BOOTSTRAP_PRIVATE_FILE_INVALID")
         return bytes(result)
     finally:
         os.close(descriptor)

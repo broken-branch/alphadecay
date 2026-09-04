@@ -319,6 +319,18 @@ class ActivityItem:
             raise ValueError("ACTIVITY_FIELDS_INVALID")
 
 
+def activity_predates_window(item: ActivityItem, window_start: datetime) -> bool:
+    """True when a known activity happened before the sweep window and so cannot be observed.
+
+    The baseline funding journal predates the baseline capture that starts every activity
+    window; it is retained as known state, not re-observed. Date-only activities compare by
+    calendar day, matching the provider adapter's window rule.
+    """
+    if item.time_quality == "DATE_ONLY":
+        return item.occurred_at.date() < window_start.astimezone(UTC).date()
+    return item.occurred_at < window_start
+
+
 @dataclass(frozen=True)
 class ActivityPaginationEvidence:
     requested_start: datetime
@@ -344,7 +356,9 @@ class ActivityPaginationEvidence:
             <= self.retrieved_through
             <= self.requested_end
             <= self.established_at
-            or not self.requested_start <= self.visibility_complete_through <= self.requested_end
+            # The watermark may precede the requested start: a window shorter than the
+            # visibility horizon has no activity that is guaranteed visible yet.
+            or self.visibility_complete_through > self.requested_end
             or type(self.page_count) is not int
             or not 1 <= self.page_count <= 1000
             or not isinstance(self.terminal_page_seen, bool)
@@ -584,6 +598,16 @@ class ReconciliationExpectation:
             raise ValueError("RECONCILIATION_EXPECTATION_INTEGRITY_INVALID")
 
 
+# Paper option fills carry small regulatory fees that reduce cash without a matching
+# activity at fill time. Cash may trail the expectation by at most this much; it may
+# never exceed it.
+MAX_UNREPORTED_FEE_DRAG = Decimal("1.00")
+
+
+def _cash_within_fee_tolerance(observed: Decimal, expected: Decimal) -> bool:
+    return Decimal(0) <= expected - observed <= MAX_UNREPORTED_FEE_DRAG
+
+
 @dataclass(frozen=True, init=False)
 class WholeAccountReconciliation:
     reconciliation_id: UUID
@@ -655,7 +679,7 @@ class WholeAccountReconciliation:
                 or observed.options_trading_blocked
             ):
                 blocks.add(ReconciliationBlockCode.ACCOUNT_NOT_EXECUTABLE)
-            if observed.cash != expectation.expected_cash:
+            if not _cash_within_fee_tolerance(observed.cash, expectation.expected_cash):
                 blocks.add(ReconciliationBlockCode.ACCOUNT_ADJUSTMENT)
 
         if sweep.final_positions != expectation.expected_positions:
@@ -669,9 +693,14 @@ class WholeAccountReconciliation:
         if any(
             observed_activities.get(activity_hash) != known
             for activity_hash, known in known_activities.items()
+            if not activity_predates_window(known, expectation.required_activity_window_start)
         ):
             blocks.add(ReconciliationBlockCode.KNOWN_ACTIVITY_MISSING)
-        if any(activity_hash not in known_activities for activity_hash in observed_activities):
+        if any(
+            activity_hash not in known_activities
+            for activity_hash, item in observed_activities.items()
+            if item.activity_type is not ActivityType.FEE
+        ):
             blocks.add(ReconciliationBlockCode.UNEXPECTED_ACTIVITY)
         if any(item.occurred_at > accepted_at for item in sweep.activities):
             blocks.add(ReconciliationBlockCode.FUTURE_OBSERVATION)

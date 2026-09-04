@@ -10,9 +10,11 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
 from backend.app.contracts.v1 import AccountRole
+from backend.app.experiment_lineage import ExperimentExecutionLineage
 from backend.app.lifecycle.materialization import (
     EntryMaterializationError,
     SQLAlchemyEntryMaterializer,
+    _final_reconciliation_request_hash,
     _materialization_job_hash,
     _validate_vertical,
 )
@@ -27,6 +29,7 @@ from backend.app.persistence.sqlalchemy_models import (
     AttemptObservationRow,
     Base,
     BrokerMutationPermitRow,
+    CompiledExperimentVersionRow,
     EntryApprovalCertificateRow,
     EntryMaterializationJobRow,
     ExecutionCertificateRow,
@@ -36,6 +39,7 @@ from backend.app.persistence.sqlalchemy_models import (
     ManagedPositionSnapshotRow,
     ManagedPositionTransitionRow,
     OrderAttemptRow,
+    ReviewedExperimentDefinitionRow,
     ThesisVersionRow,
     WholeAccountReconciliationRow,
 )
@@ -57,9 +61,19 @@ DECISION_ID = UUID("10000000-0000-0000-0000-000000000001")
 ATTEMPT_ID = UUID("80000000-0000-0000-0000-000000000001")
 PERMIT_ID = UUID("81000000-0000-0000-0000-000000000001")
 OBSERVATION_ID = UUID("82000000-0000-0000-0000-000000000001")
-CLIENT_ID = "entry-client-a0"
-PROVIDER_ID = "entry-provider-a0"
+CLIENT_ID = str(uuid5(NAMESPACE_URL, "test-fixture-client-order-a0"))
+PROVIDER_ID = str(uuid5(NAMESPACE_URL, "test-fixture-provider-order-a0"))
 ACTIVITY_HASHES = ("e" * 64, "f" * 64)
+FINAL_RECONCILIATION_REQUEST_HASH = _final_reconciliation_request_hash(
+    "4" * 64,
+    0,
+    "0" * 64,
+)
+EXPERIMENT_LINEAGE = ExperimentExecutionLineage(
+    experiment_id=UUID("90000000-0000-0000-0000-000000000001"),
+    source_definition_hash="6" * 64,
+    protocol_hash="7" * 64,
+)
 
 
 def test_entry_materializer_rejects_adjusted_contract_with_stable_reason() -> None:
@@ -88,7 +102,10 @@ def test_entry_materializer_rejects_adjusted_contract_with_stable_reason() -> No
     assert str(raised.value) == "NON_STANDARD_CONTRACT_UNSUPPORTED"
 
 
-def _repository():
+def _repository(
+    account_role: AccountRole = AccountRole.DEVELOPMENT,
+    experiment_lineage: ExperimentExecutionLineage | None = None,
+):
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
     sessions = sessionmaker(engine, expire_on_commit=False)
@@ -117,9 +134,35 @@ def _repository():
         for activity_hash, item in zip(ACTIVITY_HASHES, inventory, strict=True)
     ]
     with sessions.begin() as session:
+        if experiment_lineage is not None:
+            session.add(
+                ReviewedExperimentDefinitionRow(
+                    experiment_id=experiment_lineage.experiment_id,
+                    version=1,
+                    definition_hash=experiment_lineage.source_definition_hash,
+                    lifecycle_state="REVIEWED",
+                    payload_text="{}",
+                    created_at=ENTRY_AT,
+                )
+            )
+            session.add(
+                CompiledExperimentVersionRow(
+                    experiment_id=experiment_lineage.experiment_id,
+                    source_version=1,
+                    compiled_version=1,
+                    source_definition_hash=experiment_lineage.source_definition_hash,
+                    protocol_hash=experiment_lineage.protocol_hash,
+                    lifecycle_state="COMPILED",
+                    arm_state="NOT_ARMED",
+                    automation_state="OFF",
+                    execution_eligible=False,
+                    payload_text="{}",
+                    created_at=ENTRY_AT,
+                )
+            )
         session.add(
             AccountRoleRow(
-                role="DEVELOPMENT",
+                role=account_role.value,
                 account_fingerprint=FINGERPRINT,
                 equity=Decimal("100000"),
                 autonomous_enabled=True,
@@ -128,8 +171,8 @@ def _repository():
         session.add(
             ThesisVersionRow(
                 thesis_version_id=retained.thesis_version_id,
-                thesis_id=UUID(int=901),
-                account_role="DEVELOPMENT",
+                thesis_id=uuid5(NAMESPACE_URL, "test-fixture-901"),
+                account_role=account_role.value,
                 version=1,
                 origin_hash=retained.thesis.thesis_hash,
                 thesis_hash=retained.thesis.thesis_hash,
@@ -161,14 +204,14 @@ def _repository():
         )
         session.add(
             AgentTickRow(
-                tick_id=UUID(int=902),
-                account_role="DEVELOPMENT",
+                tick_id=uuid5(NAMESPACE_URL, "test-fixture-902"),
+                account_role=account_role.value,
                 account_fingerprint=FINGERPRINT,
                 tick_key="entry-materialization-fixture",
                 tick_boundary=ENTRY_AT,
                 actor="SCHEDULER",
                 status="RESERVED",
-                reservation_token=UUID(int=904),
+                reservation_token=uuid5(NAMESPACE_URL, "test-fixture-reservation-904"),
                 terminal_code=None,
                 decision_id=DECISION_ID,
                 execution_certificate_id=None,
@@ -179,9 +222,9 @@ def _repository():
         )
         session.add(
             AgentInputSnapshotRow(
-                snapshot_id=UUID(int=903),
+                snapshot_id=uuid5(NAMESPACE_URL, "test-fixture-903"),
                 thesis_version_id=retained.thesis_version_id,
-                account_role="DEVELOPMENT",
+                account_role=account_role.value,
                 account_fingerprint=FINGERPRINT,
                 decision_kind="OPPORTUNITY",
                 decision_boundary=retained.launch_authority.entry_boundary_at,
@@ -195,9 +238,9 @@ def _repository():
             AgentDecisionRow(
                 decision_id=DECISION_ID,
                 thesis_version_id=retained.thesis_version_id,
-                origin_tick_id=UUID(int=902),
-                input_snapshot_id=UUID(int=903),
-                account_role="DEVELOPMENT",
+                origin_tick_id=uuid5(NAMESPACE_URL, "test-fixture-902"),
+                input_snapshot_id=uuid5(NAMESPACE_URL, "test-fixture-903"),
+                account_role=account_role.value,
                 account_fingerprint=FINGERPRINT,
                 decision_kind="OPPORTUNITY",
                 outcome="ENTRY_APPROVED",
@@ -208,6 +251,17 @@ def _repository():
                 autonomy_authorized=True,
                 decision_boundary=retained.launch_authority.entry_boundary_at,
                 created_at=retained.thesis_frozen_at,
+                experiment_id=(
+                    experiment_lineage.experiment_id if experiment_lineage is not None else None
+                ),
+                experiment_source_definition_hash=(
+                    experiment_lineage.source_definition_hash
+                    if experiment_lineage is not None
+                    else None
+                ),
+                experiment_protocol_hash=(
+                    experiment_lineage.protocol_hash if experiment_lineage is not None else None
+                ),
             )
         )
         session.add(
@@ -215,7 +269,7 @@ def _repository():
                 approval_id=APPROVAL_ID,
                 thesis_version_id=retained.thesis_version_id,
                 agent_decision_id=DECISION_ID,
-                account_role="DEVELOPMENT",
+                account_role=account_role.value,
                 policy_hash=POLICY_HASH,
                 book_fingerprint="2" * 64,
                 envelope_hash="3" * 64,
@@ -224,6 +278,17 @@ def _repository():
                 valid_from=ENTRY_AT - timedelta(minutes=1),
                 expires_at=ENTRY_AT + timedelta(minutes=1),
                 valid=True,
+                experiment_id=(
+                    experiment_lineage.experiment_id if experiment_lineage is not None else None
+                ),
+                experiment_source_definition_hash=(
+                    experiment_lineage.source_definition_hash
+                    if experiment_lineage is not None
+                    else None
+                ),
+                experiment_protocol_hash=(
+                    experiment_lineage.protocol_hash if experiment_lineage is not None else None
+                ),
             )
         )
         legs = [
@@ -233,7 +298,7 @@ def _repository():
         session.add(
             ExecutionIntentRow(
                 intent_id=INTENT_ID,
-                account_role="DEVELOPMENT",
+                account_role=account_role.value,
                 intent_digest="4" * 64,
                 action="ENTRY",
                 policy_hash=POLICY_HASH,
@@ -256,7 +321,7 @@ def _repository():
         job_values = {
             "execution_intent_id": INTENT_ID,
             "entry_approval_id": APPROVAL_ID,
-            "account_role": "DEVELOPMENT",
+            "account_role": account_role.value,
             "account_fingerprint": FINGERPRINT,
             "beta60": retained.launch_authority.beta60,
             "benchmark_symbol": retained.launch_authority.benchmark_symbol,
@@ -297,7 +362,7 @@ def _repository():
             "intent_id": str(INTENT_ID),
             "intent_digest": "4" * 64,
             "attempt_ordinal": 0,
-            "request_hash": "5" * 64,
+            "request_hash": FINAL_RECONCILIATION_REQUEST_HASH,
             "expected_open_orders": [],
             "expected_cash": "99500",
         }
@@ -314,11 +379,11 @@ def _repository():
                 expectation_hash="7" * 64,
                 execution_intent_id=INTENT_ID,
                 intent_digest="4" * 64,
-                account_role="DEVELOPMENT",
+                account_role=account_role.value,
                 account_fingerprint=FINGERPRINT,
                 purpose="SUBMIT",
                 attempt_ordinal=0,
-                request_hash="5" * 64,
+                request_hash=FINAL_RECONCILIATION_REQUEST_HASH,
                 accepted_at=ENTRY_AT,
                 expectation_payload=expectation,
                 sweep_payload=sweep,
@@ -332,10 +397,10 @@ def _repository():
         session.add(
             AccountReconciliationStateRow(
                 state_id=STATE_ID,
-                account_role="DEVELOPMENT",
+                account_role=account_role.value,
                 sequence=2,
                 account_fingerprint=FINGERPRINT,
-                baseline_id=UUID(int=904),
+                baseline_id=uuid5(NAMESPACE_URL, "test-fixture-904"),
                 baseline_captured_at=ENTRY_AT - timedelta(days=1),
                 accepted_at=ENTRY_AT,
                 expected_cash=Decimal("99500"),
@@ -344,7 +409,7 @@ def _repository():
                 known_activities=activities,
                 activity_complete_through=ENTRY_AT,
                 resolved_activity_hashes=list(ACTIVITY_HASHES),
-                predecessor_state_id=UUID(int=905),
+                predecessor_state_id=uuid5(NAMESPACE_URL, "test-fixture-905"),
                 authority_reconciliation_id=RECONCILIATION_ID,
                 authority_permit_id=PERMIT_ID,
                 authority_observation_id=OBSERVATION_ID,
@@ -359,7 +424,7 @@ def _repository():
                 reconciliation_id=RECONCILIATION_ID,
                 execution_intent_id=INTENT_ID,
                 intent_digest="4" * 64,
-                claim_token=UUID(int=906),
+                claim_token=uuid5(NAMESPACE_URL, "test-fixture-claim-906"),
                 claim_generation=1,
                 execution_epoch=0,
                 mutation_kind="SUBMIT",
@@ -371,7 +436,7 @@ def _repository():
                 issued_at=ENTRY_AT - timedelta(minutes=2),
                 expires_at=ENTRY_AT + timedelta(minutes=1),
                 state="CONSUMED",
-                dispatch_nonce=UUID(int=907),
+                dispatch_nonce=uuid5(NAMESPACE_URL, "test-fixture-907"),
                 dispatch_acquired_at=ENTRY_AT - timedelta(minutes=1),
                 consumed_at=ENTRY_AT,
                 outcome_hash="6" * 64,
@@ -481,6 +546,106 @@ def test_terminal_entry_materializes_once_and_loads_retained_context() -> None:
         assert session.scalars(select(ManagedLifecyclePositionRow)).all().__len__() == 1
         assert session.scalars(select(ManagedPositionTransitionRow)).all().__len__() == 1
         assert session.scalars(select(ManagedPositionSnapshotRow)).all().__len__() == 1
+    engine.dispose()
+
+
+def test_terminal_entry_carries_exact_experiment_lineage_to_managed_position() -> None:
+    sessions, engine, retained = _repository(experiment_lineage=EXPERIMENT_LINEAGE)
+
+    materialized_id = SQLAlchemyEntryMaterializer(sessions).materialize(
+        execution_certificate_id=CERTIFICATE_ID,
+        launch_authority=retained.launch_authority,
+    )
+
+    with sessions() as session:
+        managed = session.get(ManagedLifecyclePositionRow, materialized_id)
+        assert managed is not None
+        assert managed.experiment_id == EXPERIMENT_LINEAGE.experiment_id
+        assert (
+            managed.experiment_source_definition_hash == EXPERIMENT_LINEAGE.source_definition_hash
+        )
+        assert managed.experiment_protocol_hash == EXPERIMENT_LINEAGE.protocol_hash
+    engine.dispose()
+
+
+def test_submission_entry_fill_materializes_for_exact_account_role() -> None:
+    sessions, engine, retained = _repository(AccountRole.SUBMISSION)
+
+    materialized_id = SQLAlchemyEntryMaterializer(sessions).materialize(
+        execution_certificate_id=CERTIFICATE_ID,
+        launch_authority=retained.launch_authority,
+    )
+
+    loaded = SQLAlchemyLifecycleRepository(sessions).load(
+        ObservedPaperAccountAuthority(
+            AccountRole.SUBMISSION,
+            FINGERPRINT,
+            True,
+            True,
+        )
+    )
+    assert loaded.managed_position_id == materialized_id
+    engine.dispose()
+
+
+def test_submission_entry_prepares_for_exact_account_role() -> None:
+    sessions, engine, retained = _repository(AccountRole.SUBMISSION)
+    with sessions.begin() as session:
+        session.delete(session.get(EntryMaterializationJobRow, INTENT_ID))
+        intent = session.get(ExecutionIntentRow, INTENT_ID)
+        assert intent is not None
+        intent.state = "APPROVED"
+        intent.first_fill_consumed = False
+
+    SQLAlchemyEntryMaterializer(sessions).prepare(
+        execution_intent_id=INTENT_ID,
+        launch_authority=retained.launch_authority,
+        prepared_at=retained.thesis_frozen_at,
+    )
+
+    with sessions() as session:
+        job = session.get(EntryMaterializationJobRow, INTENT_ID)
+        assert job is not None
+        assert job.account_role == AccountRole.SUBMISSION.value
+        assert job.account_fingerprint == FINGERPRINT
+    engine.dispose()
+
+
+def test_submission_nonfilled_entry_resolves_for_exact_account_role() -> None:
+    sessions, engine, _ = _repository(AccountRole.SUBMISSION)
+    with sessions.begin() as session:
+        certificate = session.get(ExecutionCertificateRow, CERTIFICATE_ID)
+        assert certificate is not None
+        certificate.execution_status = "CANCELED"
+
+    materializer = SQLAlchemyEntryMaterializer(sessions)
+    assert (
+        materializer.recover_pending(
+            account_role=AccountRole.SUBMISSION.value,
+            account_fingerprint=FINGERPRINT,
+        )
+        == ()
+    )
+    with sessions() as session:
+        job = session.get(EntryMaterializationJobRow, INTENT_ID)
+        assert job is not None
+        assert job.terminal_status == "CANCELED"
+        assert job.managed_position_id is None
+    engine.dispose()
+
+
+def test_submission_entry_rejects_cross_role_lineage() -> None:
+    sessions, engine, retained = _repository(AccountRole.SUBMISSION)
+    with sessions.begin() as session:
+        decision = session.get(AgentDecisionRow, DECISION_ID)
+        assert decision is not None
+        decision.account_role = AccountRole.DEVELOPMENT.value
+
+    with pytest.raises(EntryMaterializationError, match="ENTRY_LINEAGE_INVALID"):
+        SQLAlchemyEntryMaterializer(sessions).materialize(
+            execution_certificate_id=CERTIFICATE_ID,
+            launch_authority=retained.launch_authority,
+        )
     engine.dispose()
 
 
@@ -613,7 +778,7 @@ def test_partial_entry_terminal_never_resolves_as_no_position(status: str) -> No
     engine.dispose()
 
 
-def test_prepared_job_without_certificate_is_returned_for_exact_execution_recovery() -> None:
+def test_terminal_unsubmitted_job_is_not_returned_for_execution_recovery() -> None:
     sessions, engine, _ = _repository()
     with sessions.begin() as session:
         session.delete(session.get(ExecutionCertificateRow, CERTIFICATE_ID))
@@ -626,10 +791,13 @@ def test_prepared_job_without_certificate_is_returned_for_exact_execution_recove
         )
         == ()
     )
-    assert materializer.pending_execution_intents(
-        account_role="DEVELOPMENT",
-        account_fingerprint=FINGERPRINT,
-    ) == (INTENT_ID,)
+    assert (
+        materializer.pending_execution_intents(
+            account_role="DEVELOPMENT",
+            account_fingerprint=FINGERPRINT,
+        )
+        == ()
+    )
     engine.dispose()
 
 
@@ -663,7 +831,7 @@ def test_prepared_job_hash_substitution_blocks_recovery() -> None:
             lambda session: setattr(
                 session.get(ExecutionCertificateRow, CERTIFICATE_ID),
                 "attempt_ids",
-                ["substituted-client"],
+                ["substituted-client-fixture"],
             ),
             "ENTRY_ATTEMPT_LINEAGE_INVALID",
         ),
@@ -698,7 +866,7 @@ def test_prepared_job_hash_substitution_blocks_recovery() -> None:
             lambda session: setattr(
                 session.get(EntryApprovalCertificateRow, APPROVAL_ID),
                 "thesis_version_id",
-                UUID(int=999),
+                uuid5(NAMESPACE_URL, "test-fixture-999"),
             ),
             "ENTRY_LINEAGE_INVALID",
         ),
@@ -706,7 +874,7 @@ def test_prepared_job_hash_substitution_blocks_recovery() -> None:
             lambda session: setattr(
                 session.get(ExecutionCertificateRow, CERTIFICATE_ID),
                 "entry_approval_id",
-                UUID(int=998),
+                uuid5(NAMESPACE_URL, "test-fixture-998"),
             ),
             "ENTRY_LINEAGE_INVALID",
         ),
@@ -795,7 +963,12 @@ def test_fill_activity_provider_substitution_is_rejected() -> None:
         assert reconciliation is not None
         assert state is not None
         changed = [
-            {**item, "provider_order_id": "substituted-provider"}
+            {
+                **item,
+                "provider_order_id": str(
+                    uuid5(NAMESPACE_URL, "test-fixture-provider-order-substitution")
+                ),
+            }
             for item in reconciliation.sweep_payload["activities"]
         ]
         reconciliation.sweep_payload = {
@@ -815,8 +988,8 @@ def test_fill_activity_provider_substitution_is_rejected() -> None:
 def test_zero_fill_replacement_predecessor_does_not_require_fill_activities() -> None:
     sessions, engine, retained = _repository()
     predecessor_id = UUID("80000000-0000-0000-0000-000000000000")
-    predecessor_client_id = "entry-client-a0"
-    final_client_id = "entry-client-a1"
+    predecessor_client_reference = str(uuid5(NAMESPACE_URL, "test-fixture-client-order-a0"))
+    final_client_reference = str(uuid5(NAMESPACE_URL, "test-fixture-client-order-a1"))
     with sessions.begin() as session:
         final = session.get(OrderAttemptRow, ATTEMPT_ID)
         certificate = session.get(ExecutionCertificateRow, CERTIFICATE_ID)
@@ -829,7 +1002,7 @@ def test_zero_fill_replacement_predecessor_does_not_require_fill_activities() ->
             for value in (final, certificate, reconciliation, state, permit, observation)
         )
         final.attempt_ordinal = 1
-        final.client_order_id = final_client_id
+        final.client_order_id = final_client_reference
         final.replaces_attempt_id = predecessor_id
         session.add(
             OrderAttemptRow(
@@ -837,8 +1010,10 @@ def test_zero_fill_replacement_predecessor_does_not_require_fill_activities() ->
                 broker_permit_id=None,
                 execution_intent_id=INTENT_ID,
                 attempt_ordinal=0,
-                client_order_id=predecessor_client_id,
-                provider_order_id="entry-provider-a0-unfilled",
+                client_order_id=predecessor_client_reference,
+                provider_order_id=str(
+                    uuid5(NAMESPACE_URL, "test-fixture-provider-order-a0-unfilled")
+                ),
                 state="CANCELED",
                 request_hash="7" * 64,
                 quote_source_timestamps=[],
@@ -847,18 +1022,24 @@ def test_zero_fill_replacement_predecessor_does_not_require_fill_activities() ->
                 fill_cash_flow=None,
             )
         )
-        certificate.attempt_ids = [predecessor_client_id, final_client_id]
+        certificate.attempt_ids = [predecessor_client_reference, final_client_reference]
         reconciliation.attempt_ordinal = 1
         reconciliation.purpose = "REPLACE"
         reconciliation.expectation_payload = {
             **reconciliation.expectation_payload,
             "purpose": "REPLACE",
             "attempt_ordinal": 1,
+            "request_hash": _final_reconciliation_request_hash(
+                "4" * 64,
+                1,
+                "0" * 64,
+            ),
         }
+        reconciliation.request_hash = reconciliation.expectation_payload["request_hash"]
         reconciliation.sweep_payload = {
             **reconciliation.sweep_payload,
             "activities": [
-                {**item, "client_order_id": final_client_id}
+                {**item, "client_order_id": final_client_reference}
                 for item in reconciliation.sweep_payload["activities"]
             ],
         }
@@ -869,8 +1050,8 @@ def test_zero_fill_replacement_predecessor_does_not_require_fill_activities() ->
         observation.observed_payload = {
             **observation.observed_payload,
             "ordinal": 1,
-            "client_order_id": final_client_id,
-            "replaces_client_order_id": predecessor_client_id,
+            "client_order_id": final_client_reference,
+            "replaces_client_order_id": predecessor_client_reference,
         }
 
     SQLAlchemyEntryMaterializer(sessions).materialize(

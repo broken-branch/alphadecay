@@ -234,10 +234,7 @@ class FixedBoundaryCollector:
         completed_at = self._time()
 
         if completed_at < started_at or not (
-            started_at
-            <= first_account.observed_at
-            <= final_account.observed_at
-            <= completed_at
+            started_at <= first_account.observed_at <= final_account.observed_at <= completed_at
         ):
             raise PerformanceCaptureError("PERFORMANCE_CAPTURE_TIME_INVALID")
         if _account_material(first_account) != _account_material(final_account):
@@ -352,9 +349,7 @@ class PerformanceCaptureWorkflow:
             self._snapshots.append_snapshot(snapshot)
         return CaptureOutcome(snapshot=snapshot, persisted=persisted)
 
-    def publish_final(
-        self, *, confirmation: str
-    ) -> CompetitionPerformanceProofResponse:
+    def publish_final(self, *, confirmation: str) -> CompetitionPerformanceProofResponse:
         if confirmation != FINAL_CAPTURE_CONFIRMATION:
             raise PerformanceCaptureError("SUBMISSION_CONFIRMATION_REQUIRED")
         if self._trusted_time() < FINAL_PUBLICATION_NOT_BEFORE:
@@ -403,16 +398,11 @@ class PerformanceCaptureWorkflow:
                 else "DEVELOPMENT_BOUNDARY_IN_FUTURE"
             )
             raise PerformanceCaptureError(code)
-        if (
-            request.mode == CaptureMode.SUBMISSION_FINAL
-            and now >= FINAL_PUBLICATION_NOT_BEFORE
-        ):
+        if request.mode == CaptureMode.SUBMISSION_FINAL and now >= FINAL_PUBLICATION_NOT_BEFORE:
             raise PerformanceCaptureError("SUBMISSION_CAPTURE_WINDOW_CLOSED")
 
     @classmethod
-    def _validate_authority(
-        cls, request: CaptureRequest, authority: CaptureAuthority
-    ) -> None:
+    def _validate_authority(cls, request: CaptureRequest, authority: CaptureAuthority) -> None:
         if authority.role != request.role:
             raise PerformanceCaptureError("CAPTURE_ROLE_AUTHORITY_MISMATCH")
         if request.mode == CaptureMode.SUBMISSION_FINAL:

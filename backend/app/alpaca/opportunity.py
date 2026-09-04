@@ -265,7 +265,7 @@ class AlpacaOpportunitySnapshotCollector:
         next_open = _utc(raw_clock.next_open, "MARKET_CLOCK_INVALID")
         next_close = _utc(raw_clock.next_close, "MARKET_CLOCK_INVALID")
         if (
-            clock_at > trusted_at
+            clock_at - trusted_at > timedelta(seconds=30)
             or trusted_at - clock_at > timedelta(minutes=2)
             or next_open <= clock_at
             or next_close <= clock_at
@@ -317,7 +317,7 @@ class AlpacaOpportunitySnapshotCollector:
             )
         )
         retrieved_at = _utc(self._clock(), "PROVIDER_CLOCK_INVALID")
-        if retrieved_at > trusted_at or not isinstance(raw, BarSet):
+        if retrieved_at - trusted_at > timedelta(seconds=30) or not isinstance(raw, BarSet):
             raise OpportunitySnapshotError("DECISION_BAR_INVALID")
         if set(raw.data) != {request.underlying, request.benchmark}:
             raise OpportunitySnapshotError("DECISION_BAR_INCOMPLETE")
@@ -341,7 +341,7 @@ class AlpacaOpportunitySnapshotCollector:
             )
         )
         retrieved_at = _utc(self._clock(), "PROVIDER_CLOCK_INVALID")
-        if retrieved_at > trusted_at or type(raw) is not dict:
+        if retrieved_at - trusted_at > timedelta(seconds=30) or type(raw) is not dict:
             raise OpportunitySnapshotError("OPTION_CHAIN_INVALID")
         if not raw:
             raise OpportunitySnapshotError("OPTION_CHAIN_EMPTY")
@@ -370,20 +370,27 @@ class AlpacaOpportunitySnapshotCollector:
             )
             for symbol in symbols
         )
-        timestamps = tuple(item.quote_at for item in normalized)
-        if max(timestamps) - min(timestamps) > request.maximum_quote_skew:
-            raise OpportunitySnapshotError("OPTION_QUOTES_UNSYNCHRONIZED")
-        if any(retrieved_at - item.quote_at > request.maximum_quote_age for item in normalized):
+        fresh = tuple(
+            item for item in normalized if retrieved_at - item.quote_at <= request.maximum_quote_age
+        )
+        if len(fresh) < 2:
             raise OpportunitySnapshotError("OPTION_QUOTE_STALE")
-        return normalized
+        return fresh
 
 
 def _normalize_boundary_bar(
     bars: object, symbol: str, decision_boundary: datetime
 ) -> OpportunityBar:
-    if type(bars) is not list or len(bars) != 1 or type(bars[0]) is not Bar:
+    if type(bars) is not list or not bars or any(type(bar) is not Bar for bar in bars):
         raise OpportunitySnapshotError("DECISION_BAR_INCOMPLETE")
-    bar = bars[0]
+    matching = [
+        bar
+        for bar in bars
+        if _utc(bar.timestamp, "DECISION_BAR_INVALID") + _BAR_DURATION == decision_boundary
+    ]
+    if len(matching) != 1:
+        raise OpportunitySnapshotError("DECISION_BAR_INCOMPLETE")
+    bar = matching[0]
     started_at = _utc(bar.timestamp, "DECISION_BAR_INVALID")
     values = tuple(
         _decimal(value, "DECISION_BAR_INVALID")

@@ -139,9 +139,7 @@ class SQLAlchemyPerformanceRepository(SQLAlchemyPerformanceProofReader):
                 account_fingerprint=account.account_fingerprint,
                 baseline_id=baseline.baseline_id,
                 baseline_status=(
-                    BaselineStatus.CONTAMINATED
-                    if baseline.contaminated
-                    else BaselineStatus.CLEAN
+                    BaselineStatus.CONTAMINATED if baseline.contaminated else BaselineStatus.CLEAN
                 ),
                 baseline_equity=baseline.equity,
                 baseline_captured_at=_utc(baseline.captured_at),
@@ -326,9 +324,7 @@ def _validate_snapshot_authority(session: Session, snapshot: PerformanceSnapshot
         raise ValueError("complete performance snapshot requires a sealed baseline")
 
 
-def _validate_publication_authority(
-    session: Session, snapshot: PerformanceSnapshotRow
-) -> None:
+def _validate_publication_authority(session: Session, snapshot: PerformanceSnapshotRow) -> None:
     account = session.get(AccountRoleRow, "SUBMISSION", with_for_update=True)
     baseline = session.scalar(
         select(SubmissionBaselineRow)

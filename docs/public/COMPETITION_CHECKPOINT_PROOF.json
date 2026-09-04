@@ -1,10 +1,10 @@
 {
-  "account_receipt_sha256": "04c3890a11a6bc520ea6633060b7003bc7a7daec900091bca0109299041edf6e",
+  "account_receipt_sha256": "bd619dc304f66fd735f0a2c0a182defabbd285ee274ef78562c944f1f4720ca1",
   "account_role": "SUBMISSION",
   "baseline_captured_at": "2026-08-28T15:13:00Z",
   "baseline_order_count": 0,
   "baseline_position_count": 0,
-  "checkpoint_at": "2026-08-31T13:48:14Z",
+  "checkpoint_at": "2026-09-01T15:36:34Z",
   "checkpoint_equity_usd": "100000.00",
   "checkpoint_order_count": 0,
   "checkpoint_position_count": 0,
@@ -21,7 +21,7 @@
   "qualification_status": "NOT_PROMOTED",
   "qualification_selected_after_development_review": true,
   "qualification_validation_runs": 1,
-  "research_attestation_sha256": "7bd66df62247c62c3400f4673ec6a0f6c7c29b1c553ce57258c31dd4b5c19b8a",
+  "research_attestation_sha256": "543fc654b5c8d07fa71e3fc0c76c1ba287bde7a3c71b235ba1162bce0317b35a",
   "result_status": "NOT_PUBLISHED",
   "schema_version": 2,
   "starting_equity_usd": "100000.00"

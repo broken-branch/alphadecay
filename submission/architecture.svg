@@ -1,80 +1,55 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
-  <title id="title">How alphadecay reaches a paper trading decision</title>
-  <desc id="description">Alpaca research and a structured model classification lead into fixed rules. The Trading API can act only after separate paper account checks. The Alpaca CLI remains outside the application.</desc>
-
+  <title id="title">How alphadecay reviews an options position</title>
+  <desc id="description">Position and evidence move through bounded model tags and fixed decision rules before the Trading API can send and verify one complete spread order.</desc>
   <defs>
-    <marker id="arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+    <marker id="arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
       <path d="M1 1L11 6L1 11" fill="none" stroke="#A991FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </marker>
-
-    <radialGradient id="glow" cx="84%" cy="8%" r="74%">
-      <stop offset="0" stop-color="#A991FF" stop-opacity="0.18"/>
-      <stop offset="1" stop-color="#0D0D0D" stop-opacity="0"/>
-    </radialGradient>
   </defs>
-
   <rect width="1600" height="900" fill="#0D0D0D"/>
-  <rect width="1600" height="900" fill="url(#glow)"/>
-
   <g font-family="'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif">
-    <text x="96" y="112" fill="#A991FF" font-size="20" font-weight="600" letter-spacing="2.5">PAPER TRADING ONLY</text>
-    <text x="96" y="180" fill="#F6F6F6" font-size="54" font-weight="600" letter-spacing="-1.4">How one decision moves through alphadecay</text>
-    <text x="98" y="226" fill="#C8C8C8" font-size="24">The model can describe evidence. It cannot choose a tool, action, or order.</text>
+    <text x="96" y="112" fill="#A991FF" font-size="20" font-weight="600" letter-spacing="2.5">ONE POSITION, ONE DECISION RECORD</text>
+    <text x="96" y="184" fill="#F6F6F6" font-size="54" font-weight="600">From opening thesis to broker result</text>
+    <text x="98" y="232" fill="#C8C8C8" font-size="24">The model labels evidence. Fixed rules choose what happens next.</text>
 
     <g fill="#171717" stroke="#4D4D4D" stroke-width="2">
-      <rect x="96" y="314" width="258" height="182" rx="18"/>
-      <rect x="414" y="314" width="258" height="182" rx="18"/>
-      <rect x="732" y="314" width="258" height="182" rx="18"/>
-      <rect x="1050" y="314" width="258" height="182" rx="18"/>
+      <rect x="96" y="316" width="300" height="210" rx="18"/>
+      <rect x="454" y="316" width="300" height="210" rx="18"/>
+      <rect x="812" y="316" width="300" height="210" rx="18"/>
+      <rect x="1170" y="316" width="334" height="210" rx="18"/>
     </g>
-
     <g fill="none" stroke="#A991FF" stroke-width="4" marker-end="url(#arrow)">
-      <path d="M354 405H397"/>
-      <path d="M672 405H715"/>
-      <path d="M990 405H1033"/>
-      <path d="M1308 405H1370"/>
+      <path d="M396 421H435"/>
+      <path d="M754 421H793"/>
+      <path d="M1112 421H1151"/>
+    </g>
+    <g fill="#A991FF" font-size="18" font-weight="700" letter-spacing="1.5">
+      <text x="126" y="360">POSITION + THESIS</text>
+      <text x="484" y="360">EVIDENCE</text>
+      <text x="842" y="360">DECISION</text>
+      <text x="1200" y="360">TRADING API</text>
+    </g>
+    <g fill="#F6F6F6" font-size="28" font-weight="600">
+      <text x="126" y="414">What we meant</text>
+      <text x="126" y="450">to own</text>
+      <text x="484" y="414">What changed</text>
+      <text x="842" y="414">Hold, close,</text>
+      <text x="842" y="450">roll, or stop</text>
+      <text x="1200" y="414">Send and verify</text>
+      <text x="1200" y="450">one spread</text>
+    </g>
+    <g fill="#8E8E8E" font-size="19">
+      <text x="126" y="495">Position and opening reason</text>
+      <text x="484" y="495">Bounded model tags</text>
+      <text x="842" y="495">Fixed application rules</text>
+      <text x="1200" y="495">Exact account reconciliation</text>
     </g>
 
-    <g font-size="18" font-weight="720" letter-spacing="1.6">
-      <text x="126" y="352" fill="#A991FF">ALPACA MCP</text>
-      <text x="444" y="352" fill="#A991FF">SELECTED MODEL</text>
-      <text x="762" y="352" fill="#A991FF">FIXED POLICY</text>
-      <text x="1080" y="352" fill="#A991FF">TRADING API</text>
-    </g>
-
-    <g fill="#F6F6F6" font-size="27" font-weight="600">
-      <text x="126" y="399">Option and news</text>
-      <text x="126" y="433">research</text>
-      <text x="444" y="399">Bounded</text>
-      <text x="444" y="433">classification</text>
-      <text x="762" y="399">Hold, close,</text>
-      <text x="762" y="433">or roll</text>
-      <text x="1080" y="399">Paper account</text>
-      <text x="1080" y="433">checks and orders</text>
-    </g>
-
-    <g fill="#8E8E8E" font-size="18">
-      <text x="126" y="470">The app chooses each call.</text>
-      <text x="444" y="470">Structured fields only.</text>
-      <text x="762" y="470">Rules own the action.</text>
-      <text x="1080" y="470">Whole account checked.</text>
-    </g>
-
-    <g transform="translate(1370 405)">
-      <circle r="54" fill="#173126" stroke="#B6FDD5" stroke-width="4"/>
-      <path d="M-21 2L-5 18L25-19" fill="none" stroke="#B6FDD5" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-    </g>
-
-    <g transform="translate(96 576)">
-      <rect width="1212" height="104" rx="12" fill="#171717" stroke="#4D4D4D" stroke-width="2"/>
-      <text x="30" y="43" fill="#A991FF" font-size="17" font-weight="600" letter-spacing="1.8">DECISION RECORD</text>
-      <text x="30" y="76" fill="#C8C8C8" font-size="21">Keeps the opening reason, later evidence, expected exposure, and any reconciled broker result together.</text>
-    </g>
-
-    <g transform="translate(96 724)">
-      <rect width="1212" height="82" rx="12" fill="#171717" stroke="#767676" stroke-width="2" stroke-dasharray="8 8"/>
-      <text x="28" y="35" fill="#C8C8C8" font-size="17" font-weight="600" letter-spacing="1.8">ALPACA CLI</text>
-      <text x="28" y="63" fill="#C8C8C8" font-size="20">Operator dry run. It stays outside the application and the model boundary.</text>
+    <g transform="translate(96 612)">
+      <rect width="1408" height="150" rx="16" fill="#171717" stroke="#4D4D4D" stroke-width="2"/>
+      <text x="34" y="48" fill="#A991FF" font-size="18" font-weight="700" letter-spacing="1.8">DECISION RECORD</text>
+      <text x="34" y="94" fill="#F6F6F6" font-size="26" font-weight="600">Opening reason · later evidence · rejected choices · selected action · broker state</text>
+      <text x="34" y="126" fill="#8E8E8E" font-size="20">Every step stays tied to the same position.</text>
     </g>
   </g>
 </svg>

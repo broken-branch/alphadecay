@@ -1,81 +1,57 @@
 # Architecture
 
-alphadecay has a FastAPI service, a React front end, a deterministic options policy, PostgreSQL storage, and small adapters for outside services. The public Replay runs the complete path from a browser request to a policy result. A development rehearsal has also exercised the real provider path, using only requests that read data, without changing the paper account.
-
-## Replay
+AlphaDecay keeps the trade thesis, policy decision, and broker result in one inspectable chain. The browser and API display the chain, but only the authenticated scheduled runtime can reach the paper broker.
 
 ```text
-Browser
-  -> React Replay screen
-  -> POST /api/replays/{scenario}
-  -> fixed fixture
-  -> exposure and drift calculations
-  -> HOLD, CLOSE, ROLL, or NO_ACTION policy
-  -> assessment record
-  -> execution disabled: no order sent
+plain-English thesis
+        |
+        v
+AI labels supplied evidence --> human reviews fixed rules
+        |                              |
+        +------------------------------+
+                       |
+                       v
+        saved, hash-bound protocol
+                       |
+          scheduled market/account check
+                       |
+                       v
+             deterministic policy
+              /               \
+       NO_TRADE            approved intent
+          |                      |
+          |               Alpaca paper order
+          |                      |
+          +----------> broker reconciliation
+                                  |
+                                  v
+                     published decision record
 ```
 
-Replay includes four examples:
+The implementation is split across the [strategy brief compiler](../../backend/app/strategy_briefs/protocol.py), [experiment records](../../backend/app/experiments), [policy](../../backend/app/policy), [execution service](../../backend/app/services/agent.py), and [competition archive](../../backend/app/competition_archive). PostgreSQL preserves reviewed definitions, decisions, order attempts, and publications. React renders the public and owner workspaces from the FastAPI service.
 
-- `THESIS_INTACT` ends in `HOLD`;
-- `THETA_TAKEOVER` presents a bounded `ROLL` candidate;
-- `CATALYST_BROKEN` ends in `CLOSE`;
-- `STALE_QUOTE` returns `NO_ACTION` because its quote is too old.
+## Decision ownership
 
-These are invented examples. They contain no current market data, account identifier, or broker result.
+The model receives named evidence and returns bounded labels such as direction, readiness, and relevance. Application code restores the source details and rejects malformed output. It cannot approve an order. The [curation tests](../../backend/tests/strategy_briefs/test_curation_service.py) cover that boundary.
 
-## Competition records
+Fixed code calculates exposure, checks data quality and risk, and chooses the action. Every decision carries hashes for the exact input and result. Repeating the same Replay fixture therefore produces the same certificate; the [Replay integration test](../../backend/tests/integration/test_replay_api.py) checks all four cases.
 
-`GET /api/competition-record` reads a deliberately published lifecycle history. It can show a clean `NO_TRADE` result. If a position exists, it can instead show the saved thesis, later observations, policy decisions, and reconciled paper outcome.
+## Broker boundary
 
-`GET /api/proof` reads the latest eligible account performance snapshot. It is kept separate from the position history. Neither route calls Alpaca, accepts a result chosen by the caller, or presents missing data as zero.
+The Trading API adapters read the paper account, clock, bars, option chain, quotes, orders, and positions. Before a write, the service saves one exact intent and stable client order ID. If a response is uncertain, recovery looks up that ID instead of sending the order again. A result becomes final only after the whole paper account matches the expected state. The [agent service tests](../../backend/tests/agent_orchestration/test_agent_run_service.py) exercise entry, recovery, and refusal paths.
 
-The owner publication routes accept no request body and no snapshot selector. They publish only eligible database records after the owner session, origin, and CSRF checks pass. Public responses omit account, order, position, activity, and provider identifiers.
+The official Alpaca MCP server has a smaller job. The backend launches the pinned executable without a shell and permits only application-selected research tools. Trading and account-changing MCP tools are unavailable. The CLI remains an operator tool outside the web process and production image. The [provider receipt](PROVIDER_REHEARSAL_PROOF.json) and [CLI receipt](CLI_PROOF.json) show their development use.
 
-## Who makes the decision
+The scheduler carries no symbol, contract, quantity, or price from its request. It wakes the stored plan, including that plan's bounded quantity, and the service rechecks the account role, market window, evidence age, risk, and order state. A reconciled open book can support another plan evaluation when its controls allow it; each managed position is observed through its own lifecycle while account-wide evidence remains checked. Owner controls can arm or disarm the account gate but cannot widen an intent. These constraints are exercised by the [scheduler authentication tests](../../backend/tests/contracts/test_scheduler_auth.py) and [runtime composition tests](../../backend/tests/runtime_composition).
 
-The model does not choose the action. Application code selects the research calls and prepares a small evidence set. Gemini may label only the supplied source IDs using a fixed response format. Regular code calculates exposure and drift, applies the policy, checks the rejected alternatives, and builds the record shown in the browser.
+## Public views
 
-If the evidence has not changed, alphadecay reuses the earlier stored classification. Missing or invalid model output cannot approve an action.
+`POST /api/replays/{scenario}` evaluates a fixed fixture without provider access. `GET /api/competition-record` reads only a deliberately published paper lifecycle. `GET /api/proof` returns its separate account checkpoint. The [API guide](AGENT_GUIDE.md) gives one example for each route group.
 
-## Alpaca connections
+Replay, development evidence, and the competition account are distinct record types. Public responses remove broker and account identifiers. Protected owner routes use short-lived session and request-protection cookies.
 
-### Trading API
-
-Typed adapters read the paper account, positions, orders, and option data. They also handle option limit orders and reconciliation. Before any broker attempt, the execution service stores the exact intent and assigns a stable client order ID. If the result of a write is uncertain, the service looks up that order instead of sending it again. Expected exposure is never reported as a broker result.
-
-These parts are tested with fakes and PostgreSQL. [`PROVIDER_REHEARSAL_PROOF.json`](PROVIDER_REHEARSAL_PROOF.json) records a real development run that left the account book unchanged and made no writes. The public evidence does not yet include a positive managed position assessment, a real order write, or a broker reconciliation.
-
-### MCP server
-
-The backend may launch the pinned Alpaca MCP executable without a shell. The application gives it a fixed environment, checks its available tools, and permits only research calls selected by the application that cannot change an account. Trading, account changes, watchlists, and locate tools are excluded.
-
-MCP never receives permission to execute a trade, and the model cannot choose an MCP tool.
-
-### CLI
-
-The Alpaca CLI is used only by an operator for bootstrap and inspection work. It is not imported by the backend, included in the production image, or callable from the browser, model, or scheduler. [`CLI_PROOF.json`](CLI_PROOF.json) records a dry run for an option order with two legs against Alpaca's paper host. It did not submit the order.
-
-The provider rehearsal brings the Trading API, MCP, and CLI checks together in one receipt without account identifiers. It is labeled `DEVELOPMENT` and is not competition evidence.
-
-## Access and safety boundaries
-
-- Anonymous visitors can run Replay and read records that were deliberately published. They cannot retrieve a paper account or reach code that changes one.
-
-- Owner authentication permits a small set of run, publication, and autonomy controls. The owner can arm or disarm the persistent account gate only when the server gate allows it. These controls cannot select or widen an order, and they do not bypass policy.
-
-- Only an authenticated scheduler request can dispatch a stored intent after both autonomy gates are on. The scheduler cannot arm itself.
-
-- Provider credentials stay in server environment variables.
-
-- The Alpaca host is fixed to paper trading.
-
-- Replay, development records, and competition records remain separate.
-
-- Public records use sanitized fields and hashes instead of broker identifiers.
+Publication is also a separate step. No-selector owner routes select the newest eligible database record, validate its hashes, and append a sanitized publication. Anonymous requests can only read that projection. The [archive repository tests](../../backend/tests/competition_archive/test_repository.py) cover selection, ordering, and tamper checks.
 
 ## Deployment
 
-The deployment files describe one Docker web service and one PostgreSQL database on Render. The image builds the React app, installs the locked Python packages, runs as an unprivileged user, and serves the front end and API from one process.
-
-The public app is [alphadecay.onrender.com](https://alphadecay.onrender.com). Its health response gives the deployed Render commit and runtime mode. The app and repository can be checked without signing in. A working deployment does not prove an order, fill, reconciliation, or return.
+The [Dockerfile](../../Dockerfile) builds the React assets and Python service into one non-root image. The [Render blueprint](../../render.yaml) declares one web service and private PostgreSQL database. The public deployment runs in Replay-only mode unless its connected server contract is deliberately configured. Health reports the build commit and runtime mode.

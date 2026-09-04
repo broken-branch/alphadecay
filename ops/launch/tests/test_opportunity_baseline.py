@@ -22,8 +22,9 @@ from backend.app.persistence.opportunity_evidence import (
 from backend.app.policy.opportunity import OpportunityPolicy
 from backend.app.services.opportunity_bootstrap import (
     OpportunityBootstrapInput,
-    development_opportunity_bootstrap_payload,
+    opportunity_bootstrap_payload,
     parse_development_opportunity_bootstrap,
+    parse_opportunity_bootstrap,
 )
 from ops.launch.opportunity_baseline import main
 
@@ -33,7 +34,7 @@ FROZEN = datetime(2026, 8, 30, 14, tzinfo=UTC)
 CAPTURED = datetime(2026, 8, 30, 15, tzinfo=UTC)
 
 
-def _plan() -> OpportunityPlanSpec:
+def _plan(account_role: AccountRole = AccountRole.DEVELOPMENT) -> OpportunityPlanSpec:
     policy = OpportunityPolicy(
         version="test-v1",
         opportunity_key="ACME_EARNINGS",
@@ -81,7 +82,7 @@ def _plan() -> OpportunityPlanSpec:
         evidence_window_end=CAPTURED + timedelta(days=1),
         policy=policy,
         request_contract=OpportunitySnapshotRequest(
-            account_role=AccountRole.DEVELOPMENT,
+            account_role=account_role,
             expected_account_fingerprint=ACCOUNT,
             underlying="ACME",
             benchmark="QQQ",
@@ -96,11 +97,12 @@ def _plan() -> OpportunityPlanSpec:
         exposure_limit_contract={"shape": "defined_risk_vertical"},
         invalidation_codes=("RELATIVE_STRENGTH_LOST",),
         frozen_at=FROZEN,
+        account_role=account_role,
     )
 
 
-def _plan_payload() -> dict[str, object]:
-    plan = _plan()
+def _plan_payload(account_role: AccountRole = AccountRole.DEVELOPMENT) -> dict[str, object]:
+    plan = _plan(account_role)
     plan_id, _ = opportunity_plan_identity(plan)
     seal = OpportunityBaselineSeal(
         plan_id=plan_id,
@@ -115,8 +117,14 @@ def _plan_payload() -> dict[str, object]:
         book_hash="5" * 64,
         history_hash="6" * 64,
         captured_at=CAPTURED,
+        account_role=account_role,
+        submission_baseline_id=(
+            UUID("22222222-2222-2222-2222-222222222222")
+            if account_role is AccountRole.SUBMISSION
+            else None
+        ),
     )
-    payload = development_opportunity_bootstrap_payload(OpportunityBootstrapInput(plan, seal))
+    payload = opportunity_bootstrap_payload(OpportunityBootstrapInput(plan, seal))
     result = payload["plan"]
     assert isinstance(result, dict)
     return result
@@ -143,8 +151,8 @@ class FakeTrading:
             "options_buying_power": "100000",
             "options_approved_level": "3",
             "options_trading_level": "3",
-            "pending_transfer_in": "0",
-            "pending_transfer_out": "0",
+            "pending_transfer_in": None,
+            "pending_transfer_out": None,
             "trading_blocked": False,
             "transfers_blocked": False,
             "account_blocked": False,
@@ -269,6 +277,7 @@ def test_launcher_uses_explicit_files_and_writes_only_private_bootstrap(
     summary = json.loads(console)
     expected_baseline_id, _ = opportunity_baseline_identity(bootstrap.baseline)
     assert summary == {
+        "account_role": "DEVELOPMENT",
         "baseline_id": str(expected_baseline_id),
         "mode": "READ_ONLY_CAPTURE",
         "output_written": True,
@@ -306,6 +315,8 @@ def test_launcher_rejects_nonprivate_input_before_creating_clients(tmp_path: Pat
     with pytest.raises(SystemExit):
         main(
             [
+                "--role",
+                "DEVELOPMENT",
                 "--plan-file",
                 str(plan_file),
                 "--credentials-file",
@@ -332,6 +343,8 @@ def test_launcher_refuses_to_follow_private_input_symlink(tmp_path: Path) -> Non
     with pytest.raises(SystemExit):
         main(
             [
+                "--role",
+                "DEVELOPMENT",
                 "--plan-file",
                 str(plan_file),
                 "--credentials-file",
@@ -358,6 +371,8 @@ def test_launcher_refuses_to_overwrite_or_follow_output(tmp_path: Path) -> None:
     with pytest.raises(SystemExit):
         main(
             [
+                "--role",
+                "DEVELOPMENT",
                 "--plan-file",
                 str(plan_file),
                 "--credentials-file",
@@ -374,9 +389,7 @@ def test_launcher_refuses_to_overwrite_or_follow_output(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("api_key", ["KEY\nINJECTED", "KEY\x00INJECTED", "KÉY"])
-def test_launcher_rejects_non_ascii_or_control_credentials(
-    tmp_path: Path, api_key: str
-) -> None:
+def test_launcher_rejects_non_ascii_or_control_credentials(tmp_path: Path, api_key: str) -> None:
     plan_file = tmp_path / "plan.json"
     credentials_file = tmp_path / "credentials.json"
     output = tmp_path / "baseline.json"
@@ -386,6 +399,77 @@ def test_launcher_rejects_non_ascii_or_control_credentials(
     with pytest.raises(SystemExit):
         main(
             [
+                "--role",
+                "DEVELOPMENT",
+                "--plan-file",
+                str(plan_file),
+                "--credentials-file",
+                str(credentials_file),
+                "--output",
+                str(output),
+            ],
+            trading_factory=lambda **_kwargs: pytest.fail("client created"),
+        )
+
+    assert not output.exists()
+
+
+def test_submission_launcher_binds_role_baseline_and_sanitizes_stdout(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    plan_file = tmp_path / "submission-plan.json"
+    credentials_file = tmp_path / "credentials.json"
+    output = tmp_path / "submission-baseline.json"
+    submission_baseline_id = UUID("22222222-2222-2222-2222-222222222222")
+    _private_json(plan_file, _plan_payload(AccountRole.SUBMISSION))
+    _private_json(credentials_file, {"api_key": "KEY", "secret_key": "SECRET"})
+
+    assert (
+        main(
+            [
+                "--role",
+                "SUBMISSION",
+                "--submission-baseline-id",
+                str(submission_baseline_id),
+                "--plan-file",
+                str(plan_file),
+                "--credentials-file",
+                str(credentials_file),
+                "--output",
+                str(output),
+            ],
+            trading_factory=lambda **_kwargs: FakeTrading(),
+            http_factory=lambda **_kwargs: FakeHttp(),
+            clock=lambda: CAPTURED,
+        )
+        == 0
+    )
+
+    bootstrap = parse_opportunity_bootstrap(
+        json.loads(output.read_text(encoding="utf-8")),
+        account_role=AccountRole.SUBMISSION,
+    )
+    console = capsys.readouterr().out
+    assert bootstrap.baseline.submission_baseline_id == submission_baseline_id
+    assert json.loads(console)["account_role"] == "SUBMISSION"
+    assert ACCOUNT not in console
+    assert str(ACCOUNT_ID) not in console
+    assert "KEY" not in console
+    assert "SECRET" not in console
+
+
+def test_launcher_rejects_cross_role_plan_before_clients(tmp_path: Path) -> None:
+    plan_file = tmp_path / "submission-plan.json"
+    credentials_file = tmp_path / "credentials.json"
+    output = tmp_path / "baseline.json"
+    _private_json(plan_file, _plan_payload(AccountRole.SUBMISSION))
+    _private_json(credentials_file, {"api_key": "KEY", "secret_key": "SECRET"})
+
+    with pytest.raises(SystemExit):
+        main(
+            [
+                "--role",
+                "DEVELOPMENT",
                 "--plan-file",
                 str(plan_file),
                 "--credentials-file",

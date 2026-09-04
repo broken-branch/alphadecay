@@ -18,6 +18,13 @@ from .evaluation import (
     score_evidence,
 )
 from .opportunity import (
+    STRUCTURAL_BEARISH_OTM_PILOT,
+    STRUCTURAL_BEARISH_OTM_PILOT_ID,
+    STRUCTURAL_BULLISH_OTM_PILOT,
+    STRUCTURAL_BULLISH_OTM_PILOT_ID,
+    STRUCTURAL_BULLISH_PILOT,
+    STRUCTURAL_BULLISH_PILOT_ID,
+    STRUCTURAL_PILOT_PROFILES,
     AccountOpportunityState,
     CatalystQuality,
     InstrumentKind,
@@ -29,9 +36,11 @@ from .opportunity import (
     OpportunityReason,
     OptionFeed,
     OptionLeg,
+    StructuralBullishPilotProfile,
     VerticalCandidate,
     VerticalStrategy,
     evaluate_opportunity,
+    structural_pilot_profile,
 )
 
 __all__ = [
@@ -53,6 +62,13 @@ __all__ = [
     "score_evidence",
     "score_drift",
     "AccountOpportunityState",
+    "STRUCTURAL_BEARISH_OTM_PILOT",
+    "STRUCTURAL_BEARISH_OTM_PILOT_ID",
+    "STRUCTURAL_BULLISH_PILOT",
+    "STRUCTURAL_BULLISH_PILOT_ID",
+    "STRUCTURAL_BULLISH_OTM_PILOT",
+    "STRUCTURAL_BULLISH_OTM_PILOT_ID",
+    "STRUCTURAL_PILOT_PROFILES",
     "CatalystQuality",
     "InstrumentKind",
     "OpportunityDecisionRecord",
@@ -65,5 +81,7 @@ __all__ = [
     "OptionLeg",
     "VerticalCandidate",
     "VerticalStrategy",
+    "StructuralBullishPilotProfile",
     "evaluate_opportunity",
+    "structural_pilot_profile",
 ]

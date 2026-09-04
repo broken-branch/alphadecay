@@ -14,7 +14,7 @@ MIGRATIONS = Path(__file__).parents[3] / "migrations"
 
 def test_lifecycle_authority_migration_is_next_and_complete() -> None:
     migrations = discover_migrations(MIGRATIONS)
-    assert [item.version for item in migrations] == list(range(1, 27))
+    assert [item.version for item in migrations] == list(range(1, 37))
     opportunity_persistence = migrations[20]
     assert opportunity_persistence.filename == "0021_opportunity_thesis_persistence.sql"
     assert opportunity_persistence.sha256 == (
@@ -51,6 +51,15 @@ def test_lifecycle_authority_migration_is_next_and_complete() -> None:
     ):
         assert f"{field} IS NOT NULL" in roll_authority.sql
     assert migrations[25].filename == "0026_order_status_terminal_outcomes.sql"
+    structural_authority = migrations[27]
+    assert structural_authority.filename == "0028_structural_pilot_policy_hash.sql"
+    for required in (
+        "opportunity_frozen_policy_hash",
+        "SPY_STRUCTURAL_BULLISH_BETA_PILOT_V1",
+        "opportunity_final_reconciliation_hash",
+        "managed_position_snapshot_guard",
+    ):
+        assert required in structural_authority.sql
     migration = migrations[12]
     assert migration.filename == "0013_lifecycle_acquisition_authority.sql"
     for required in (

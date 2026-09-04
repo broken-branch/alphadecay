@@ -28,6 +28,8 @@ from backend.app.execution import (
     ExecutionAction,
     ExecutionBlocked,
     ExecutionCertificate,
+    ExecutionPending,
+    ExecutionPendingCode,
     OrderEnvelope,
     ReconciliationPurpose,
     SweepObservation,
@@ -41,7 +43,7 @@ from backend.app.execution.models import (
 )
 from backend.app.execution.order_status import (
     FINALIZABLE_BROKER_ORDER_STATES,
-    LOOKUP_ONLY_BROKER_ORDER_STATES,
+    MUTATION_ELIGIBLE_BROKER_ORDER_STATES,
     PENDING_BROKER_ORDER_STATES,
     TERMINAL_BROKER_ORDER_STATES,
 )
@@ -62,6 +64,19 @@ class BrokerExecutionPort(Protocol):
 class WholeAccountEvidence:
     sweep: SweepObservation
     position_greeks: tuple[PositionGreekObservation, ...] = ()
+
+
+def evaluate_broker_mutation_preflight(
+    plan: BrokerMutationPlan,
+    sweep: SweepObservation,
+    *,
+    accepted_at: datetime,
+) -> WholeAccountReconciliation:
+    return WholeAccountReconciliation.evaluate(
+        sweep,
+        plan.expectation,
+        accepted_at=accepted_at,
+    )
 
 
 class WholeAccountSweepPort(Protocol):
@@ -210,6 +225,13 @@ class ExecutionService:
             return self._completed_advance(claim, actor)
         self._require_claim_actor(claim, actor)
         _validate_standard_contract_envelope(claim.envelope)
+        if self._repository.execution_attempts_for(claim.intent_id):
+            lookup = self._lookup_transitional(claim)
+            if lookup is not None and (
+                lookup.attempt is None
+                or lookup.attempt.state not in MUTATION_ELIGIBLE_BROKER_ORDER_STATES
+            ):
+                return lookup
         try:
             schedule = self._repository.next_broker_mutation(claim)
         except ExecutionBlocked as error:
@@ -270,9 +292,9 @@ class ExecutionService:
 
     def _waiting_or_finalized_advance(self, claim: ExecutionIntent) -> ExecutionAdvance:
         attempts = self._repository.execution_attempts_for(claim.intent_id)
-        if not attempts or attempts[-1].state == "PREPARED":
+        if not attempts:
             return ExecutionAdvance(claim.intent_id, "WAITING", None)
-        if _requires_finalization(attempts[-1]):
+        if attempts[-1].state != "PREPARED" and _requires_finalization(attempts[-1]):
             certificate = self._finalize_active(
                 claim,
                 attempts[-1],
@@ -285,8 +307,11 @@ class ExecutionService:
                 attempts[-1],
                 certificate,
             )
-        if attempts[-1].state in LOOKUP_ONLY_BROKER_ORDER_STATES:
-            return self._lookup_transitional(claim)
+        lookup = self._lookup_transitional(claim)
+        if lookup is not None:
+            return lookup
+        if attempts[-1].state == "PREPARED":
+            return ExecutionAdvance(claim.intent_id, "WAITING", None)
         if attempts[-1].state in self._PENDING_STATES:
             return ExecutionAdvance(claim.intent_id, "WAITING", None)
         certificate = self._finalize_active(
@@ -296,23 +321,12 @@ class ExecutionService:
         )
         return ExecutionAdvance(claim.intent_id, "FINALIZED", None, attempts[-1], certificate)
 
-    def _lookup_transitional(self, claim: ExecutionIntent) -> ExecutionAdvance:
+    def _lookup_transitional(self, claim: ExecutionIntent) -> ExecutionAdvance | None:
         authority = self._repository.targeted_lookup_authority(claim)
         if authority is None:
-            return ExecutionAdvance(claim.intent_id, "WAITING", None)
+            return None
         permit_id, current = authority
-        try:
-            result = self._broker.lookup(current.client_order_id)
-        except AmbiguousBrokerResponse:
-            self._repository.record_attempt_lookup_failure(permit_id, claim=claim)
-            return ExecutionAdvance(claim.intent_id, "WAITING", None, current)
-        if result is None:
-            self._repository.record_attempt_absence(
-                permit_id,
-                source=AttemptObservationSource.TARGETED_LOOKUP,
-                claim=claim,
-            )
-            raise ExecutionBlocked("TRANSITIONAL_ORDER_LOOKUP_ABSENT")
+        result = self._lookup_or_defer(claim, permit_id, current.client_order_id)
         observed = replace(
             current,
             state=result.state,
@@ -328,8 +342,7 @@ class ExecutionService:
             claim=claim,
         )
         if observed.state in PENDING_BROKER_ORDER_STATES and not (
-            observed.state == "CALCULATED"
-            and observed.filled_quantity == observed.quantity
+            observed.state == "CALCULATED" and observed.filled_quantity == observed.quantity
         ):
             return ExecutionAdvance(claim.intent_id, "WAITING", None, observed)
         certificate = self._finalize_active(
@@ -457,7 +470,7 @@ class ExecutionService:
                 outcome.attempt,
                 self._repository.trusted_execution_time(claim),
             )
-        raise ExecutionBlocked("EXECUTION_ADVANCE_PENDING")
+        raise ExecutionPending(ExecutionPendingCode.ADVANCE)
 
     def _submit_active(self, claim: ExecutionIntent, now: datetime) -> OrderAttempt:
         if claim.envelope.action is ExecutionAction.ROLL:
@@ -489,14 +502,11 @@ class ExecutionService:
                 dispatch_nonce=dispatch.dispatch_nonce,
                 claim=claim,
             )
-            result = self._broker.lookup(plan.attempt.client_order_id)
-            if result is None:
-                self._repository.record_attempt_absence(
-                    prepared.permit.permit_id,
-                    source=AttemptObservationSource.TARGETED_LOOKUP,
-                    claim=claim,
-                )
-                raise ExecutionBlocked("AMBIGUOUS_BROKER_OUTCOME_ABSENT") from None
+            result = self._lookup_or_defer(
+                claim,
+                prepared.permit.permit_id,
+                plan.attempt.client_order_id,
+            )
             source = AttemptObservationSource.TARGETED_LOOKUP
             dispatch_nonce = None
         observed = replace(
@@ -590,14 +600,11 @@ class ExecutionService:
                 dispatch_nonce=dispatch.dispatch_nonce,
                 claim=claim,
             )
-            result = self._broker.lookup(plan.attempt.client_order_id)
-            if result is None:
-                self._repository.record_attempt_absence(
-                    prepared.permit.permit_id,
-                    source=AttemptObservationSource.TARGETED_LOOKUP,
-                    claim=claim,
-                )
-                raise ExecutionBlocked("AMBIGUOUS_BROKER_OUTCOME_ABSENT") from None
+            result = self._lookup_or_defer(
+                claim,
+                prepared.permit.permit_id,
+                plan.attempt.client_order_id,
+            )
             source = AttemptObservationSource.TARGETED_LOOKUP
             dispatch_nonce = None
         observed = replace(
@@ -642,7 +649,7 @@ class ExecutionService:
                 dispatch_nonce=dispatch.dispatch_nonce,
                 claim=claim,
             )
-            raise ExecutionBlocked("CANCEL_OUTCOME_LOOKUP_DEFERRED") from error
+            raise ExecutionPending(ExecutionPendingCode.CANCEL_LOOKUP_DEFERRED) from error
         observed = replace(
             plan.attempt,
             state=result.state,
@@ -661,9 +668,11 @@ class ExecutionService:
         for _ in range(2):
             if observed.state != "PENDING_CANCEL":
                 break
-            result = self._broker.lookup(plan.attempt.client_order_id)
-            if result is None:
-                raise ExecutionBlocked("CANCEL_LOOKUP_ABSENT")
+            result = self._lookup_or_defer(
+                claim,
+                prepared.permit.permit_id,
+                plan.attempt.client_order_id,
+            )
             observed = replace(
                 plan.attempt,
                 state=result.state,
@@ -679,16 +688,36 @@ class ExecutionService:
                 claim=claim,
             )
         if observed.state == "PENDING_CANCEL":
-            raise ExecutionBlocked("CANCEL_OUTCOME_PENDING")
+            raise ExecutionPending(ExecutionPendingCode.CANCEL_PENDING)
         if observed.state == "FILLED":
             return observed, "FILLED"
         if observed.state != "CANCELED":
-            raise ExecutionBlocked("CANCEL_OUTCOME_NOT_TERMINAL")
+            raise ExecutionPending(ExecutionPendingCode.CANCEL_NOT_TERMINAL)
         if observed.filled_quantity == 0:
             return observed, "CANCELED"
         if observed.filled_quantity < observed.quantity:
             return observed, "PARTIAL_CANCELED_RECONCILED"
-        raise ExecutionBlocked("CANCEL_OUTCOME_NOT_TERMINAL")
+        raise ExecutionPending(ExecutionPendingCode.CANCEL_NOT_TERMINAL)
+
+    def _lookup_or_defer(
+        self,
+        claim: ExecutionIntent,
+        permit_id: UUID,
+        client_order_id: str,
+    ) -> BrokerResult:
+        try:
+            result = self._broker.lookup(client_order_id)
+        except AmbiguousBrokerResponse:
+            self._repository.record_attempt_lookup_failure(permit_id, claim=claim)
+            raise ExecutionPending(ExecutionPendingCode.LOOKUP_DEFERRED) from None
+        if result is None:
+            self._repository.record_attempt_absence(
+                permit_id,
+                source=AttemptObservationSource.TARGETED_LOOKUP,
+                claim=claim,
+            )
+            raise ExecutionPending(ExecutionPendingCode.LOOKUP_ABSENT)
+        return result
 
     def _prepare(
         self,
@@ -697,9 +726,9 @@ class ExecutionService:
         now: datetime,
     ) -> BrokerMutationPreparation:
         sweep = self._preflight.collect(plan.expectation).sweep
-        reconciliation = WholeAccountReconciliation.evaluate(
+        reconciliation = evaluate_broker_mutation_preflight(
+            plan,
             sweep,
-            plan.expectation,
             accepted_at=max(now, sweep.retrieval_completed_at),
         )
         return self._repository.prepare_broker_mutation(
@@ -743,9 +772,7 @@ def _certificate_candidate(
 
 
 def _terminal_status(attempt: OrderAttempt) -> str:
-    if attempt.state in {"FILLED", "CALCULATED"} and (
-        attempt.filled_quantity == attempt.quantity
-    ):
+    if attempt.state in {"FILLED", "CALCULATED"} and (attempt.filled_quantity == attempt.quantity):
         return "FILLED"
     if (
         attempt.state in FINALIZABLE_BROKER_ORDER_STATES - {"FILLED", "CALCULATED"}
@@ -770,10 +797,7 @@ def _execution_outcome_ready(attempt: OrderAttempt) -> bool:
 
 
 def _requires_finalization(attempt: OrderAttempt) -> bool:
-    return (
-        attempt.state in TERMINAL_BROKER_ORDER_STATES
-        or _execution_outcome_ready(attempt)
-    )
+    return attempt.state in TERMINAL_BROKER_ORDER_STATES or _execution_outcome_ready(attempt)
 
 
 def _replacement_attempt(

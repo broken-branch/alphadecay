@@ -20,13 +20,28 @@ describe("public copy catalog", () => {
   });
 
   it("states the Replay execution boundary directly", () => {
-    expect(copy.provenance.banner).toContain("NO ORDER SENT");
+    expect(copy.provenance.banner).toContain("NO ORDER");
     expect(copy.provenance.banner).toBe("REPLAY · SAMPLE DATA · NO ORDER SENT");
-    expect(copy.provenance.development).toBe("DEVELOPMENT / PAPER");
-    expect(copy.provenance.submission).toBe("SUBMISSION / PAPER");
-    expect(copy.performance.sourceLabel).toBe("SUBMISSION / PAPER");
+    expect(copy.provenance.development).toBe("DEVELOPMENT ACCOUNT");
+    expect(copy.provenance.submission).toBe("COMPETITION ACCOUNT");
+    expect(copy.performance.sourceLabel).toBe("COMPETITION ACCOUNT");
     expect(copy.certificate.disabled).toContain("Replay");
     expect(copy.certificate.limitations).toContain("not market fills");
     expect(copy.exposure.noBrokerOutcomeDetail).toContain("No order was sent");
+  });
+
+  it("uses the judge-first experiment and Replay labels", () => {
+    expect(copy.productShell.experimentsTitle).toBe(
+      "Test a market thesis with rules you can inspect.",
+    );
+    expect(copy.navigation).toEqual({
+      label: "Replay experiment sections",
+      overview: "Decision",
+      comparison: "Thesis and rules",
+      run: "Decision path",
+      record: "Record details",
+    });
+    expect(copy.productShell.resultNode).toBe("Result pending publication");
+    expect(copy.provenance.paperOnlyCompact).toBe("Paper / Replay only");
   });
 });

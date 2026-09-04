@@ -343,9 +343,7 @@ def test_attempt_observations_never_lose_fill_or_rewrite_broker_identity() -> No
     with pytest.raises(ExecutionBlocked, match="ATTEMPT_TERMINAL_STATE_REGRESSION"):
         repo.replace_attempt(replace(terminal, state="NEW"))
     with pytest.raises(ExecutionBlocked, match="ATTEMPT_STATE_FILL_INVALID"):
-        repo.replace_attempt(
-            replace(terminal, filled_quantity=2, fill_cash_flow=Decimal("-240"))
-        )
+        repo.replace_attempt(replace(terminal, filled_quantity=2, fill_cash_flow=Decimal("-240")))
     assert repo.attempts_for(INTENT_ID)[0].filled_quantity == 1
 
 

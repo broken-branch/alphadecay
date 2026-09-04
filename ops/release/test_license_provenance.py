@@ -1272,10 +1272,7 @@ class LicenseProvenanceTests(unittest.TestCase):
             "release_path": license_path,
             "sha256": sha256(license_data),
             "upstream_path": "LICENSE.txt",
-            "url": (
-                "https://raw.githubusercontent.com/IBM/plex/"
-                f"{revision}/LICENSE.txt"
-            ),
+            "url": (f"https://raw.githubusercontent.com/IBM/plex/{revision}/LICENSE.txt"),
         }
         font_sources = []
         font_data: dict[str, bytes] = {}
@@ -1292,8 +1289,7 @@ class LicenseProvenanceTests(unittest.TestCase):
                     "sha256": sha256(data),
                     "upstream_path": upstream_path,
                     "url": (
-                        "https://raw.githubusercontent.com/IBM/plex/"
-                        f"{revision}/{upstream_path}"
+                        f"https://raw.githubusercontent.com/IBM/plex/{revision}/{upstream_path}"
                     ),
                 }
             )
@@ -1306,8 +1302,7 @@ class LicenseProvenanceTests(unittest.TestCase):
                     "sha256": "b" * 64,
                     "upstream_path": upstream_path,
                     "url": (
-                        "https://raw.githubusercontent.com/IBM/plex/"
-                        f"{revision}/{upstream_path}"
+                        f"https://raw.githubusercontent.com/IBM/plex/{revision}/{upstream_path}"
                     ),
                 }
             )
@@ -1410,8 +1405,7 @@ class LicenseProvenanceTests(unittest.TestCase):
             all(
                 item["ofl_evidence"]["source_revision"] == evidence["revision"]
                 and item["ofl_evidence"]["license_sha256"] == evidence["license_sha256"]
-                and item["ofl_evidence"]["provenance_sha256"]
-                == evidence["provenance_sha256"]
+                and item["ofl_evidence"]["provenance_sha256"] == evidence["provenance_sha256"]
                 for item in fonts
             )
         )
@@ -1457,9 +1451,7 @@ class LicenseProvenanceTests(unittest.TestCase):
         for tree in (self.fixture.source, self.fixture.export):
             lock = tree / "uv.lock"
             write(lock, lock.read_text().replace(old_integrity, new_integrity))
-        registry["lockfiles"]["uv.lock"] = sha256(
-            (self.fixture.export / "uv.lock").read_bytes()
-        )
+        registry["lockfiles"]["uv.lock"] = sha256((self.fixture.export / "uv.lock").read_bytes())
         self.fixture.save_registry(registry)
 
         self.assert_rejected("incompatible license")
@@ -2893,9 +2885,7 @@ class LicenseProvenanceTests(unittest.TestCase):
                 text=True,
             )
             self.assertEqual(first_run.returncode, 0, first_run.stderr)
-            registry = json.loads(
-                (export / "compliance/dependency-evidence.json").read_text()
-            )
+            registry = json.loads((export / "compliance/dependency-evidence.json").read_text())
             expected_fonts = {
                 "frontend/src/assets/fonts/ibm-plex/IBMPlexMono-Regular.woff2": (
                     "ba204497f16b6d334cee9d1e963a831b73e3a56e1d6300a8489d18df7214b350"
@@ -2936,9 +2926,7 @@ class LicenseProvenanceTests(unittest.TestCase):
             )
             notice = (export / "THIRD_PARTY_NOTICES.md").read_text()
             self.assertEqual(notice.count("SIL OPEN FONT LICENSE Version 1.1"), 1)
-            provenance = json.loads(
-                (export / "compliance/release-provenance.json").read_text()
-            )
+            provenance = json.loads((export / "compliance/release-provenance.json").read_text())
             self.assertEqual(
                 {
                     item["path"]: item["ofl_evidence"]["source_revision"]

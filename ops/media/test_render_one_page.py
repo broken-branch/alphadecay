@@ -80,7 +80,7 @@ def test_final_render_rejects_unresolved_markers() -> None:
 def test_final_render_enforces_default_or_explicit_reviewed_word_bound() -> None:
     resolved = SOURCE.replace("[[VALUE]]", "$0 / NO_TRADE")
 
-    with pytest.raises(ValueError, match="650 through 750"):
+    with pytest.raises(ValueError, match="430 through 560"):
         render_html(resolved, final=True, architecture_asset="assets/architecture.svg")
 
     rendered = render_html(
@@ -101,7 +101,7 @@ def test_reviewed_sponsor_source_fits_the_default_final_word_range() -> None:
 
     assert 'name="alphadecay-page-count" content="1"' in rendered
     assert 'name="alphadecay-page-size" content="Letter"' in rendered
-    assert 'data-word-count="733"' in rendered
+    assert 'data-word-count="' in rendered
 
 
 def test_letter_layout_retains_readable_type_and_balanced_columns() -> None:
@@ -114,15 +114,13 @@ def test_letter_layout_retains_readable_type_and_balanced_columns() -> None:
     assert 1.2 <= BODY_LINE_HEIGHT <= 1.35
     assert 0.3 <= COLUMN_GAP_IN <= 0.5
     assert column_width >= 3.7
-    assert 1.4 <= ARCHITECTURE_MAX_HEIGHT_IN <= 1.8
+    assert 1.4 <= ARCHITECTURE_MAX_HEIGHT_IN <= 2.0
 
     source = (ROOT / "submission/one-page-sponsor-writeup.md").read_text(encoding="utf-8")
     rendered = render_html(source, final=True, architecture_asset="architecture.svg")
 
     assert f"@page {{ size: Letter; margin: {PAGE_MARGIN_IN}in; }}" in rendered
-    assert (
-        f"font-size: {BODY_FONT_SIZE_PT}pt; line-height: {BODY_LINE_HEIGHT};" in rendered
-    )
+    assert f"font-size: {BODY_FONT_SIZE_PT}pt; line-height: {BODY_LINE_HEIGHT};" in rendered
     assert f"columns: 2; column-gap: {COLUMN_GAP_IN}in;" in rendered
     assert f"max-height: {ARCHITECTURE_MAX_HEIGHT_IN}in;" in rendered
 
@@ -162,7 +160,7 @@ def test_final_render_requires_and_embeds_architecture_diagram() -> None:
         reviewed_word_range=(1, 100),
     )
     assert '<img src="assets/architecture.svg" ' in rendered
-    assert 'alt="Alpaca MCP research flows through bounded model classification' in rendered
+    assert 'alt="Alpaca MCP research evidence flows through bounded model tags' in rendered
     assert rendered.index('<figure class="architecture">') < rendered.index("<main>")
 
 

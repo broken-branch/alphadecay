@@ -672,7 +672,7 @@ def _plan_material(
     policy_payload = _json_value(spec.policy)
     assert isinstance(policy_payload, dict)
     policy_hash = opportunity_policy_hash(spec.policy)
-    if policy_hash != _hash("alphadecay.opportunity.policy.v1", policy_payload):
+    if policy_hash != _policy_payload_hash(policy_payload):
         raise OpportunityEvidenceError("OPPORTUNITY_PLAN_POLICY_INVALID")
     request_contract = _request_material(spec.request_contract)
     thesis_target_contract = _document(spec.thesis_target_contract)
@@ -727,8 +727,7 @@ def _baseline_material(
     captured_at = _utc(seal.captured_at, "OPPORTUNITY_BASELINE_TIME_INVALID")
     _executable_role(seal.account_role)
     if (
-        seal.account_role is AccountRole.DEVELOPMENT
-        and seal.submission_baseline_id is not None
+        seal.account_role is AccountRole.DEVELOPMENT and seal.submission_baseline_id is not None
     ) or (
         seal.account_role is AccountRole.SUBMISSION
         and not isinstance(seal.submission_baseline_id, UUID)
@@ -774,6 +773,8 @@ def _baseline_material(
         "history_hash": seal.history_hash,
         "captured_at": captured_at.isoformat(),
     }
+    if seal.account_role is AccountRole.SUBMISSION:
+        material["submission_baseline_id"] = str(seal.submission_baseline_id)
     return material, positions, orders, activity
 
 
@@ -833,9 +834,7 @@ def _observation_material(spec: OpportunityObservationSpec) -> dict[str, object]
 def _account(session: Session, role: AccountRole) -> AccountRoleRow:
     _executable_role(role)
     account = session.scalar(
-        select(AccountRoleRow)
-        .where(AccountRoleRow.role == role.value)
-        .with_for_update()
+        select(AccountRoleRow).where(AccountRoleRow.role == role.value).with_for_update()
     )
     if account is None:
         raise OpportunityEvidenceError("OPPORTUNITY_ACCOUNT_MISSING")
@@ -846,9 +845,7 @@ def _account(session: Session, role: AccountRole) -> AccountRoleRow:
 
 def _read_account(session: Session, role: AccountRole) -> AccountRoleRow:
     _executable_role(role)
-    account = session.scalar(
-        select(AccountRoleRow).where(AccountRoleRow.role == role.value)
-    )
+    account = session.scalar(select(AccountRoleRow).where(AccountRoleRow.role == role.value))
     if account is None:
         raise OpportunityEvidenceError("OPPORTUNITY_ACCOUNT_MISSING")
     if not _matches(_HASH, account.account_fingerprint):
@@ -1157,7 +1154,7 @@ def _verify_plan_row(
         or row.plan_material != material
         or stored_material != material
         or _hash("alphadecay.opportunity.plan.v1", stored_material) != row.plan_hash
-        or _hash("alphadecay.opportunity.policy.v1", row.policy_payload) != row.policy_hash
+        or _policy_payload_hash(row.policy_payload) != row.policy_hash
         or _plain_hash(row.request_contract) != row.request_contract_hash
         or _hash("alphadecay.opportunity.thesis-target.v1", row.thesis_target_contract)
         != row.thesis_target_hash
@@ -1169,6 +1166,10 @@ def _verify_plan_row(
         or row.exposure_limit_hash != material["exposure_limit_hash"]
     ):
         raise OpportunityEvidenceError("OPPORTUNITY_PLAN_VERSION_CONFLICT")
+
+
+def _policy_payload_hash(payload: object) -> str:
+    return opportunity_policy_hash(opportunity_policy_from_payload(payload))
 
 
 def _verify_baseline_row(
@@ -1195,6 +1196,8 @@ def _verify_baseline_row(
         "history_hash": row.history_hash,
         "captured_at": _stored_utc(row.captured_at).isoformat(),
     }
+    if row.account_role == AccountRole.SUBMISSION.value:
+        stored_material["submission_baseline_id"] = str(row.submission_baseline_id)
     if (
         row.baseline_id != baseline_id
         or row.baseline_hash != baseline_hash

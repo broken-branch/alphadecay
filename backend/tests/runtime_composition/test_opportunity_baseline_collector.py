@@ -14,11 +14,14 @@ from backend.app.policy.opportunity import OpportunityPolicy
 from backend.app.services.opportunity_baseline import (
     ActivityPage,
     OpportunityBaselineCollectionError,
+    SubmissionReconciliationBinding,
     collect_development_opportunity_bootstrap,
+    collect_opportunity_bootstrap,
 )
 from backend.app.services.opportunity_bootstrap import (
     bootstrap_development_opportunity,
     parse_development_opportunity_bootstrap,
+    parse_opportunity_bootstrap,
 )
 
 ACCOUNT_ID = UUID("11111111-1111-1111-1111-111111111111")
@@ -63,7 +66,9 @@ def _policy() -> OpportunityPolicy:
     )
 
 
-def _plan(*, account: str = ACCOUNT) -> OpportunityPlanSpec:
+def _plan(
+    *, account: str = ACCOUNT, account_role: AccountRole = AccountRole.DEVELOPMENT
+) -> OpportunityPlanSpec:
     return OpportunityPlanSpec(
         opportunity_key="ACME_EARNINGS",
         version=1,
@@ -78,7 +83,7 @@ def _plan(*, account: str = ACCOUNT) -> OpportunityPlanSpec:
         evidence_window_end=CAPTURED + timedelta(days=1),
         policy=_policy(),
         request_contract=OpportunitySnapshotRequest(
-            account_role=AccountRole.DEVELOPMENT,
+            account_role=account_role,
             expected_account_fingerprint=account,
             underlying="ACME",
             benchmark="QQQ",
@@ -93,6 +98,7 @@ def _plan(*, account: str = ACCOUNT) -> OpportunityPlanSpec:
         exposure_limit_contract={"shape": "defined_risk_vertical"},
         invalidation_codes=("RELATIVE_STRENGTH_LOST",),
         frozen_at=FROZEN,
+        account_role=account_role,
     )
 
 
@@ -165,8 +171,12 @@ class FakeProvider:
     def get_activity_page(self, **kwargs: object) -> ActivityPage:
         self.calls.append(("activity", kwargs.copy()))
         token = kwargs["page_token"]
-        start = 0 if token is None else next(
-            index + 1 for index, item in enumerate(self.activities) if item["id"] == token
+        start = (
+            0
+            if token is None
+            else next(
+                index + 1 for index, item in enumerate(self.activities) if item["id"] == token
+            )
         )
         size = int(kwargs["page_size"])
         return ActivityPage(tuple(self.activities[start : start + size]))
@@ -175,12 +185,25 @@ class FakeProvider:
         raise AssertionError("write method called")
 
 
+def _submission_capture(
+    account: dict[str, object],
+    *,
+    positions: list[dict[str, object]] | None = None,
+    orders: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
+    return collect_opportunity_bootstrap(
+        _plan(account_role=AccountRole.SUBMISSION),
+        FakeProvider(account=account, positions=positions, orders=orders),
+        account_role=AccountRole.SUBMISSION,
+        submission_baseline_id=uuid4(),
+        captured_at=CAPTURED,
+    )
+
+
 def test_collects_every_activity_page_and_emits_exact_bootstrap_input() -> None:
     provider = FakeProvider(activities=[_activity(index) for index in range(205)])
 
-    payload = collect_development_opportunity_bootstrap(
-        _plan(), provider, captured_at=CAPTURED
-    )
+    payload = collect_development_opportunity_bootstrap(_plan(), provider, captured_at=CAPTURED)
 
     bootstrap = parse_development_opportunity_bootstrap(payload)
     preview = bootstrap_development_opportunity(bootstrap)
@@ -377,9 +400,7 @@ def test_rejects_book_change_during_capture() -> None:
     with pytest.raises(
         OpportunityBaselineCollectionError, match="OPPORTUNITY_BASELINE_BOOK_CHANGED"
     ):
-        collect_development_opportunity_bootstrap(
-            _plan(), ChangingProvider(), captured_at=CAPTURED
-        )
+        collect_development_opportunity_bootstrap(_plan(), ChangingProvider(), captured_at=CAPTURED)
 
 
 def test_output_removes_raw_account_identity_and_unknown_secret_fields() -> None:
@@ -391,3 +412,174 @@ def test_output_removes_raw_account_identity_and_unknown_secret_fields() -> None
     assert str(ACCOUNT_ID) not in encoded
     assert "SECRET-ACCOUNT-NUMBER" not in encoded
     assert "DO-NOT-LEAK" not in encoded
+
+
+def test_submission_capture_binds_exact_role_and_clean_100k_baseline() -> None:
+    submission_baseline_id = uuid4()
+    payload = collect_opportunity_bootstrap(
+        _plan(account_role=AccountRole.SUBMISSION),
+        FakeProvider(),
+        account_role=AccountRole.SUBMISSION,
+        submission_baseline_id=submission_baseline_id,
+        captured_at=CAPTURED,
+    )
+
+    bootstrap = parse_opportunity_bootstrap(payload, account_role=AccountRole.SUBMISSION)
+
+    assert bootstrap.plan.account_role is AccountRole.SUBMISSION
+    assert bootstrap.baseline.account_role is AccountRole.SUBMISSION
+    assert bootstrap.baseline.submission_baseline_id == submission_baseline_id
+
+
+def test_submission_capture_accepts_absent_pending_transfers_reported_as_none() -> None:
+    account = _account()
+    account["pending_transfer_in"] = None
+    account["pending_transfer_out"] = None
+
+    payload = _submission_capture(account)
+
+    bootstrap = parse_opportunity_bootstrap(payload, account_role=AccountRole.SUBMISSION)
+    assert bootstrap.baseline.account_role is AccountRole.SUBMISSION
+
+
+def test_submission_capture_can_bind_an_open_book_to_the_latest_reconciliation_state() -> None:
+    account = _account()
+    account["cash"] = "99825"
+    positions = [
+        {
+            "asset_id": "long-leg",
+            "symbol": "SPY261009C00777000",
+            "asset_class": "us_option",
+            "side": "long",
+            "qty": "1",
+        },
+        {
+            "asset_id": "short-leg",
+            "symbol": "SPY261009C00781000",
+            "asset_class": "us_option",
+            "side": "short",
+            "qty": "1",
+        },
+    ]
+    payload = collect_opportunity_bootstrap(
+        _plan(account_role=AccountRole.SUBMISSION),
+        FakeProvider(account=account, positions=positions),
+        account_role=AccountRole.SUBMISSION,
+        submission_baseline_id=uuid4(),
+        submission_reconciliation=SubmissionReconciliationBinding(
+            account_fingerprint=ACCOUNT,
+            expected_cash=Decimal("99825"),
+            expected_positions=(
+                ("SPY261009C00777000", Decimal("1")),
+                ("SPY261009C00781000", Decimal("-1")),
+            ),
+        ),
+        captured_at=CAPTURED,
+    )
+
+    assert parse_opportunity_bootstrap(payload, account_role=AccountRole.SUBMISSION)
+
+
+@pytest.mark.parametrize("value", ["1", "-1"])
+def test_submission_capture_rejects_nonzero_pending_transfers(value: str) -> None:
+    account = _account()
+    account["pending_transfer_in"] = None
+    account["pending_transfer_out"] = value
+
+    with pytest.raises(
+        OpportunityBaselineCollectionError, match="CLEAN_SUBMISSION_BASELINE_REQUIRED"
+    ):
+        _submission_capture(account)
+
+
+@pytest.mark.parametrize("value", ["", "not-a-number", True])
+def test_submission_capture_rejects_malformed_pending_transfers(value: object) -> None:
+    account = _account()
+    account["pending_transfer_in"] = value
+    account["pending_transfer_out"] = None
+
+    with pytest.raises(
+        OpportunityBaselineCollectionError,
+        match="OPPORTUNITY_BASELINE_PROVIDER_RECORD_INVALID",
+    ):
+        _submission_capture(account)
+
+
+def test_submission_capture_rejects_missing_pending_transfer_field() -> None:
+    account = _account()
+    del account["pending_transfer_in"]
+    account["pending_transfer_out"] = None
+
+    with pytest.raises(
+        OpportunityBaselineCollectionError, match="CLEAN_SUBMISSION_BASELINE_REQUIRED"
+    ):
+        _submission_capture(account)
+
+
+@pytest.mark.parametrize("field", ["equity", "cash"])
+def test_null_pending_transfers_do_not_weaken_submission_balance_checks(field: str) -> None:
+    account = _account()
+    account["pending_transfer_in"] = None
+    account["pending_transfer_out"] = None
+    account[field] = "99999.99"
+
+    with pytest.raises(
+        OpportunityBaselineCollectionError, match="CLEAN_SUBMISSION_BASELINE_REQUIRED"
+    ):
+        _submission_capture(account)
+
+
+@pytest.mark.parametrize(
+    ("positions", "orders"),
+    [
+        (
+            [
+                {
+                    "asset_id": "asset-1",
+                    "symbol": "ACME",
+                    "asset_class": "us_option",
+                    "side": "long",
+                    "qty": "1",
+                }
+            ],
+            [],
+        ),
+        ([], [{"id": "order-1", "status": "new"}]),
+    ],
+)
+def test_null_pending_transfers_do_not_weaken_submission_book_checks(
+    positions: list[dict[str, object]], orders: list[dict[str, object]]
+) -> None:
+    account = _account()
+    account["pending_transfer_in"] = None
+    account["pending_transfer_out"] = None
+
+    with pytest.raises(
+        OpportunityBaselineCollectionError, match="OPPORTUNITY_BASELINE_BOOK_NOT_CLEAN"
+    ):
+        _submission_capture(account, positions=positions, orders=orders)
+
+
+def test_submission_capture_rejects_non_100k_account_and_cross_role_substitution() -> None:
+    account = _account()
+    account["equity"] = "99999.99"
+    with pytest.raises(
+        OpportunityBaselineCollectionError, match="CLEAN_SUBMISSION_BASELINE_REQUIRED"
+    ):
+        collect_opportunity_bootstrap(
+            _plan(account_role=AccountRole.SUBMISSION),
+            FakeProvider(account=account),
+            account_role=AccountRole.SUBMISSION,
+            submission_baseline_id=uuid4(),
+            captured_at=CAPTURED,
+        )
+
+    provider = FakeProvider()
+    with pytest.raises(OpportunityBaselineCollectionError, match="AUTHORITY_INVALID"):
+        collect_opportunity_bootstrap(
+            _plan(account_role=AccountRole.SUBMISSION),
+            provider,
+            account_role=AccountRole.DEVELOPMENT,
+            captured_at=CAPTURED,
+        )
+    assert provider.calls == []

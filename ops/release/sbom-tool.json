@@ -33,6 +33,6 @@
     "ops/release/license_provenance.py"
   ],
   "path": "tools/release-evidence",
-  "sha256": "b6ca3b97b769ad5e9d27b1a2bc5c896438a2def50be3a8270adbc0ff63788955",
+  "sha256": "7d16bc1286ab499d884d07894853457a801990142c2027b8dcf2906f7e41ce76",
   "version": "1.0.0"
 }

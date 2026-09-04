@@ -51,16 +51,19 @@ def test_competition_archive_migration_installs_exact_source_guards() -> None:
                 "competition_record_spread",
                 "competition_record_utc_text",
             } <= functions
-            assert connection.execute(
-                text(
-                    "SELECT count(*) FROM pg_trigger t "
-                    "JOIN pg_class c ON c.oid=t.tgrelid "
-                    "JOIN pg_namespace n ON n.oid=c.relnamespace "
-                    "WHERE n.nspname=current_schema() "
-                    "AND c.relname='competition_record_publications' "
-                    "AND NOT t.tgisinternal"
-                )
-            ).scalar_one() == 2
+            assert (
+                connection.execute(
+                    text(
+                        "SELECT count(*) FROM pg_trigger t "
+                        "JOIN pg_class c ON c.oid=t.tgrelid "
+                        "JOIN pg_namespace n ON n.oid=c.relnamespace "
+                        "WHERE n.nspname=current_schema() "
+                        "AND c.relname='competition_record_publications' "
+                        "AND NOT t.tgisinternal"
+                    )
+                ).scalar_one()
+                == 2
+            )
     finally:
         engine.dispose()
         with admin.begin() as connection:

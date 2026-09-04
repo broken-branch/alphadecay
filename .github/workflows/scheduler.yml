@@ -2,7 +2,7 @@ name: Scheduler wake
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
       approved_rehearsal:

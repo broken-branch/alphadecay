@@ -19,8 +19,10 @@ from .acquisition import (
 
 
 def _is_hash(value: object) -> bool:
-    return isinstance(value, str) and len(value) == 64 and all(
-        character in "0123456789abcdef" for character in value
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
     )
 
 
@@ -50,6 +52,15 @@ class DevelopmentRouteAuthorityPort(Protocol):
     ) -> DevelopmentRouteAuthority:
         """Load the durable DEVELOPMENT route for the expected paper account."""
         ...
+
+
+_ENTRY_WINDOW_INACTIVE_CODES = frozenset(
+    {
+        "OPPORTUNITY_ENTRY_WINDOW_CLOSED",
+        "OPPORTUNITY_PLAN_AUTHORITY_INVALID",
+        "OPPORTUNITY_PERSISTENCE_REQUIRED",
+    }
+)
 
 
 class DevelopmentAcquisitionRouter:
@@ -120,12 +131,11 @@ class DevelopmentAcquisitionRouter:
                 AcquisitionKind.LIFECYCLE,
                 "MANAGED_POSITION_AUTHORITY_INVALID",
             )
-        if route.route is DevelopmentRoute.AMBIGUOUS:
-            raise AcquisitionFailure(
-                AcquisitionKind.LIFECYCLE,
-                "ACTIVE_MANAGED_POSITION_NOT_UNIQUE",
-            )
-        if route.route is DevelopmentRoute.MANAGED_POSITION:
+        positions_open = route.route in (
+            DevelopmentRoute.MANAGED_POSITION,
+            DevelopmentRoute.AMBIGUOUS,
+        )
+        if positions_open and actor is not Actor.SCHEDULER:
             return await self._lifecycle.acquire(
                 authority,
                 trusted_at,
@@ -137,7 +147,20 @@ class DevelopmentAcquisitionRouter:
                 AcquisitionKind.LIFECYCLE,
                 "OPPORTUNITY_ACQUISITION_SCHEDULER_REQUIRED",
             )
-        return await self._opportunity.acquire(
+        # Entries take priority while an entry window is open, even with managed positions
+        # on the book; once the window has closed, ticks assess the open positions. Each
+        # managed position keeps its own lifecycle context, so several may be open at once.
+        try:
+            return await self._opportunity.acquire(
+                authority,
+                trusted_at,
+                tick_id,
+                actor=actor,
+            )
+        except AcquisitionFailure as error:
+            if not positions_open or error.code not in _ENTRY_WINDOW_INACTIVE_CODES:
+                raise
+        return await self._lifecycle.acquire(
             authority,
             trusted_at,
             tick_id,
@@ -149,8 +172,7 @@ def _valid_route_authority(authority: DevelopmentRouteAuthority) -> bool:
     if (
         not _is_hash(authority.account_fingerprint)
         or not _is_hash(authority.authority_hash)
-        or authority.account_role
-        not in (AccountRole.DEVELOPMENT, AccountRole.SUBMISSION)
+        or authority.account_role not in (AccountRole.DEVELOPMENT, AccountRole.SUBMISSION)
         or type(authority.active_position_count) is not int
         or authority.active_position_count < 0
     ):

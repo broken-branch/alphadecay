@@ -33,6 +33,7 @@ export type CopyCatalog = {
     | "ownerAction"
     | "publicTitle"
     | "publicBody"
+    | "publicAction"
     | "selfHostTitle"
     | "selfHostBody"
     | "selfHostAction",
@@ -132,6 +133,10 @@ export type CopyCatalog = {
     | "privacyKeyBody"
     | "privacyFlowTitle"
     | "privacyFlowBody"
+    | "privacyDraftTitle"
+    | "privacyDraftBody"
+    | "privacyCurationTitle"
+    | "privacyCurationBody"
     | "importantPaperTitle"
     | "importantPaperBody"
     | "importantAdviceTitle"
@@ -161,7 +166,7 @@ export type CopyCatalog = {
     string
   >;
   provenance: Record<
-    "banner" | "paperOnly" | "publicAccess" | "development" | "submission",
+    "banner" | "paperOnly" | "paperCompact" | "paperOnlyCompact" | "publicAccess" | "development" | "submission",
     string
   >;
   navigation: Record<"label" | "overview" | "comparison" | "run" | "record", string>;
@@ -191,6 +196,7 @@ export type CopyCatalog = {
     | "expectedExposure"
     | "brokerPosition"
     | "decisionRecord"
+    | "recordDetailsIntro"
     | "orderStatus"
     | "noOrder"
     | "scenarioLabel"
@@ -315,6 +321,8 @@ export type CopyCatalog = {
     | "firstPublication"
     | "linkedPublication"
     | "linkedCertificates"
+    | "technicalSummary"
+    | "technicalIntro"
     | "notAvailable"
     | "notMeasured"
     | "currencySymbol"
@@ -402,6 +410,8 @@ export type CopyCatalog = {
   run: Record<
     | "title"
     | "intro"
+    | "technicalSummary"
+    | "technicalIntro"
     | "technologyTitle"
     | "tradingApi"
     | "mcp"
@@ -409,14 +419,10 @@ export type CopyCatalog = {
     | "cli"
     | "observe"
     | "validate"
-    | "research"
-    | "classify"
     | "measure"
     | "compare"
-    | "enforce"
     | "certify"
     | "complete"
-    | "notRun"
     | "liveRegion",
     string
   >;
@@ -487,6 +493,11 @@ export type CopyCatalog = {
     blocked: StateCopy;
   };
   footer: Record<"api" | "keyboard", string>;
+  productShell: typeof catalog.productShell;
+  strategyIntake: typeof catalog.strategyIntake;
+  strategyProtocol: typeof catalog.strategyProtocol;
+  protocolBuilder: typeof catalog.protocolBuilder;
+  experiment: typeof catalog.experiment;
 };
 
 export const copy = catalog as CopyCatalog;

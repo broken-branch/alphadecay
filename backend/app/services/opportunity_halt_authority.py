@@ -9,11 +9,19 @@ from enum import Enum, StrEnum
 
 from backend.app.policy.opportunity import TradingHaltState
 
+_READ_SKEW_TOLERANCE = timedelta(seconds=30)
+_FUTURE_TRADE_TOLERANCE = timedelta(seconds=5)
+_TRADE_ORDER_TOLERANCE = timedelta(seconds=5)
+
 _HASH = re.compile(r"[0-9a-f]{64}")
 
 
 class HaltAuthorityError(ValueError):
-    pass
+    """A halt-authority read or reduction refused; ``code`` names the rule that refused."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
 
 
 class HaltAuthorityState(StrEnum):
@@ -269,7 +277,7 @@ def reduce_halt_authority(
         return _fail_closed(previous, observed_at, event.source_hash)
     if event.epoch != previous.epoch or event.sequence != previous.last_sequence + 1:
         return _fail_closed(previous, observed_at, event.source_hash)
-    if previous.last_event_at is not None and event.event_at <= previous.last_event_at:
+    if previous.last_event_at is not None and not _chronology_acceptable(previous, event):
         return _fail_closed(previous, observed_at, event.source_hash)
 
     if event.kind in {
@@ -292,8 +300,9 @@ def read_halt_authority(
 ) -> HaltAuthoritySnapshot:
     _validate_config(config)
     _validate_previous(previous, config)
-    observed_at = _utc(read_at, "HALT_READ_TIME_INVALID")
-    _validate_read_time(previous, observed_at)
+    requested_at = _utc(read_at, "HALT_READ_TIME_INVALID")
+    _validate_read_time(previous, requested_at)
+    observed_at = max(requested_at, previous.observed_at)
     if not _inside_session(config, observed_at):
         return _session_closed(previous, observed_at)
     if previous.state in {
@@ -305,7 +314,7 @@ def read_halt_authority(
         previous.state is not HaltAuthorityState.OPEN_CONFIRMED
         or previous.last_trade_at is None
         or observed_at - previous.last_trade_at > config.maximum_trade_age
-        or observed_at < previous.last_trade_at
+        or previous.last_trade_at - observed_at > _FUTURE_TRADE_TOLERANCE
     ):
         return _transition(previous, HaltAuthorityState.UNKNOWN, observed_at=observed_at)
     return _replace_snapshot(previous, observed_at=observed_at)
@@ -321,18 +330,14 @@ def _acknowledge_epoch(
         or not event.epoch
         or event.sequence != 1
         or (previous.epoch is not None and event.epoch == previous.epoch)
-        or (
-            previous.last_event_at is not None
-            and event.event_at <= previous.last_event_at
-        )
+        or (previous.last_event_at is not None and event.event_at <= previous.last_event_at)
         or event.status_code is not None
         or event.trade_id is not None
     ):
         return _fail_closed(previous, observed_at, event.source_hash)
     state = (
         previous.state
-        if previous.state
-        in {HaltAuthorityState.HALTED_LATCHED, HaltAuthorityState.RESUME_PENDING}
+        if previous.state in {HaltAuthorityState.HALTED_LATCHED, HaltAuthorityState.RESUME_PENDING}
         else HaltAuthorityState.UNKNOWN
     )
     return _transition(
@@ -358,8 +363,7 @@ def _failure_event(
 ) -> HaltAuthoritySnapshot:
     state = (
         previous.state
-        if previous.state
-        in {HaltAuthorityState.HALTED_LATCHED, HaltAuthorityState.RESUME_PENDING}
+        if previous.state in {HaltAuthorityState.HALTED_LATCHED, HaltAuthorityState.RESUME_PENDING}
         else HaltAuthorityState.UNKNOWN
     )
     return _transition(
@@ -462,13 +466,10 @@ def _passive_event(
     if event.status_code is not None or event.trade_id is not None:
         return _fail_closed(previous, observed_at, event.source_hash)
     state = previous.state
-    if (
-        state is HaltAuthorityState.OPEN_CONFIRMED
-        and (
-            previous.last_trade_at is None
-            or observed_at - previous.last_trade_at > config.maximum_trade_age
-            or observed_at < previous.last_trade_at
-        )
+    if state is HaltAuthorityState.OPEN_CONFIRMED and (
+        previous.last_trade_at is None
+        or observed_at - previous.last_trade_at > config.maximum_trade_age
+        or previous.last_trade_at - observed_at > _FUTURE_TRADE_TOLERANCE
     ):
         state = HaltAuthorityState.UNKNOWN
     return _replace_snapshot(
@@ -493,8 +494,7 @@ def _fail_closed(
 ) -> HaltAuthoritySnapshot:
     state = (
         previous.state
-        if previous.state
-        in {HaltAuthorityState.HALTED_LATCHED, HaltAuthorityState.RESUME_PENDING}
+        if previous.state in {HaltAuthorityState.HALTED_LATCHED, HaltAuthorityState.RESUME_PENDING}
         else HaltAuthorityState.UNKNOWN
     )
     changes: dict[str, object] = {}
@@ -534,9 +534,7 @@ def _transition(
     return _replace_snapshot(previous, state=state, **changes)
 
 
-def _replace_snapshot(
-    previous: HaltAuthoritySnapshot, **changes: object
-) -> HaltAuthoritySnapshot:
+def _replace_snapshot(previous: HaltAuthoritySnapshot, **changes: object) -> HaltAuthoritySnapshot:
     value = replace(previous, source_hash="", **changes)
     return _with_digest(value)
 
@@ -550,8 +548,7 @@ def _validate_config(config: HaltAuthorityConfig) -> None:
         valid = (
             type(config) is HaltAuthorityConfig
             and all(
-                _nonblank_token(value)
-                for value in (config.symbol, config.feed, config.sdk_version)
+                _nonblank_token(value) for value in (config.symbol, config.feed, config.sdk_version)
             )
             and type(config.session_date) is date
             and type(config.sequence_authority) is HaltSequenceAuthority
@@ -559,9 +556,8 @@ def _validate_config(config: HaltAuthorityConfig) -> None:
             and type(config.maximum_trade_age) is timedelta
             and config.maximum_trade_age > timedelta(0)
             and config.maximum_trade_age <= timedelta(minutes=1)
-            and _utc(config.session_open_at, "HALT_CONFIG_INVALID") < _utc(
-                config.session_close_at, "HALT_CONFIG_INVALID"
-            )
+            and _utc(config.session_open_at, "HALT_CONFIG_INVALID")
+            < _utc(config.session_close_at, "HALT_CONFIG_INVALID")
             and config.session_open_at.date() == config.session_close_at.date()
             and config.session_date == config.session_open_at.date()
             and config.source_hash == halt_authority_config_digest(config)
@@ -592,10 +588,7 @@ def _validate_previous(previous: HaltAuthoritySnapshot, config: HaltAuthorityCon
         last_event_at = _optional_utc(previous.last_event_at)
         last_trade_at = _optional_utc(previous.last_trade_at)
         halt_latched_at = _optional_utc(previous.halt_latched_at)
-        active_epoch_valid = (
-            acknowledged_at is None
-            and previous.last_sequence == 0
-        ) or (
+        active_epoch_valid = (acknowledged_at is None and previous.last_sequence == 0) or (
             bool(previous.epoch)
             and acknowledged_at is not None
             and previous.last_sequence >= 1
@@ -613,29 +606,18 @@ def _validate_previous(previous: HaltAuthoritySnapshot, config: HaltAuthorityCon
             and _optional_hash(previous.last_rejected_event_hash)
             and _optional_hash(previous.last_trade_hash)
             and _optional_hash(previous.halt_event_hash)
-            and (
-                previous.last_trade_id is None
-                or _nonblank_token(previous.last_trade_id)
-            )
+            and (previous.last_trade_id is None or _nonblank_token(previous.last_trade_id))
         )
         chronology_valid = (
             (last_event_at is None or last_event_at <= observed_at)
             and (last_trade_at is None or last_trade_at <= observed_at)
             and (halt_latched_at is None or halt_latched_at <= observed_at)
+            and (last_event_at is None or last_trade_at is None or last_trade_at <= last_event_at)
             and (
-                last_event_at is None
-                or last_trade_at is None
-                or last_trade_at <= last_event_at
+                last_event_at is None or halt_latched_at is None or halt_latched_at <= last_event_at
             )
             and (
-                last_event_at is None
-                or halt_latched_at is None
-                or halt_latched_at <= last_event_at
-            )
-            and (
-                acknowledged_at is None
-                or last_trade_at is None
-                or acknowledged_at < last_trade_at
+                acknowledged_at is None or last_trade_at is None or acknowledged_at < last_trade_at
             )
         )
         state_valid = (
@@ -655,10 +637,7 @@ def _validate_previous(previous: HaltAuthoritySnapshot, config: HaltAuthorityCon
                 and halt_latched_at is not None
                 and (
                     previous.state is not HaltAuthorityState.RESUME_PENDING
-                    or (
-                        last_event_at is not None
-                        and halt_latched_at < last_event_at
-                    )
+                    or (last_event_at is not None and halt_latched_at < last_event_at)
                 )
             )
         )
@@ -684,14 +663,20 @@ def _validate_previous(previous: HaltAuthoritySnapshot, config: HaltAuthorityCon
         raise HaltAuthorityError("HALT_PREVIOUS_INVALID")
 
 
+def _chronology_acceptable(previous: HaltAuthoritySnapshot, event: HaltAuthorityEvent) -> bool:
+    """Trades from a consolidated feed may share or slightly reorder exchange timestamps."""
+    assert previous.last_event_at is not None
+    if event.kind is HaltAuthorityEventKind.TRADE:
+        return previous.last_event_at - event.event_at <= _TRADE_ORDER_TOLERANCE
+    return event.event_at > previous.last_event_at
+
+
 def _validate_read_time(previous: HaltAuthoritySnapshot, observed_at: datetime) -> None:
-    if observed_at < previous.observed_at:
+    if previous.observed_at - observed_at > _READ_SKEW_TOLERANCE:
         raise HaltAuthorityError("HALT_READ_TIME_REGRESSION")
 
 
-def _codebook_valid(
-    codebook: HaltStatusCodebook | None, config: HaltAuthorityConfig
-) -> bool:
+def _codebook_valid(codebook: HaltStatusCodebook | None, config: HaltAuthorityConfig) -> bool:
     if type(codebook) is not HaltStatusCodebook:
         return False
     try:

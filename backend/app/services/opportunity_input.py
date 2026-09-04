@@ -47,6 +47,7 @@ from backend.app.services.opportunity_selection import (
 
 _HASH = re.compile(r"[0-9a-f]{64}")
 _BAR_DURATION = timedelta(minutes=5)
+_RETRIEVAL_SKEW_TOLERANCE = timedelta(seconds=30)
 
 
 class OpportunityInputAuthorityError(ValueError):
@@ -266,7 +267,7 @@ def _validate_snapshot(
         <= snapshot.session.close_at
         or snapshot.session.market_open
         != (snapshot.session.open_at <= snapshot.session.clock_at < snapshot.session.close_at)
-        or snapshot.session.clock_at > snapshot.trusted_at
+        or snapshot.session.clock_at - snapshot.trusted_at > _RETRIEVAL_SKEW_TOLERANCE
         or snapshot.trusted_at - snapshot.session.clock_at > timedelta(minutes=2)
         or policy.selected_decision_boundary > snapshot.trusted_at
         or snapshot.trusted_at - policy.selected_decision_boundary > policy.maximum_decision_delay
@@ -346,7 +347,7 @@ def _validate_snapshot_hashes(snapshot: OpportunityMarketSnapshot) -> None:
             or option.ask_size <= 0
             or _utc(option.quote_at, "SNAPSHOT_OPTION_TIME_INVALID")
             > _utc(option.retrieved_at, "SNAPSHOT_OPTION_TIME_INVALID")
-            or option.retrieved_at > snapshot.trusted_at
+            or option.retrieved_at - snapshot.trusted_at > _RETRIEVAL_SKEW_TOLERANCE
         ):
             raise OpportunityInputAuthorityError("SNAPSHOT_COMPONENT_HASH_MISMATCH")
     expected_snapshot = opportunity_market_snapshot_digest(snapshot)
@@ -435,7 +436,7 @@ def _validate_account(account: AccountBudgetAuthority, snapshot: OpportunityMark
         or account.account_role is not book.account.role
         or account.account_fingerprint != book.account_fingerprint
         or account.snapshot_book_source_hash != book.source_hash
-        or account.clean_equity != book.account.equity
+        or (account.clean_equity != book.account.equity and not book.positions.positions)
         or account.open_position_count != len(book.positions.positions)
         or account.open_order_count != len(book.open_orders)
         or account.observed_at != snapshot.trusted_at
@@ -479,15 +480,11 @@ def _validate_prior_decision(
 ) -> None:
     if (
         type(authority) is not PriorDecisionAuthority
-        or (
-            authority.outcome is not None
-            and type(authority.outcome) is not OpportunityOutcome
-        )
+        or (authority.outcome is not None and type(authority.outcome) is not OpportunityOutcome)
         or authority.opportunity_key != policy.opportunity_key
         or authority.decision_boundary != policy.selected_decision_boundary
         or not _valid_hash(authority.source_hash)
-        or _utc(authority.observed_at, "PRIOR_DECISION_TIME_INVALID")
-        != snapshot.trusted_at
+        or _utc(authority.observed_at, "PRIOR_DECISION_TIME_INVALID") != snapshot.trusted_at
     ):
         raise OpportunityInputAuthorityError("PRIOR_DECISION_AUTHORITY_MISMATCH")
 
@@ -501,10 +498,7 @@ def _validate_selection(
     selection: CandidateSelectionResult | None,
     account: AccountBudgetAuthority,
 ) -> VerticalCandidate | None:
-    if (
-        type(requested_maximum_quantity) is not int
-        or requested_maximum_quantity < 1
-    ):
+    if type(requested_maximum_quantity) is not int or requested_maximum_quantity < 1:
         raise OpportunityInputAuthorityError("CANDIDATE_SELECTION_INVALID")
     if direction is None:
         if authority is not None or selection is not None:
@@ -528,8 +522,7 @@ def _validate_selection(
         or authority.account_fingerprint != account.account_fingerprint
         or authority.observed_equity != account.clean_equity
         or authority.observed_buying_power != snapshot.account_book.account.buying_power
-        or authority.available_risk
-        != min(policy.maximum_position_loss, remaining_lifetime_risk)
+        or authority.available_risk != min(policy.maximum_position_loss, remaining_lifetime_risk)
     ):
         raise OpportunityInputAuthorityError("CANDIDATE_AUTHORITY_MISMATCH")
     expected = select_vertical_candidate(
@@ -554,7 +547,7 @@ def _validate_selection(
 
 def _fresh(observed_at: datetime, trusted_at: datetime, maximum_age: timedelta) -> bool:
     observed = _utc(observed_at, "EVIDENCE_TIME_INVALID")
-    return timedelta(0) <= trusted_at - observed <= maximum_age
+    return -_RETRIEVAL_SKEW_TOLERANCE <= trusted_at - observed <= maximum_age
 
 
 def _utc(value: datetime, code: str) -> datetime:
@@ -593,7 +586,11 @@ def _canonical_value(value: object) -> object:
     if hasattr(value, "__dataclass_fields__"):
         return {key: _canonical_value(item) for key, item in asdict(value).items()}
     if isinstance(value, dict):
-        return {str(key): _canonical_value(item) for key, item in value.items()}
+        return {
+            str(key): _canonical_value(item)
+            for key, item in value.items()
+            if not (key == "maximum_limit" and item is None)
+        }
     if isinstance(value, tuple | list):
         return [_canonical_value(item) for item in value]
     if isinstance(value, timedelta):

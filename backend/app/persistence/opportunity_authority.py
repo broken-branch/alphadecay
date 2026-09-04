@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from backend.app.contracts.v1 import AccountRole
 from backend.app.execution import ExecutionBlocked, FrozenThesisVersion
+from backend.app.experiment_lineage import optional_experiment_execution_lineage
 from backend.app.policy import OpportunityDecisionRecord, OpportunityInput, OpportunityOutcome
 from backend.app.services.agent import AgentDecision
 from backend.app.services.development_acquisition import (
@@ -27,6 +28,7 @@ from .sqlalchemy_models import (
     AccountRoleRow,
     AgentDecisionRow,
     AgentInputSnapshotRow,
+    AgentTickRow,
     AssessmentCertificateRow,
     CompetitionEntryBudgetRow,
     EntryApprovalCertificateRow,
@@ -43,6 +45,10 @@ _OPPORTUNITY_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$")
 _REASON_CODE = re.compile(r"^[A-Z][A-Z0-9_]{0,63}$")
 _THESIS_CODE = re.compile(r"^[A-Z][A-Z0-9_]{0,63}$")
 _UNDERLYING = re.compile(r"^[A-Z]{1,6}$")
+_OPPORTUNITY_AUDIT_OUTCOMES = {
+    "OPPORTUNITY_DECISION_PENDING",
+    "PROVIDER_FAILURE_NO_TRADE",
+}
 
 
 class OpportunityAuthorityError(RuntimeError):
@@ -279,9 +285,42 @@ class SQLAlchemyOpportunityAuthorityRepository:
                     AgentInputSnapshotRow.decision_boundary == boundary,
                 )
             ).all()
-            if len(snapshots) > 1:
-                raise OpportunityAuthorityError("PRIOR_DECISION_BOUNDARY_AMBIGUOUS")
-            if not snapshots:
+            rows = session.execute(
+                select(AgentInputSnapshotRow, AgentDecisionRow)
+                .join(
+                    AgentDecisionRow,
+                    AgentDecisionRow.input_snapshot_id == AgentInputSnapshotRow.snapshot_id,
+                )
+                .where(
+                    AgentInputSnapshotRow.account_role == self._account_role.value,
+                    AgentInputSnapshotRow.decision_kind == "OPPORTUNITY",
+                    AgentInputSnapshotRow.decision_boundary == boundary,
+                )
+                .order_by(AgentDecisionRow.created_at, AgentDecisionRow.decision_id)
+            ).all()
+            if len(rows) != len(snapshots):
+                raise OpportunityAuthorityError("PRIOR_DECISION_LINEAGE_INCOMPLETE")
+            audit_rows: list[tuple[AgentInputSnapshotRow, AgentDecisionRow]] = []
+            policy_decisions: list[tuple[AgentInputSnapshotRow, AgentDecisionRow]] = []
+            for snapshot, decision in rows:
+                if decision.outcome in _OPPORTUNITY_AUDIT_OUTCOMES:
+                    _validate_opportunity_failure_audit(
+                        session,
+                        snapshot=snapshot,
+                        decision=decision,
+                        account_fingerprint=account.account_fingerprint,
+                        account_role=self._account_role,
+                        boundary=boundary,
+                        as_of=read_at,
+                    )
+                    audit_rows.append((snapshot, decision))
+                    continue
+                try:
+                    OpportunityOutcome(decision.outcome)
+                except ValueError as error:
+                    raise OpportunityAuthorityError("PRIOR_DECISION_OUTCOME_INVALID") from error
+                policy_decisions.append((snapshot, decision))
+            if not policy_decisions:
                 material = {
                     "domain": "alphadecay.opportunity.prior-decision-authority.v1",
                     "account_role": self._account_role.value,
@@ -290,6 +329,9 @@ class SQLAlchemyOpportunityAuthorityRepository:
                     "decision_boundary": boundary.isoformat(),
                     "observed_at": read_at.isoformat(),
                     "decision": None,
+                    "opportunity_audit_result_hashes": [
+                        audit.result_hash for _, audit in audit_rows
+                    ],
                 }
                 return PriorOpportunityDecisionAuthority(
                     account_fingerprint=account.account_fingerprint,
@@ -301,29 +343,19 @@ class SQLAlchemyOpportunityAuthorityRepository:
                     decision_id=None,
                     source_hash=_hash(material),
                 )
-            snapshot = snapshots[0]
-            decisions = session.scalars(
-                select(AgentDecisionRow).where(
-                    AgentDecisionRow.input_snapshot_id == snapshot.snapshot_id
+            for snapshot, decision in policy_decisions:
+                _validate_prior_decision(
+                    session,
+                    snapshot=snapshot,
+                    decision=decision,
+                    account_fingerprint=account.account_fingerprint,
+                    account_role=self._account_role,
+                    opportunity_key=expected_opportunity_key,
+                    boundary=boundary,
+                    as_of=read_at,
                 )
-            ).all()
-            if len(decisions) != 1:
-                raise OpportunityAuthorityError("PRIOR_DECISION_LINEAGE_INCOMPLETE")
-            decision = decisions[0]
-            _validate_prior_decision(
-                session,
-                snapshot=snapshot,
-                decision=decision,
-                account_fingerprint=account.account_fingerprint,
-                account_role=self._account_role,
-                opportunity_key=expected_opportunity_key,
-                boundary=boundary,
-                as_of=read_at,
-            )
-            try:
-                outcome = OpportunityOutcome(decision.outcome)
-            except ValueError as error:
-                raise OpportunityAuthorityError("PRIOR_DECISION_OUTCOME_INVALID") from error
+            snapshot, decision = policy_decisions[-1]
+            outcome = OpportunityOutcome(decision.outcome)
             material = {
                 "domain": "alphadecay.opportunity.prior-decision-authority.v1",
                 "account_role": self._account_role.value,
@@ -333,6 +365,7 @@ class SQLAlchemyOpportunityAuthorityRepository:
                 "observed_at": read_at.isoformat(),
                 "input_hash": snapshot.input_hash,
                 "result_hash": decision.result_hash,
+                "opportunity_audit_result_hashes": [audit.result_hash for _, audit in audit_rows],
             }
             return PriorOpportunityDecisionAuthority(
                 account_fingerprint=account.account_fingerprint,
@@ -538,6 +571,14 @@ def _validate_prior_decision(
     as_of: datetime,
 ) -> None:
     observed_at = _utc(snapshot.observed_at)
+    _validate_decision_tick_lineage(
+        session,
+        decision=decision,
+        account_fingerprint=account_fingerprint,
+        account_role=account_role,
+        observed_at=observed_at,
+        as_of=as_of,
+    )
     if not isinstance(snapshot.normalized_payload, dict) or not isinstance(
         decision.result_payload, dict
     ):
@@ -660,10 +701,155 @@ def _validate_prior_decision(
             intent_id=intent_id,
             intent_digest=intent_digest,
             autonomy_authorized=decision.autonomy_authorized,
+            experiment_lineage=optional_experiment_execution_lineage(
+                decision.experiment_id,
+                decision.experiment_source_definition_hash,
+                decision.experiment_protocol_hash,
+            ),
         )
     )
     if decision.result_hash != result_hash:
         raise OpportunityAuthorityError("PRIOR_DECISION_RESULT_HASH_MISMATCH")
+
+
+def _validate_opportunity_failure_audit(
+    session: Session,
+    *,
+    snapshot: AgentInputSnapshotRow,
+    decision: AgentDecisionRow,
+    account_fingerprint: str,
+    account_role: AccountRole,
+    boundary: datetime,
+    as_of: datetime,
+) -> None:
+    observed_at = _utc(snapshot.observed_at)
+    _validate_decision_tick_lineage(
+        session,
+        decision=decision,
+        account_fingerprint=account_fingerprint,
+        account_role=account_role,
+        observed_at=observed_at,
+        as_of=as_of,
+    )
+    if not isinstance(snapshot.normalized_payload, dict) or not isinstance(
+        decision.result_payload, dict
+    ):
+        raise OpportunityAuthorityError("PRIOR_DECISION_AUTHORITY_MISMATCH")
+    normalized_typed = snapshot.normalized_payload.get("typed")
+    result_typed = decision.result_payload.get("typed")
+    try:
+        decoded_input = decode_agent_value(normalized_typed)
+        decoded_decision = decode_agent_value(result_typed)
+    except (TypeError, ValueError) as error:
+        raise OpportunityAuthorityError("PRIOR_DECISION_PAYLOAD_MISMATCH") from error
+    if (
+        not isinstance(decoded_decision, AgentDecision)
+        or decoded_input
+        != {
+            "code": decision.outcome,
+            "provider_failure_code": decoded_decision.provider_failure_code,
+            "provider_failure_kind": "OPPORTUNITY",
+        }
+        or decoded_decision.code != decision.outcome
+        or decoded_decision.decided_at != observed_at
+        or decoded_decision.calibration is not None
+        or decoded_decision.opportunity is not None
+        or decoded_decision.lifecycle is not None
+        or decoded_decision.normalized_input is not None
+        or decoded_decision.thesis_version_id is not None
+        or not decoded_decision.provider_failure_code
+        or decoded_decision.provider_failure_kind is None
+        or decoded_decision.provider_failure_kind.value != "OPPORTUNITY"
+        or snapshot.account_fingerprint != account_fingerprint
+        or decision.account_fingerprint != account_fingerprint
+        or decision.account_role != account_role.value
+        or decision.decision_kind != "OPPORTUNITY"
+        or decision.outcome not in _OPPORTUNITY_AUDIT_OUTCOMES
+        or decision.reason_code != decision.outcome
+        or _utc(snapshot.decision_boundary) != boundary
+        or _utc(decision.decision_boundary) != boundary
+        or observed_at > as_of
+        or _utc(snapshot.created_at) > as_of
+        or _utc(decision.created_at) > as_of
+        or snapshot.thesis_version_id is not None
+        or decision.thesis_version_id is not None
+        or decision.autonomy_authorized
+        or not _REASON_CODE.fullmatch(decision.reason_code)
+        or not _HASH.fullmatch(decision.policy_hash)
+    ):
+        raise OpportunityAuthorityError("PRIOR_DECISION_AUTHORITY_MISMATCH")
+    input_hash = canonical_agent_hash(
+        agent_input_material(
+            account_role=account_role.value,
+            account_fingerprint=account_fingerprint,
+            decision_kind="OPPORTUNITY",
+            decision_boundary=boundary,
+            observed_at=observed_at,
+            normalized_input=snapshot.normalized_payload,
+            thesis_version_id=None,
+        )
+    )
+    if snapshot.input_hash != input_hash:
+        raise OpportunityAuthorityError("PRIOR_DECISION_INPUT_HASH_MISMATCH")
+    if (
+        session.scalar(
+            select(EntryApprovalCertificateRow.approval_id).where(
+                EntryApprovalCertificateRow.agent_decision_id == decision.decision_id
+            )
+        )
+        is not None
+        or session.scalar(
+            select(AssessmentCertificateRow.certificate_id).where(
+                AssessmentCertificateRow.agent_decision_id == decision.decision_id
+            )
+        )
+        is not None
+    ):
+        raise OpportunityAuthorityError("PRIOR_DECISION_AUTHORIZATION_MISMATCH")
+    result_hash = canonical_agent_hash(
+        agent_result_material(
+            input_hash=input_hash,
+            outcome=decision.outcome,
+            reason_code=decision.reason_code,
+            policy_hash=decision.policy_hash,
+            thesis_version_id=None,
+            result_payload=decision.result_payload,
+            authorization_id=None,
+            intent_id=None,
+            intent_digest=None,
+            autonomy_authorized=False,
+            experiment_lineage=optional_experiment_execution_lineage(
+                decision.experiment_id,
+                decision.experiment_source_definition_hash,
+                decision.experiment_protocol_hash,
+            ),
+        )
+    )
+    if decision.result_hash != result_hash:
+        raise OpportunityAuthorityError("PRIOR_DECISION_RESULT_HASH_MISMATCH")
+
+
+def _validate_decision_tick_lineage(
+    session: Session,
+    *,
+    decision: AgentDecisionRow,
+    account_fingerprint: str,
+    account_role: AccountRole,
+    observed_at: datetime,
+    as_of: datetime,
+) -> None:
+    tick = session.get(AgentTickRow, decision.origin_tick_id)
+    if (
+        tick is None
+        or tick.account_role != account_role.value
+        or tick.account_fingerprint != account_fingerprint
+        or tick.decision_id != decision.decision_id
+        or tick.actor not in {"OWNER", "SCHEDULER"}
+        or tick.status not in {"RESERVED", "COMPLETED"}
+        or _utc(tick.tick_boundary) > observed_at
+        or _utc(tick.created_at) > as_of
+    ):
+        raise OpportunityAuthorityError("PRIOR_DECISION_TICK_LINEAGE_INVALID")
 
 
 def _decode_prior_decision_payloads(

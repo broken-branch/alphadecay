@@ -7,7 +7,12 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from public_copy_check import check_json_text, check_python_text, check_svg_text, check_text
+from public_copy_check import (
+    check_json_text,
+    check_python_text,
+    check_svg_text,
+    check_text,
+)
 
 
 class PublicCopyCheckTests(unittest.TestCase):
@@ -17,6 +22,30 @@ class PublicCopyCheckTests(unittest.TestCase):
                 "sample",
                 "alphadecay keeps the original trade note beside the current position. "
                 "It shows what changed and why that change matters.",
+            ),
+            [],
+        )
+
+    def test_judge_facing_copy_rejects_malfunction_words_and_raw_codes(self) -> None:
+        text = (
+            "The scheduled check authorized no action; the position stays open under its plan. "
+            "An earlier tick was a Provider Failure, so it stopped. "
+            "Reason: PROVIDER_FAILURE_NO_ACTION."
+        )
+        self.assertEqual(check_text("sample", text), [])
+        problems = check_text("sample", text, judge_facing=True)
+        found = [problem.rsplit(": ", 1)[-1] for problem in problems]
+        self.assertEqual(found, ["'Failure'", "'stopped'", "'PROVIDER_FAILURE_NO_ACTION'"])
+        self.assertTrue(all("judge-facing copy" in problem for problem in problems))
+        self.assertEqual(
+            check_python_text("sample.py", 'X = "the run failed"', judge_facing=True)[0].rsplit(
+                ": ", 1
+            )[-1],
+            "'failed'",
+        )
+        self.assertEqual(
+            check_text(
+                "sample", "The identifier failsafe_mode is not a word match.", judge_facing=True
             ),
             [],
         )
@@ -81,7 +110,7 @@ class PublicCopyCheckTests(unittest.TestCase):
         self.assertTrue(any("contains no string values" in problem for problem in problems))
 
     def test_python_checks_copy_values_without_treating_identifiers_as_prose(self) -> None:
-        source = '\n'.join(
+        source = "\n".join(
             (
                 'LONG_INTERNAL_IDENTIFIER = "Plain route description."',
                 'SECOND_LONG_INTERNAL_IDENTIFIER = "Another short description."',
