@@ -53,8 +53,7 @@ uv run --python 3.12 pytest -q && npm test -- --run
 - Every decision is stored with the exact inputs that produced it, so any decision can be replayed and checked later.
 - After every broker write, the whole account is checked again, not just the order that was sent.
 - A market data watch stops trading when the feed goes quiet.
-- The public release is built by an export step that scans every file for secrets before it can be published.
-- 36 database migrations, about 54,000 lines of backend Python across 123 files, 2,032 backend tests, 218 frontend tests, and 1,369 commits since August 20, 2026.
+- 36 database migrations, about 54,000 lines of backend Python across 123 files, 2,032 backend tests, and 218 frontend tests.
 
 Architecture, API examples, receipts, research, setup, and privacy details are in the [For reviewers](docs/public/README.md) index.
 
