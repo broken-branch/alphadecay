@@ -1,5 +1,5 @@
 {
-  "export_tree_sha256": "0e6c320dd7f6bc7ccc6037129c49f568e04cc68eadb074e207a90d6d86bfd17a",
+  "export_tree_sha256": "090acc1ddbca4db3dfc375b6ff3d0856e1608eb7632af59e19460b2cae1e2489",
   "files": [
     {
       "mode": "0644",
@@ -52,8 +52,8 @@
     {
       "mode": "0644",
       "path": "README.md",
-      "sha256": "596f87c0d0f4ea92e8bfe50204648fc55ba7546dbd908217936e0145881116b0",
-      "size": 5605
+      "sha256": "ab641a5e96136f56deb5c127c26067e76e1edd479df4963ba858f80314cbb824",
+      "size": 3615
     },
     {
       "mode": "0644",
@@ -1518,6 +1518,12 @@
       "path": "docs/public/STRATEGY_RESEARCH.md",
       "sha256": "8da5b15cf79091d0bc5191886d1a900c58d85739f9b93da5fe9c014823c4b385",
       "size": 3251
+    },
+    {
+      "mode": "0644",
+      "path": "docs/public/competition-record.png",
+      "sha256": "5f3605f526e1aef7e0f826e2a43571257000ab82a37682243cf4b654cdb0dc2a",
+      "size": 73995
     },
     {
       "mode": "0644",
