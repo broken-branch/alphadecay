@@ -1,8 +1,6 @@
 name: Scheduler wake
 
 on:
-  schedule:
-    - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
       approved_rehearsal:
